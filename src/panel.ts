@@ -1,5 +1,5 @@
 /**
- * Host half of the optional Dayflow panel: two exact Fetch routes under
+ * Host half of the optional Dayflow panel: exact Fetch routes under
  * `/api/dayflow`, served through the connection service so they inherit the
  * browser-trust fence and the session cookie.
  *
@@ -12,7 +12,8 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-client-connection';
 
-import { withDatabase } from './db.js';
+import { readDatabase } from './tools/shared.js';
+import { journalCategories } from './journal.js';
 import { IconStore } from './icons.js';
 import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekWindowContaining } from './day.js';
 import { DayflowError, isDayflowError } from './errors.js';
@@ -87,6 +88,17 @@ function failureResponse(error: unknown): Response {
   );
 }
 
+/** Select categories and edit capability from the active backend. */
+function panelPreferences(runtime: ToolRuntime): { categories: readonly { name: string; colorHex: string }[]; editsEnabled: boolean } {
+  const preferences = runtime.preferences();
+  if (runtime.config.dayflow) return preferences;
+  const categories = journalCategories(runtime.config.journalPath, runtime.config.databasePath);
+  return {
+    categories: categories.length > 0 ? categories : preferences.categories,
+    editsEnabled: false,
+  };
+}
+
 /**
  * Project one day's cards, backlog, and capture freshness into a payload.
  * @param dayKey - the Dayflow day.
@@ -138,10 +150,10 @@ function dayPayload(
  */
 export function buildPanelDay(runtime: ToolRuntime, date?: string): PanelDay {
   const window = dayArgument(date);
-  const preferences = runtime.preferences();
+  const preferences = panelPreferences(runtime);
   const colors = new Map(preferences.categories.map((category) => [category.name, category.colorHex]));
 
-  const { activities, pending, lastCapture } = withDatabase(runtime.config.databasePath, (db) => ({
+  const { activities, pending, lastCapture } = readDatabase(runtime, (db) => ({
     activities: activitiesForDay(db, window),
     pending: pendingBatchesInWindow(db, window),
     lastCapture: lastCaptureInWindow(db, window),
@@ -176,10 +188,10 @@ export function buildPanelMonth(runtime: ToolRuntime, month?: string): PanelMont
   const dayKeys = monthDayKeys(target);
   const firstWindow = dayArgument(dayKeys[0]);
   const lastWindow = dayArgument(dayKeys[dayKeys.length - 1]);
-  const preferences = runtime.preferences();
+  const preferences = panelPreferences(runtime);
   const colors = new Map(preferences.categories.map((category) => [category.name, category.colorHex]));
 
-  const { activities, captures, pending } = withDatabase(runtime.config.databasePath, (db) => ({
+  const { activities, captures, pending } = readDatabase(runtime, (db) => ({
     activities: activitiesStartingBetween(db, firstWindow.start, lastWindow.end),
     captures: dayCaptures(db, firstWindow.start, lastWindow.end),
     pending: dayPendingBatches(db, firstWindow.start, lastWindow.end),
@@ -224,10 +236,10 @@ export function buildPanelMonth(runtime: ToolRuntime, month?: string): PanelMont
 export function buildPanelWeek(runtime: ToolRuntime, date?: string): PanelWeek {
   const anchor = date === undefined || date.trim() === '' ? new Date() : dayArgument(date).start;
   const week = weekWindowContaining(anchor);
-  const preferences = runtime.preferences();
+  const preferences = panelPreferences(runtime);
   const colors = new Map(preferences.categories.map((category) => [category.name, category.colorHex]));
 
-  const { activities, captures, pending } = withDatabase(runtime.config.databasePath, (db) => ({
+  const { activities, captures, pending } = readDatabase(runtime, (db) => ({
     activities: activitiesStartingBetween(db, week.start, week.end),
     captures: dayCaptures(db, week.start, week.end),
     pending: dayPendingBatches(db, week.start, week.end),

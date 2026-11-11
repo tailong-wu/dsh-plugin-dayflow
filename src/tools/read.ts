@@ -46,6 +46,7 @@ import {
   weeklyPayload,
 } from '../queries.js';
 import { DayflowError } from '../errors.js';
+import { journalCategories } from '../journal.js';
 import { setupStatus } from '../setup.js';
 import { dayArgument } from './shared.js';
 import type { ToolRuntime } from './shared.js';
@@ -260,7 +261,8 @@ export function readTools(runtime: ToolRuntime): ToolDefinition[] {
       isConcurrencySafe: () => true,
       async execute() {
         const preferences = runtime.preferences();
-        return jsonValue({ categories: categoryPayloads(preferences.categories) });
+        const categories = runtime.config.dayflow ? preferences.categories : journalCategories(runtime.config.journalPath, runtime.config.databasePath);
+        return jsonValue({ categories: categoryPayloads(categories.length > 0 ? categories : preferences.categories) });
       },
       presentCall: () => ({ card: 'generic', kind: 'read', title: 'Dayflow categories' }),
     }),
@@ -279,25 +281,31 @@ export function readTools(runtime: ToolRuntime): ToolDefinition[] {
       isConcurrencySafe: () => true,
       async execute() {
         const preferences = runtime.preferences();
-        const presence = runtime.presence();
-        const setup = setupStatus(presence, runtime.config.databasePath);
+        const presence = runtime.config.dayflow ? runtime.presence() : undefined;
+        const databasePath = runtime.config.dayflow ? runtime.config.databasePath : runtime.config.journalPath;
+        const databasePresent = runtime.config.dayflow ? presence?.databasePresent === true : existsSync(databasePath);
+        const setup = runtime.config.dayflow && presence !== undefined
+          ? setupStatus(presence, runtime.config.databasePath)
+          : undefined;
 
-        // A missing database is a setup state, not a failure: the model needs the
-        // steps, not an exception that hides them.
+        // A missing Dayflow database is a setup state. A missing owned journal is
+        // simply an empty backend that can be populated with journal_import.
         const payload: StatusPayload = {
           today: formatDayKey(new Date()),
           time_zone: timeZoneName(),
           day_boundary_hour: 4,
           pending_batches: 0,
           failed_batches: 0,
-          edits_enabled: preferences.editsEnabled,
-          edit_bridge_listening: existsSync(runtime.config.agentSocket || defaultAgentSocketPath()),
-          database_path: runtime.config.databasePath,
-          database_present: presence.databasePresent,
-          setup,
+          source: runtime.config.source,
+          edits_enabled: runtime.config.dayflow && preferences.editsEnabled,
+          edit_bridge_listening:
+            runtime.config.dayflow && existsSync(runtime.config.agentSocket || defaultAgentSocketPath()),
+          database_path: databasePath,
+          database_present: databasePresent,
+          ...(setup === undefined ? {} : { setup }),
         };
 
-        if (presence.databasePresent) {
+        if (databasePresent) {
           const status = readDatabase(runtime, (db) => captureStatus(db));
           payload.pending_batches = status.pendingBatches;
           payload.failed_batches = status.failedBatches;

@@ -8,6 +8,7 @@ import type { DatabaseSync } from 'node:sqlite';
 
 import type { ResolvedConfig } from '../config.js';
 import { withDatabase } from '../db.js';
+import { withRuntimeDatabase } from '../journal.js';
 import type { DayWindow } from '../day.js';
 import { resolveDayWindow } from '../day.js';
 import { DayflowError } from '../errors.js';
@@ -43,7 +44,9 @@ export function jsonValue(payload: unknown): JsonValue {
  * @returns whatever `read` returns.
  */
 export function readDatabase<T>(runtime: ToolRuntime, read: (db: DatabaseSync) => T): T {
-  return withDatabase(runtime.config.databasePath, read);
+  return runtime.config.dayflow
+    ? withDatabase(runtime.config.databasePath, read)
+    : withRuntimeDatabase(runtime.config, read);
 }
 
 /**

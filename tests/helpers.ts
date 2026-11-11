@@ -47,6 +47,9 @@ export function makeRuntime(
   const { categories = DEFAULT_CATEGORIES, editsEnabled = false, presence, ...configOverrides } = overrides;
   const config: ResolvedConfig = {
     databasePath,
+    source: 'dayflow',
+    dayflow: true,
+    journalPath: join(tmpdir(), `dsh-dayflow-journal-test-${process.pid}.sqlite`),
     agentSocket: '',
     edits: true,
     skills: true,

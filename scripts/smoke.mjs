@@ -11,12 +11,17 @@
 import { readPreferences } from '../lib/categories.js';
 import { formatDayKey } from '../lib/day.js';
 import { resolveConfig } from '../lib/config.js';
+import { detectDayflow } from '../lib/setup.js';
 import { readTools } from '../lib/tools/read.js';
 
 const config = resolveConfig({
   databasePath: process.env.DAYFLOW_DB ?? '',
 });
-const runtime = { config, preferences: () => readPreferences() };
+const runtime = {
+  config,
+  preferences: () => readPreferences(),
+  presence: () => detectDayflow(config.databasePath),
+};
 const tools = new Map(readTools(runtime).map((tool) => [tool.name, tool]));
 
 const signal = new AbortController().signal;

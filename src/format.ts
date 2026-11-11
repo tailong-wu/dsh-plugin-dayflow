@@ -18,6 +18,7 @@ import type {
   TimelinePayload,
   WeeklyPayload,
 } from './queries.js';
+import type { ImportReport } from './journal.js';
 
 function categoryPercent(share: number): string {
   return `${Math.round(share * 100)}%`;
@@ -189,6 +190,7 @@ export function renderStatus(payload: StatusPayload, now: Date = new Date()): st
     lines.push(`Dayflow · last capture ${minutesAgo <= 1 ? 'just now' : `${formatDuration(minutesAgo)} ago`}`);
   }
   lines.push(`Today: ${payload.today} (day starts 04:00, ${payload.time_zone})`);
+  lines.push(`Source: ${payload.source ?? 'dayflow'}`);
   if (payload.pending_batches > 0) {
     lines.push(`Analysis backlog: ${payload.pending_batches} ${plural(payload.pending_batches, 'batch', 'batches')}`);
   }
@@ -234,4 +236,35 @@ export function renderWrite(summary: string, data: Record<string, unknown>): str
   if (keys.length === 0) return `${summary} ✓`;
   const details = JSON.stringify(data, null, 2);
   return `${summary} ✓\n\n${details}`;
+}
+
+/** Render the import report without hiding the idempotency or skip details. */
+export function renderImport(report: ImportReport): string {
+  const imported = Object.entries(report.imported)
+    .map(([table, count]) => `- ${table}: ${count}`)
+    .join('\n');
+  const updated = Object.entries(report.updated)
+    .map(([table, count]) => `- ${table}: ${count}`)
+    .join('\n');
+  const unchanged = Object.entries(report.unchanged)
+    .map(([table, count]) => `- ${table}: ${count}`)
+    .join('\n');
+  const skipped = report.skipped.map((entry) => `- ${entry.table}: ${entry.reason}`).join('\n');
+  return [
+    `Imported Dayflow data from ${report.source_path}`,
+    '',
+    'Imported rows',
+    imported === '' ? '- None' : imported,
+    '',
+    'Updated rows',
+    updated === '' ? '- None' : updated,
+    '',
+    'Already present',
+    unchanged === '' ? '- None' : unchanged,
+    '',
+    'Skipped',
+    skipped === '' ? '- None' : skipped,
+    '',
+    `Owned journal: ${report.journal_path}`,
+  ].join('\n');
 }

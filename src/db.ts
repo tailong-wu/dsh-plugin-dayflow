@@ -1,7 +1,7 @@
 /**
- * Read-only access to Dayflow's SQLite database.
+ * SQLite access for both the Dayflow source and the plugin-owned journal.
  *
- * Reads go straight to `chunks.sqlite`, so they work while the app is closed.
+ * Dayflow reads go straight to `chunks.sqlite`, so they work while the app is closed.
  * The connection is opened `readOnly` and additionally pinned with
  * `PRAGMA query_only`, so a bug here cannot corrupt the journal the app owns.
  * `node:sqlite` is loaded lazily: a Node build without it still loads the
@@ -9,8 +9,9 @@
  * @module dsh-plugin-dayflow/db
  */
 
-import { existsSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 
 import { DayflowError } from './errors.js';
@@ -100,6 +101,47 @@ export function withDatabase<T>(path: string, read: (db: DatabaseSync) => T): T 
     db.close();
   }
 }
+
+/**
+ * Open a writable SQLite connection for the plugin-owned journal.
+ *
+ * This is intentionally separate from {@link openDatabase}: Dayflow's source
+ * database remains read-only, while the owned journal may create tables and
+ * import rows. Parent directories are created lazily on first open.
+ */
+export function openJournalDatabase(path: string): DatabaseSync {
+  const { DatabaseSync: Database } = loadSqlite();
+  try {
+    const directory = dirname(path);
+    mkdirSync(directory, { recursive: true, mode: 0o700 });
+    chmodSync(directory, 0o700);
+    const db = new Database(path, { timeout: 2000 });
+    chmodSync(path, 0o600);
+    return db;
+  } catch (cause) {
+    throw new DayflowError(
+      `Could not open the owned journal database at ${path}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      'database_error',
+      { cause },
+    );
+  }
+}
+
+/** Alias for callers that describe this as a generic writable runtime store. */
+export const openWritableDatabase = openJournalDatabase;
+
+/** Run one callback against a writable, caller-owned journal connection. */
+export function withJournalDatabase<T>(path: string, write: (db: DatabaseSync) => T): T {
+  const db = openJournalDatabase(path);
+  try {
+    return write(db);
+  } finally {
+    db.close();
+  }
+}
+
+/** Alias for backend code that calls the journal the runtime database. */
+export const withRuntimeDatabase = withJournalDatabase;
 
 /**
  * Run one statement and return its rows.

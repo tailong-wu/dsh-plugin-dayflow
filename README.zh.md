@@ -26,12 +26,12 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 安静的一段时间记成 `Idle`，含义是**没有采集到屏幕活动**——不等于休息、开会或请假。
 某天没有活动卡片，同样可能是开了一天会、整天不在，或者录屏还在分析。
 
-> **状态：** 早期版本（`0.1.0`）。工具、技能和面板在装有 Dayflow 的 macOS 上可用，
-> 接口仍可能调整。
+> **状态：** 下一个小版本（`0.6.0`，开发中）。现有 profile 默认仍读 Dayflow；
+> 这一刀先落地自有日志和导入器。
 
 ## 你会得到什么
 
-- **14 个工具**，统一以 `dayflow_` 开头：8 个只读工具 + 6 个编辑工具。
+- **15 个工具**：8 个兼容 Dayflow 的只读工具、1 个 `journal_import` 导入工具、6 个编辑工具。
 - **4 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`。
 - **一个可选的面板**：按月展示每天的分段圆环，悬停看摘要，点开看当天时间线；
   从对话头部的按钮打开，不打开就不占任何空间。
@@ -170,6 +170,28 @@ npm run demo -- zh    # 或者只做一版
 不接受任意参数），不会自动打开 App，屏幕录制授权、AI 提供方选择和最初的数据
 都留给用户完成。没有 Homebrew 时只给出下载页面，不会替用户安装 Homebrew。
 
+## 自有日志
+
+`0.6.0` 把 roadmap 的 Phase 1+2 压成一个可回滚的切片：插件拥有第二个本地
+SQLite 日志。现有 profile 默认仍使用 Dayflow，所以不改行为。先导入一次，再把 profile
+切到自有后端：
+
+```text
+journal_import({})
+```
+
+```yaml
+- id: dayflow
+  config:
+    source: owned
+    journalPath: ''  # 默认：$DSH_HOME/dayflow/journal.sqlite
+```
+
+`journal_import` 只读打开 Dayflow 数据库，创建并迁移自有 schema，记录稳定的来源 ID，
+重复执行不会重复插入，并报告 unchanged 与刻意跳过的数据（例如 provider 调用日志和聊天
+历史）。自有库提供兼容视图，因此现有工具和面板路由的 payload 不变。本版本的编辑工具仍
+只针对 Dayflow；需要改动 App 时切回 `source: dayflow`。
+
 ## 工具
 
 每个工具都返回结构化 JSON，同时把同样的数据渲染成紧凑文本。日期格式为 `YYYY-MM-DD`，
@@ -202,6 +224,12 @@ npm run demo -- zh    # 或者只做一版
 | `dayflow_update_category` | `name`、`new_name?`、`color?`、`description?` | 重命名、换色、改描述。 |
 | `dayflow_delete_category` | `name` | 删除分类，过去的活动保留标签。 |
 | `dayflow_set_goal` | `date?`、`focus_minutes`、… | 设置某天的专注目标与限制。 |
+
+### 日志工具
+
+| 工具 | 参数 | 作用 |
+| --- | --- | --- |
+| `journal_import` | `source_path?`、`source_id?` | 把 Dayflow 的 `chunks.sqlite` 幂等导入自有日志，并返回跳过报告。 |
 
 ### 与 Dayflow 自带 MCP 服务的对应关系
 
@@ -243,8 +271,9 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
                               └──写入──▶  Dayflow.app（agent.sock）
 ```
 
-- **读取**以 `readOnly: true` 打开 `chunks.sqlite`，并加上 `PRAGMA query_only`，
+- **Dayflow 读取**以 `readOnly: true` 打开 `chunks.sqlite`，并加上 `PRAGMA query_only`，
   插件里的 bug 也不会破坏日志；较短的 busy timeout 用来躲过应用的 WAL checkpoint。
+- **自有读取**先用短暂的可写连接跑迁移，再只读重开；兼容视图保持现有查询和面板契约。
 - **写入**通过 Dayflow 的 Unix socket（`agent.sock`）发送一行 JSON：分类表由应用持有，
   它必须在数据变更后刷新 UI。协议和编辑开关都属于 Dayflow，而不是本插件。
 - **分类**不在 SQLite 里，而在应用偏好
@@ -258,6 +287,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ### 与 Dayflow CLI / MCP 的差异
 
 - 不需要 MCP 传输，也不需要编译 Swift：插件是纯 Node，自己读数据库。
+- `source: owned`（或 `dayflow: false`）在导入后即可脱离 Dayflow App 运行；源数据库绝不写入。
 - 编辑工具在 `edits: true` 时始终注册，调用时才根据开关拒绝；而不是在用户关闭编辑后
   从 `tools/list` 里消失。想彻底隐藏就设 `edits: false`。
 - 搜索会转义 `%` 和 `_`，查询文本按字面匹配，而不是 SQL 通配模式。
@@ -273,6 +303,9 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 - id: dayflow
   config:
     databasePath: ''   # 默认：~/Library/Application Support/Dayflow/chunks.sqlite
+    source: dayflow    # 选择 dayflow，或导入后选择 owned
+    # dayflow: false   # 兼容别名；不要和 source 同时设置
+    journalPath: ''    # 默认：$DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # 默认：与数据库同目录的 agent.sock
     edits: true        # 是否注册 6 个编辑工具
     skills: true       # 是否注册 4 个技能
@@ -282,8 +315,9 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
     searchLimit: 50    # 单次 dayflow_search 的最大结果数（1–200）
 ```
 
-当 `databasePath` 为空时，`DAYFLOW_DB` 环境变量也会覆盖数据库路径。
+当 `databasePath` 为空时，`DAYFLOW_DB` 环境变量也会覆盖 Dayflow 路径。
 `databasePath` 和 `agentSocket` 主要给测试和特殊安装使用，正常使用留空即可。
+`journalPath` 可以指向另一个自有日志文件，适合 profile 共享或备份导入结果。
 
 ## 隐私与安全
 
@@ -298,7 +332,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 78 个测试：边界、SQL、工具、socket、面板、bundle
+npm test            # 110 个测试：边界、SQL、适配器、导入、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```
@@ -314,6 +348,7 @@ src/
   config.ts       schema 与校验
   day.ts          4 点换日、周一 4 点换周、格式化
   db.ts           懒加载 node:sqlite、只读打开、查询辅助
+  journal.ts      自有 schema、迁移与 Dayflow 导入器
   queries.ts      SQL 读取与稳定的 JSON 载荷
   categories.ts   偏好 → 分类与编辑开关
   bridge.ts       Unix socket 写入客户端
@@ -323,6 +358,7 @@ src/
   panel.ts        Web 面板背后的三个 host Fetch 路由
   panel-contract.ts  host 与浏览器共享的线上载荷
   tools/read.ts   8 个只读工具
+  tools/import.ts journal_import 导入工具
   tools/write.ts  6 个编辑工具
   client/         浏览器半边：月历、日详情、圆环、样式、文案
 skills/           每个技能一个 SKILL.md，随 npm 包发布

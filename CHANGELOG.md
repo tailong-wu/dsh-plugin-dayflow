@@ -56,6 +56,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   descriptions state that they return recorded screen time rather than the
   user's whole day.
 
+## [0.6.0] - 2026-11-10
+
+### Added
+
+- A plugin-owned SQLite journal at `$DSH_HOME/dayflow/journal.sqlite` with a
+  forward-only `schema_version` migration and compatibility views that preserve
+  the existing tool and panel payloads.
+- `journal_import`, a read-only, additive, idempotent Dayflow importer. It keeps
+  stable source IDs, imports timeline/capture/standup and future journal tables,
+  and reports unchanged rows plus deliberately skipped data.
+- An `owned` backend selected with `source: owned` (or `dayflow: false`), so the
+  panel and read tools can run after Dayflow is removed; Dayflow remains the
+  default backend for existing profiles.
+
+### Changed
+
+- The next capability increment is intentionally limited to roadmap Phases 1–2:
+  review queues, privacy redaction, long tasks, and memory injection remain
+  later minor releases.
+- Added the documented `npm run smoke` script and updated the package metadata
+  to the `0.6.0` minor line.
+
 ## [0.5.1] - 2026-10-26
 
 ### Fixed
@@ -231,6 +253,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
+[0.6.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/releases/tag/v0.6.0
 [0.5.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/releases/tag/v0.5.1
 [0.5.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/releases/tag/v0.5.0
 [0.4.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/releases/tag/v0.4.0

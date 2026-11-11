@@ -70,12 +70,12 @@ test('the plugin advertises its name and required services', () => {
   assert.deepEqual([...inject], ['tools', 'skills', 'systemPrompt']);
 });
 
-test('apply registers eight reads, six edits, four skills, and one prompt section', () => {
+test('apply registers eight reads, one import, six edits, four skills, and one prompt section', () => {
   const { ctx, capture } = fakeContext();
   apply(ctx, { databasePath: fixture.path });
 
-  assert.equal(capture.tools.size, 14);
-  for (const tool of ['dayflow_timeline', 'dayflow_delete_activity', 'dayflow_status']) {
+  assert.equal(capture.tools.size, 15);
+  for (const tool of ['dayflow_timeline', 'journal_import', 'dayflow_delete_activity', 'dayflow_status']) {
     assert.ok(capture.tools.has(tool), `${tool} is registered`);
   }
 
@@ -128,13 +128,13 @@ test('the installer is off by default and appears only with allowInstall', () =>
 test('edits and skills can be switched off independently', () => {
   const editsOff = fakeContext();
   apply(editsOff.ctx, { databasePath: fixture.path, edits: false });
-  assert.equal(editsOff.capture.tools.size, 8);
+  assert.equal(editsOff.capture.tools.size, 9);
   assert.equal(editsOff.capture.tools.has('dayflow_update_activity'), false);
 
   const skillsOff = fakeContext();
   apply(skillsOff.ctx, { databasePath: fixture.path, skills: false });
   assert.equal(skillsOff.capture.skills.length, 0);
-  assert.equal(skillsOff.capture.tools.size, 14);
+  assert.equal(skillsOff.capture.tools.size, 15);
 });
 
 test('every tool a skill names is registered when the full surface is on', () => {
@@ -170,7 +170,15 @@ test('configuration resolves overrides and rejects a bad search limit', () => {
   assert.equal(resolved.searchLimit, 10);
   assert.equal(resolved.edits, false);
   assert.equal(resolved.agentSocket, '/tmp/agent.sock');
+  assert.equal(resolved.source, 'dayflow');
+  assert.equal(resolved.dayflow, true);
   assert.ok(resolved.databasePath.endsWith('chunks.sqlite'));
+  assert.ok(resolved.journalPath.endsWith('dayflow/journal.sqlite'));
+
+  const owned = resolveConfig({ dayflow: false });
+  assert.equal(owned.source, 'owned');
+  assert.equal(owned.dayflow, false);
+  assert.throws(() => resolveConfig({ source: 'owned', dayflow: true }), DayflowError);
 
   assert.throws(
     () => resolveConfig({ searchLimit: 0 }),

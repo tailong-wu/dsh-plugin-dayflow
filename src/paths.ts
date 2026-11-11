@@ -23,3 +23,18 @@ export function defaultDatabasePath(): string {
 export function defaultAgentSocketPath(): string {
   return join(dayflowDataDir(), 'agent.sock');
 }
+
+/** The harness home that owns the plugin's journal and caches. */
+export function dshDataDir(home = process.env.DSH_HOME?.trim() || join(homedir(), '.dsh')): string {
+  return home;
+}
+
+/** Directory owned by the Dayflow plugin, separate from Dayflow.app's files. */
+export function journalDataDir(home?: string): string {
+  return join(dshDataDir(home), 'dayflow');
+}
+
+/** The plugin-owned SQLite journal (`$DSH_HOME/dayflow/journal.sqlite`). */
+export function defaultJournalPath(home?: string): string {
+  return join(journalDataDir(home), 'journal.sqlite');
+}

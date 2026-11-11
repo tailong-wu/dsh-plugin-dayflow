@@ -15,6 +15,10 @@
       config:
         # Absolute path to chunks.sqlite. Empty uses the app's location.
         databasePath: ''
+        # Read backend: set source: owned (or dayflow: false) after importing.
+        # Omitting both keeps the original Dayflow backend.
+        # Absolute path to the owned journal. Empty uses $DSH_HOME/dayflow/journal.sqlite.
+        journalPath: ''
         # Path to the app's write socket. Empty uses agent.sock beside the database.
         agentSocket: ''
         # Register the editing tools. Dayflow's own "Allow edits" switch still

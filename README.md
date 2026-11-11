@@ -32,12 +32,12 @@ was captured* — not necessarily a break, a meeting, or time off. A day with no
 cards can equally be a day of meetings, a day away, or a day whose recordings
 are still being analyzed.
 
-> **Status:** early (`0.1.0`). The tools, skills, and panel work on macOS with
-> Dayflow installed; expect the surface to keep moving.
+> **Status:** next minor (`0.6.0`, in development). Existing profiles keep using
+> Dayflow by default; the owned journal and importer are the first roadmap cut.
 
 ## What you get
 
-- **14 tools**, named `dayflow_*`: 8 read tools and 6 editing tools.
+- **15 tools**: 8 Dayflow-compatible read tools, 1 `journal_import` tool, and 6 editing tools.
 - **4 skills**: `dayflow`, `onboarding`, `standup`, and `weekly-review`.
 - **An optional Web panel**: a month calendar of segmented rings, with hover
   cards and a per-day timeline, opened from a conversation-header button and
@@ -207,6 +207,32 @@ app, and leaves screen recording, the provider choice, and the first recordings
 to the user. Without Homebrew it returns the download page instead of installing
 Homebrew.
 
+## Owned journal
+
+The `0.6.0` roadmap cut lets the plugin own a second, portable SQLite journal.
+Dayflow remains the default source, so existing profiles do not change. Import a
+Dayflow database once, then point the profile at the owned backend:
+
+```text
+journal_import({})
+```
+
+```yaml
+- id: dayflow
+  config:
+    source: owned
+    journalPath: ''  # default: $DSH_HOME/dayflow/journal.sqlite
+```
+
+`journal_import` opens the Dayflow source read-only, writes a forward-migrated
+owned schema, keeps stable source IDs, and can be run again without duplicating
+rows. The owned store exposes the same query views, so the existing tools and
+panel routes keep their payloads. Dayflow's 4 AM buckets use the machine's local
+timezone; read an imported journal in the same timezone for exact cross-midnight
+totals. The importer also reports data it deliberately skips (for example
+provider call logs and chat history). Editing tools remain Dayflow-only in this
+increment; use `source: dayflow` when you need app edits.
+
 ## Tools
 
 Every tool returns structured JSON and renders the same data as compact text.
@@ -240,6 +266,12 @@ stale tool list.
 | `dayflow_update_category` | `name`, `new_name?`, `color?`, `description?` | Rename, recolor, or describe. |
 | `dayflow_delete_category` | `name` | Delete a category. Destructive. |
 | `dayflow_set_goal` | `date?`, `focus_minutes`, … | Set a day's focus target and limits. |
+
+### Journal tool
+
+| Tool | Arguments | Effect |
+| --- | --- | --- |
+| `journal_import` | `source_path?`, `source_id?` | Import a Dayflow `chunks.sqlite` into the owned journal, idempotently and with a skip report. |
 
 ### Mapping from Dayflow's own MCP server
 
@@ -279,13 +311,19 @@ enough; no skills root needs configuring.
 
 ```text
 dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlite (read-only, WAL)
+                              │                         ▲
+                              │                         │ journal_import (read-only)
+                              └──owned backend ──▶  $DSH_HOME/dayflow/journal.sqlite
                               │
                               └──write──▶  Dayflow.app over agent.sock
 ```
 
-- **Reads** open `chunks.sqlite` with `readOnly: true` and `PRAGMA query_only`,
-  so a bug in this plugin cannot damage the journal. A short busy timeout rides
-  out the app's WAL checkpoints.
+- **Dayflow reads** open `chunks.sqlite` with `readOnly: true` and
+  `PRAGMA query_only`, so a bug in this plugin cannot damage the app's journal.
+  A short busy timeout rides out the app's WAL checkpoints.
+- **Owned reads** migrate the plugin journal through a short writable connection,
+  then reopen it read-only. Its compatibility views preserve the current query
+  and panel contracts.
 - **Writes** are one JSON line over Dayflow's Unix socket
   (`agent.sock`), because the app owns the category store and must refresh its
   UI. The protocol and the edit switch are Dayflow's, not this plugin's.
@@ -303,6 +341,8 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
 
 - No MCP transport and no Swift binary: the plugin is plain Node and reads the
   database itself.
+- `source: owned` (or `dayflow: false`) removes the runtime dependency on the
+  Dayflow app after `journal_import`; the source database is never modified.
 - Editing tools are always registered (with `edits: true`) and rejected at call
   time, instead of disappearing from `tools/list` when the user disables edits.
   Users who want them gone can set `edits: false`.
@@ -322,6 +362,9 @@ defaults in `cordis.patch.yml`:
 - id: dayflow
   config:
     databasePath: ''   # default: ~/Library/Application Support/Dayflow/chunks.sqlite
+    source: dayflow    # choose dayflow or owned after journal_import
+    # dayflow: false   # compatibility alias; use instead of source, not with it
+    journalPath: ''    # default: $DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # default: agent.sock beside the database
     edits: true        # register the six editing tools
     skills: true       # register the four bundled skills
@@ -331,9 +374,10 @@ defaults in `cordis.patch.yml`:
     searchLimit: 50    # maximum matches per dayflow_search call (1-200)
 ```
 
-`DAYFLOW_DB` also overrides the database path when `databasePath` is empty.
+`DAYFLOW_DB` also overrides the Dayflow path when `databasePath` is empty.
 `databasePath` and `agentSocket` exist for tests and unusual installs; leave
-them empty in normal use.
+them empty in normal use. `journalPath` may point at another owned-store file
+when a profile needs to share or back up the imported journal.
 
 ## Privacy and safety
 
@@ -351,7 +395,7 @@ them empty in normal use.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 78 tests: boundaries, SQL, tools, bridge, panel, bundle
+npm test            # 110 tests: boundaries, SQL, adapters, import, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```
@@ -368,6 +412,7 @@ src/
   config.ts       schema + validation
   day.ts          4 AM days, Monday 4 AM weeks, formatting
   db.ts           lazy node:sqlite, read-only open, query helper
+  journal.ts      owned schema, migrations, and Dayflow importer
   queries.ts      SQL reads and the stable JSON payloads
   categories.ts   preferences → categories and the edit switch
   bridge.ts       Unix-socket write client
@@ -377,6 +422,7 @@ src/
   panel.ts        the three host Fetch routes behind the Web panel
   panel-contract.ts  the wire payloads shared by host and browser
   tools/read.ts   the eight read tools
+  tools/import.ts the journal_import tool
   tools/write.ts  the six editing tools
   client/         the browser half: month calendar, day detail, rings, styles
 skills/           SKILL.md per skill, shipped in the npm package

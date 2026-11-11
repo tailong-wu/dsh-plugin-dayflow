@@ -32,6 +32,12 @@ async function sendEdit(
   args: Record<string, unknown>,
   signal: AbortSignal,
 ): Promise<ReturnType<typeof jsonValue>> {
+  if (!runtime.config.dayflow) {
+    throw new DayflowError(
+      'Editing the owned journal is not part of this release. Use journal_import to add Dayflow data, or select source: dayflow for app edits.',
+      'invalid_input',
+    );
+  }
   if (!runtime.preferences().editsEnabled) {
     throw new DayflowError(
       'Editing is off. Turn on "Allow edits" in Dayflow → Settings → AI Tools, then try again.',

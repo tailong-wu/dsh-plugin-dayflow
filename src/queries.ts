@@ -109,6 +109,8 @@ export interface StatusPayload {
   database_path: string;
   /** Whether the database exists; when false the counters above are zeros. */
   database_present: boolean;
+  /** Which backend supplied the data. */
+  source?: 'dayflow' | 'owned';
   /** What still has to happen before the plugin can read a timeline. */
   setup?: SetupStatus;
 }
@@ -129,6 +131,15 @@ function asNumber(value: unknown): number | undefined {
 
 function asText(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
+}
+
+function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
+  const rows = queryRows(db, `PRAGMA table_info(${table})`);
+  return rows.some((row) => asText(row.name) === column);
+}
+
+function deletedPredicate(db: DatabaseSync, table: string): string {
+  return hasColumn(db, table, 'is_deleted') ? ' AND COALESCE(is_deleted, 0) = 0' : '';
 }
 
 function mapActivity(row: SqlRow): Activity | undefined {
@@ -307,7 +318,11 @@ function standupItems(value: unknown): string[] {
  * @returns the document, or `undefined` when Dayflow has not written one.
  */
 export function standupForDay(db: DatabaseSync, dayKey: string): StandupDocument | undefined {
-  const rows = queryRows(db, 'SELECT payload_json FROM daily_standup_entries WHERE standup_day = ?', [dayKey]);
+  const rows = queryRows(
+    db,
+    `SELECT payload_json FROM daily_standup_entries WHERE standup_day = ?${deletedPredicate(db, 'daily_standup_entries')}`,
+    [dayKey],
+  );
   const raw = rows.length > 0 ? asText(rows[0]?.payload_json) : undefined;
   if (raw === undefined) return undefined;
 
@@ -404,7 +419,7 @@ export function dayPendingBatches(db: DatabaseSync, from: Date, to: Date): Map<s
     db,
     `SELECT ${DAY_KEY_SQL.replace('%COLUMN%', 'batch_start_ts')} AS day, count(*) AS pending
        FROM analysis_batches
-      WHERE status IN ('pending', 'processing') AND batch_start_ts >= ? AND batch_start_ts < ?
+      WHERE status IN ('pending', 'processing') AND batch_start_ts >= ? AND batch_start_ts < ?${deletedPredicate(db, 'analysis_batches')}
       GROUP BY day`,
     [epochSeconds(from), epochSeconds(to)],
   );
@@ -427,7 +442,7 @@ export function pendingBatchesInWindow(db: DatabaseSync, window: DayWindow): num
   const rows = queryRows(
     db,
     `SELECT count(*) AS pending FROM analysis_batches
-      WHERE status IN ('pending', 'processing') AND batch_start_ts >= ? AND batch_start_ts < ?`,
+      WHERE status IN ('pending', 'processing') AND batch_start_ts >= ? AND batch_start_ts < ?${deletedPredicate(db, 'analysis_batches')}`,
     [epochSeconds(window.start), epochSeconds(window.end)],
   );
   return asNumber(rows[0]?.pending) ?? 0;
@@ -471,8 +486,8 @@ export function captureStatus(db: DatabaseSync): CaptureStatus {
   const countRows = queryRows(
     db,
     `SELECT
-       sum(CASE WHEN status IN ('pending', 'processing') THEN 1 ELSE 0 END) AS pending,
-       sum(CASE WHEN status LIKE 'failed%' THEN 1 ELSE 0 END) AS failed
+       sum(CASE WHEN status IN ('pending', 'processing')${deletedPredicate(db, 'analysis_batches')} THEN 1 ELSE 0 END) AS pending,
+       sum(CASE WHEN status LIKE 'failed%'${deletedPredicate(db, 'analysis_batches')} THEN 1 ELSE 0 END) AS failed
      FROM analysis_batches`,
   );
   return {

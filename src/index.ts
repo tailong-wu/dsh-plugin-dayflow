@@ -3,8 +3,8 @@
  *
  * The Dayflow Mac app records the user's screen and turns it into a timeline of
  * activities. This plugin exposes that timeline natively: eight read tools,
- * six gated editing tools, and Dayflow's four skills, all backed by the app's
- * own local SQLite database and write socket.
+ * one journal importer, six gated editing tools, and Dayflow's four skills. The
+ * read backend can be the app's SQLite database or the plugin-owned journal.
  *
  * The timeline covers screen activity only. It has no location, calendar, or
  * presence data, so a quiet stretch means nothing was captured rather than
@@ -26,6 +26,7 @@ import { detectDayflow } from './setup.js';
 import { registerSkills } from './skills.js';
 import type { ToolRuntime } from './tools/shared.js';
 import { readTools } from './tools/read.js';
+import { journalImportTools } from './tools/import.js';
 import { setupTools } from './tools/setup.js';
 import { writeTools } from './tools/write.js';
 
@@ -68,11 +69,13 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
   };
 
   for (const tool of readTools(runtime)) ctx.tools.register(tool);
+  for (const tool of journalImportTools(runtime)) ctx.tools.register(tool);
   if (resolved.edits) {
     for (const tool of writeTools(runtime)) ctx.tools.register(tool);
   }
-  if (resolved.allowInstall) {
-    // Off by default: installing changes the machine.
+  if (resolved.allowInstall && resolved.dayflow) {
+    // Off by default: installing changes the machine; an owned-only profile has
+    // no reason to install the source app.
     for (const tool of setupTools(runtime)) ctx.tools.register(tool);
   }
   if (resolved.skills) {
