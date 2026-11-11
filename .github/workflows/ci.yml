@@ -12,7 +12,8 @@ permissions:
 jobs:
   test:
     # macOS is required: the preference-reading tests exercise `defaults`.
-    runs-on: macos-14
+    # macOS 14 was retired by GitHub on 2026-11-02; macos-15 is supported.
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
