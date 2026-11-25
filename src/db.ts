@@ -39,8 +39,8 @@ function loadSqlite(): SqliteModule {
   } catch (cause) {
     throw new DayflowError(
       `This Node.js (${process.versions.node}) has no built-in SQLite. Dayflow support needs Node ` +
-        `${MIN_NODE_WITH_SQLITE} or newer (Node 22.5–23.3 also works when started with ` +
-        `--experimental-sqlite).`,
+        `${MIN_NODE_WITH_SQLITE} or newer (Node 22.5–22.12 and 23.0–23.3 also work when ` +
+        `started with --experimental-sqlite).`,
       'database_error',
       { cause },
     );

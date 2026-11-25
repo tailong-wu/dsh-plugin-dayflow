@@ -1,5 +1,6 @@
 /**
- * The bundled skills: Dayflow, onboarding, standup, and weekly review.
+ * The bundled skills: Dayflow, onboarding, standup, weekly review, review
+ * queue, long task, memory, and reflection.
  *
  * Skills live as Markdown files beside the package (`skills/<name>/SKILL.md`),
  * the same layout Dayflow ships, so they can be edited and reviewed as prose.

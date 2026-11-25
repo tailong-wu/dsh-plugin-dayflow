@@ -93,7 +93,12 @@ export const Config = z.object({
     .boolean()
     .default(true)
     .description('Register the editing tools. Dayflow own "Allow edits" switch still gates every write.'),
-  skills: z.boolean().default(true).description('Register the bundled Dayflow, standup, and weekly-review skills.'),
+  skills: z
+    .boolean()
+    .default(true)
+    .description(
+      'Register the eight bundled skills: dayflow, onboarding, standup, weekly-review, review-queue, long-task, memory, and reflection.',
+    ),
   panel: z
     .boolean()
     .default(true)

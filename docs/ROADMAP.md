@@ -22,14 +22,17 @@
 > queue, active tasks, memory claims, and reflections from a new
 > `/api/dayflow/insights` route. The write path
 > (editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
-> month/week panel surfaces, the review-queue panel UI, the `review.cards` switch
-> (the plugin never had a card stack, so that switch has no surface here yet),
-> task tagging from the summarization prompt, automatic activity attribution
-> (matching is an inspectable `suggest` step the agent calls), the scheduled lint
-> job, and Phase 5 remain later work. Phase 5 and everything after it remain
-> proposals.
+> month/week panel surfaces (only the day view carries goals and review marks
+> today; month and week do not yet), the interactive review-queue panel UI (the
+> Journal insights tab already renders the queue read-only), the `review.cards`
+> switch (the plugin never had a card stack, so that switch has no surface here
+> yet), task tagging from the summarization prompt, automatic activity
+> attribution (matching is an inspectable `suggest` step the agent calls), the
+> scheduled lint job, and Phase 5 remain later work. Phase 5 and everything
+> after it remain proposals.
 > Last revised: 2026-11-25 (status restated for the 0.6.0 release and the Phase 3
-> read-gap, review-queue, and long-task increments).
+> read-gap, review-queue, long-task, memory, context-injection, reflection,
+> memory-lint, and insights increments).
 
 ## Where this starts
 
@@ -242,7 +245,8 @@ worth compressing. The same activity trail can produce both, and that is fine:
 the task is what you are doing this month, the loop is how you do this every
 month.
 
-**Suggested schema for the review queue** (owned store, phase 1 schema):
+**Schema for the review queue** (shipped as owned schema v3, since migrated
+through v6):
 
 ```
 review_items(id, kind, status, title, body, confidence, source_day,
@@ -292,7 +296,8 @@ schema (version 3) stores `review_items` with kind/status/confidence/evidence,
 `journal_review` exposes list/propose/decide/unsuppress, and the `review-queue`
 skill teaches the push-right proposal discipline. The hard/soft suppression
 rules, the confidence floor, and the per-day cap are enforced and tested. The
-panel-side queue and the `review.cards` switch remain open.
+panel renders that queue read-only in the Journal insights tab (Phase 4);
+interactive queue management and the `review.cards` switch remain open.
 
 ### Phase 3.6 — Privacy for cloud summarization
 
@@ -410,7 +415,9 @@ queue rather than being applied.
 days, explainable category/app matching as a `suggest` step, and review-queue
 `task_proposal` acceptance creating the task in the same transaction. Sessions
 are attached by the agent from an inspectable `suggest` result rather than
-tagged silently; summarization-prompt tagging and the panel surface remain open.
+tagged silently; summarization-prompt tagging and interactive task management
+in the panel remain open (the Journal insights tab already lists tasks
+read-only).
 
 ### Phase 4 — The memory layer (the actual product)
 

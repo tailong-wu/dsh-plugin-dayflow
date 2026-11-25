@@ -77,6 +77,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The system-prompt section now says that `dayflow_journal` and `dayflow_goals`
   return the user's own writing and targets rather than screen content, so the
   model does not treat an on-screen-only timeline as the whole day.
+- The npm package no longer ships the build sourcemaps, and a CI check now
+  asserts that the tarball contains only shipped files (`lib/`, `skills/`, both
+  READMEs, LICENSE), trimming the unpacked package from 3.10 MB to 2.83 MB.
 
 ## [0.6.0] - 2026-11-11
 
@@ -325,6 +328,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.6.0...HEAD
 [0.6.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/releases/tag/v0.6.0
 [0.5.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/releases/tag/v0.5.1
 [0.5.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/releases/tag/v0.5.0

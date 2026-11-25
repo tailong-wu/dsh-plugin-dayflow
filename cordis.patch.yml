@@ -15,8 +15,10 @@
       config:
         # Absolute path to chunks.sqlite. Empty uses the app's location.
         databasePath: ''
-        # Read backend: set source: owned (or dayflow: false) after importing.
-        # Omitting both keeps the original Dayflow backend.
+        # Read backend: dayflow reads the app's database; owned reads the
+        # journal imported from it. `dayflow: false` is a compatibility alias
+        # for source: owned — set one selector, not both.
+        source: dayflow
         # Absolute path to the owned journal. Empty uses $DSH_HOME/dayflow/journal.sqlite.
         journalPath: ''
         # Path to the app's write socket. Empty uses agent.sock beside the database.
@@ -24,7 +26,8 @@
         # Register the editing tools. Dayflow's own "Allow edits" switch still
         # gates every write, so this only decides whether the tools exist.
         edits: true
-        # Register the bundled Dayflow, onboarding, standup, and weekly-review skills.
+        # Register the eight bundled skills: dayflow, onboarding, standup,
+        # weekly-review, review-queue, long-task, memory, and reflection.
         skills: true
         # Expose the optional Web panel (header button + right-Sidebar tab).
         panel: true

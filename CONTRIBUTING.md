@@ -23,11 +23,17 @@ activity, so it is not part of CI.
 
 ## Ground rules
 
-- **Reads stay read-only.** The database is opened with `readOnly: true` and
-  `PRAGMA query_only`; do not add a write path that bypasses that.
-- **Writes go through Dayflow.** Editing calls must go over `agent.sock` and
-  must respect the app's `agentEditsEnabled` switch. Do not write to SQLite or
-  to the preferences plist.
+- **Dayflow reads stay read-only.** `chunks.sqlite` is opened with
+  `readOnly: true` and `PRAGMA query_only`; do not add a write path that
+  bypasses that.
+- **Dayflow writes go through Dayflow.** Editing calls must go over
+  `agent.sock` and must respect the app's `agentEditsEnabled` switch. Do not
+  write to Dayflow's SQLite or to the preferences plist.
+- **The owned journal is written by the plugin.** The journal at `journalPath`
+  (`$DSH_HOME/dayflow/journal.sqlite` by default) is the plugin's own store:
+  migrations, `journal_import`, and the `journal_*` tools write it through
+  `withJournalWrite`, so those writes are not gated by Dayflow's edit switch.
+  Every other path stays read-only.
 - **Dates are Dayflow dates.** A day is 04:00–04:00 local time and a week is
   Monday 04:00 to Monday 04:00. Use `src/day.ts` rather than ad-hoc date math.
 - **Model-facing text is data.** Any activity text rendered back to a model must
@@ -42,9 +48,12 @@ activity, so it is not part of CI.
 
 ## Adding a tool
 
-1. Add the definition in `src/tools/read.ts` or `src/tools/write.ts` with
-   `defineTool`. Keep the description short, state the day convention, and add
-   the untrusted-content notice when the tool returns screen-derived text.
+1. Add the definition with `defineTool` in the module that owns the surface:
+   `src/tools/read.ts` for reads, `src/tools/write.ts` for Dayflow edits, or a
+   journal-tool module (`src/tools/import.ts`, `setup.ts`, `review.ts`,
+   `task.ts`, `memory.ts`, `reflection.ts`). Keep the description short, state
+   the day convention, and add the untrusted-content notice when the tool
+   returns screen-derived text.
 2. Return a stable JSON payload; add a renderer in `src/format.ts`.
 3. Add the payload type in `src/queries.ts` when the shape is new.
 4. Add tests: one for the happy path, one for the failure code.
@@ -58,11 +67,13 @@ registered tool, so rename tools and skills together.
 
 ## Working on the Web panel
 
-The panel is a page-type tab in the right Sidebar plus a conversation-header
-button. The calendar reads `GET /api/dayflow/month`, the swim lanes read
-`GET /api/dayflow/week`, a day reads `GET /api/dayflow/day`, and enablement comes
-from `GET /api/dayflow/panel`; all four routes are registered through the
-connection service and inherit the `/api` trust fence and session cookie.
+The panel is two page-type tabs in the right Sidebar (the calendar and **Journal
+insights**) plus two conversation-header buttons. The calendar reads
+`GET /api/dayflow/month`, the swim lanes read `GET /api/dayflow/week`, a day
+reads `GET /api/dayflow/day`, the insights tab reads `GET /api/dayflow/insights`,
+enablement comes from `GET /api/dayflow/panel`, and icons come from
+`GET /api/dayflow/icon`; all six routes are registered through the connection
+service and inherit the `/api` trust fence and session cookie.
 
 - `src/client/` is bundled by `scripts/build-client.mjs` into `lib/client.js` in
   the harness's lazy-CJS `window.__ModuleLoader__.load({ id, factory })` format.
@@ -167,8 +178,14 @@ package is being published, and keep the same version.
 ```sh
 npm test
 npm run typecheck
-npm pack --dry-run   # confirms lib/, skills/, both READMEs, and LICENSE ship
+npm pack --dry-run      # confirms lib/, skills/, both READMEs, and LICENSE ship
+npm run check:package   # asserts the tarball ships only those files
 ```
+
+`npm run check:package` inspects the `npm pack --dry-run` output and fails when
+the tarball would carry `src/`, `tests/`, `.github/`, `scripts/`, or build
+sourcemaps; CI runs it with the rest of the checks, so the shipped package
+contents are verified rather than assumed.
 
 ## Commit messages
 
