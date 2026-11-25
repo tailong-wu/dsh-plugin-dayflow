@@ -40,8 +40,8 @@ are still being analyzed.
 
 ## What you get
 
-- **22 tools**: 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, 1 `journal_task` tool, 1 `journal_memory` tool, and 6 editing tools.
-- **7 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, and `memory`.
+- **23 tools**: 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, 1 `journal_task` tool, 1 `journal_memory` tool, 1 `journal_reflection` tool, and 6 editing tools.
+- **8 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`, and `reflection`.
 - **An optional Web panel**: a month calendar of segmented rings, with hover
   cards and a per-day timeline, opened from a conversation-header button and
   drawn with the harness's own tokens.
@@ -338,6 +338,18 @@ distillations and loops from the review queue become memory automatically.
 Search uses SQLite FTS5 when the runtime has it and falls back to `LIKE` when it
 does not, so the tool works on the older Node builds the plugin still supports.
 
+### Reflections
+
+A reflection is a compact summary of a day or a week written back into the owned
+journal: what happened, what repeated, what stalled. The next session reads it
+instead of replaying the raw timeline. Saving the same period again edits the
+existing reflection; a week may be addressed by any day inside it and is
+normalized to its Monday.
+
+| Tool | Arguments | Effect |
+| --- | --- | --- |
+| `journal_reflection` | `action`, `kind?`, `period?`, `body?`, … | `save` writes or edits a day/week reflection; `get`/`list` read stored reflections; `delete` removes one and needs `confirm: true`. |
+
 ### Mapping from Dayflow's own MCP server
 
 If you used Dayflow's `dayflow mcp` server, the tools are the same operations
@@ -371,6 +383,7 @@ under a `dayflow_` prefix:
 | `review-queue` | Turning a task outcome or weekly review into distillations, loops, improvements, and task proposals, and asking the user to decide. |
 | `long-task` | Tracking work that outlives a day: stalled tasks, attaching a day's sessions with evidence, and status changes. |
 | `memory` | Keeping a dated history of what the agent learned: search first, append new claims, supersede instead of rewriting, and forget only on request. |
+| `reflection` | Compressing a day or a week into a saved reflection (what happened, what repeated, what stalled) and reading it back instead of re-deriving it. |
 
 Skills are registered at runtime from `skills/`, so installing the plugin is
 enough; no skills root needs configuring.
@@ -435,7 +448,7 @@ defaults in `cordis.patch.yml`:
     journalPath: ''    # default: $DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # default: agent.sock beside the database
     edits: true        # register the six editing tools
-    skills: true       # register the seven bundled skills
+    skills: true       # register the eight bundled skills
     panel: true        # the optional Web panel and its header button
     icons: true        # site favicons on the panel cards (its only outbound request)
     memoryContext: true  # inject a budgeted snapshot of active tasks and recent memory
@@ -464,7 +477,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 207 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, context injection, panel, bundle
+npm test            # 224 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```

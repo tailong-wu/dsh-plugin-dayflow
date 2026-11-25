@@ -14,16 +14,17 @@
 > accepted. It also adds the Phase 4 **storage and tool** slice: dated,
 > append-and-supersede memory claims (owned schema version 5), the
 > `journal_memory` tool, the `memory` skill, review-kept distillation/loop
-> promotion into memory, FTS5 search with a `LIKE` fallback, and a budgeted
-> dynamic memory context (1000-byte cap, cached, empty when there is nothing to
-> say). The write path
+> promotion into memory, FTS5 search with a `LIKE` fallback, a budgeted dynamic
+> memory context (1000-byte cap, cached, empty when there is nothing to say),
+> and reflections written back into the journal (owned schema version 6). The
+> write path
 > (editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
 > month/week panel surfaces, the review-queue panel UI, the `review.cards` switch
 > (the plugin never had a card stack, so that switch has no surface here yet),
 > task tagging from the summarization prompt, automatic activity attribution
-> (matching is an inspectable `suggest` step the agent calls), reflections, and
-> the memory lint pass remain later work. Phase 5 and everything after it remain
-> proposals.
+> (matching is an inspectable `suggest` step the agent calls), the memory lint
+> pass, and the review/task/memory panel surfaces remain later work. Phase 5 and
+> everything after it remain proposals.
 > Last revised: 2026-11-25 (status restated for the 0.6.0 release and the Phase 3
 > read-gap, review-queue, and long-task increments).
 
@@ -489,9 +490,10 @@ asserts that superseding a claim leaves the old row intact with
 `memory_claims` schema (version 5), `journal_memory` (add/search/list/supersede/
 forget), append-only dated claims with `superseded_by`/`superseded_on`, FTS5
 retrieval with a `LIKE` fallback, and review-kept distillation/loop promotion
-into memory, and the budgeted dynamic context (4b: 1000-byte cap, 60-second
-cache, nothing injected when empty). Reflections (4c), the lint pass, and the
-panel surface remain open.
+into memory, the budgeted dynamic context (4b: 1000-byte cap, 60-second cache,
+nothing injected when empty), and reflections (4c) stored in the owned journal
+so later sessions read a compiled summary instead of replaying raw days. The
+lint pass and the panel surface remain open.
 
 ### Phase 5 — Personalization that acts
 

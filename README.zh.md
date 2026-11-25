@@ -32,8 +32,8 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 
 ## 你会得到什么
 
-- **22 个工具**：12 个只读工具、1 个 `journal_import` 导入工具、1 个 `journal_review` 回顾队列工具、1 个 `journal_task` 长任务工具、1 个 `journal_memory` 记忆工具、6 个编辑工具。
-- **7 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`、`long-task`、`memory`。
+- **23 个工具**：12 个只读工具、1 个 `journal_import` 导入工具、1 个 `journal_review` 回顾队列工具、1 个 `journal_task` 长任务工具、1 个 `journal_memory` 记忆工具、1 个 `journal_reflection` 反思工具、6 个编辑工具。
+- **8 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`、`long-task`、`memory`、`reflection`。
 - **一个可选的面板**：按月展示每天的分段圆环，悬停看摘要，点开看当天时间线；
   从对话头部的按钮打开，不打开就不占任何空间。
 - **一段系统提示词**：说明正确解读数据所需的规则——凌晨 4 点换日、`Idle` 与 `System`
@@ -281,6 +281,16 @@ agent 自己发现的工作必须先走回顾队列（`task_proposal`）；只�
 
 检索优先用 SQLite FTS5，运行时没有 FTS5 时回退到 `LIKE`，因此在插件仍支持的旧 Node 上也能用。
 
+### 反思
+
+反思是把一天或一周压缩后写回自有日志的总结：发生了什么、什么重复出现、什么停滞。
+下一次会话直接读取它，而不是重放原始时间线。同一 period 再次保存是编辑已有反思；
+周反思可用该周任意一天作为 period，会自动归一到周一。
+
+| 工具 | 参数 | 作用 |
+| --- | --- | --- |
+| `journal_reflection` | `action`、`kind?`、`period?`、`body?` 等 | `save` 写入或编辑日/周反思；`get`/`list` 读取；`delete` 删除且需要 `confirm: true`。 |
+
 ### 与 Dayflow 自带 MCP 服务的对应关系
 
 如果你用过 Dayflow 的 `dayflow mcp`，这里的工具是同一批操作，只是加了 `dayflow_` 前缀：
@@ -313,6 +323,7 @@ agent 自己发现的工作必须先走回顾队列（`task_proposal`）；只�
 | `review-queue` | 把任务结果或周复盘整理成 distillation / loop / improvement / task proposal，并请用户做决定。 |
 | `long-task` | 跟踪跨天目标：停滞任务、按证据挂接每日 session、改任务状态。 |
 | `memory` | 维护带日期的长期记忆：先检索、追加新 claim、用 supersede 而不是改写旧行、只在用户要求时 forget。 |
+| `reflection` | 把一天/一周压缩成已保存的反思（发生/重复/停滞），下次直接读取而不是重新推导。 |
 
 技能在运行时从 `skills/` 注册，装好插件即可用，不需要配置技能目录。
 
@@ -361,7 +372,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
     journalPath: ''    # 默认：$DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # 默认：与数据库同目录的 agent.sock
     edits: true        # 是否注册 6 个编辑工具
-    skills: true       # 是否注册 7 个技能
+    skills: true       # 是否注册 8 个技能
     panel: true        # 是否显示可选的 Web 面板与头部按钮
     icons: true        # 面板卡片上的站点图标（插件唯一的对外请求）
     memoryContext: true  # 是否注入任务/记忆的预算化快照
@@ -386,7 +397,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 207 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、上下文注入、面板、bundle
+npm test            # 224 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```

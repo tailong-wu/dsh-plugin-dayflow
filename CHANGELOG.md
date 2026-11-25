@@ -50,6 +50,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nothing at all when the journal has nothing worth saying. `memoryContext: false`
   switches it off; an unreadable or missing journal degrades to no injection
   rather than a prompt-assembly error.
+- Reflections written back into the owned journal (schema version 6,
+  `reflections`) with the `journal_reflection` tool and a `reflection` skill. A
+  day or a week can be compressed once into what happened, what repeated, and
+  what stalled; the next session reads the stored reflection instead of
+  re-deriving it. Saving the same period edits the existing row, a week is
+  normalized to its Monday from any day inside it, and deleting one needs
+  `confirm: true`.
 
 ### Fixed
 
