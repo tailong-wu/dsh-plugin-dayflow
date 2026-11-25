@@ -1213,6 +1213,74 @@ export const PANEL_CSS = `
   line-height: 17px;
 }
 
+/* The ToDo-style add row under an editable section. */
+
+.dfp-insights-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 12px 0;
+}
+
+.dfp-insights-add-input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dfp-insights-add-input::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dfp-insights-add-input:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: -1px;
+}
+
+.dfp-insights-add-button {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dfp-insights-add-button:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.dfp-insights-add-button:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: 1px;
+}
+
+.dfp-insights-add-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.dfp-insights-add-error {
+  margin: 4px 12px 0;
+  color: var(--dsw-alias-state-warn-primary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
 /* The empty journal explains the view instead of showing one bare line. */
 
 .dfp-insights-intro {

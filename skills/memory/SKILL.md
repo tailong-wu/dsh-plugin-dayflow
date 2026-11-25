@@ -1,6 +1,6 @@
 ---
 name: memory
-description: The journal's dated record of how this user works. Search it before answering what the user usually does or how something went before, write a dated claim when a preference or correction is worth keeping long-term, and forget a claim only when the user asks. Use when the user asks "what did I do last time", "how do I usually…", when a durable lesson or preference should be remembered, or when they ask to forget a memory.
+description: The journal's dated record of how this user works. Search it before answering what the user usually does or how something went before, write a dated claim when a preference or correction is worth keeping long-term, backfill memory from the past few days when the user asks what was missed, and forget a claim only when the user asks. Use when the user asks "what did I do last time", "how do I usually…", when a durable lesson or preference should be remembered, when the user asks to backfill recent memory, or when they ask to forget a memory.
 ---
 
 # Memory
@@ -69,4 +69,35 @@ When the user asks "what did I do last time…" or "how do I usually…", search
 first and answer with the dates: "on 2026-10-13, …". If memory has nothing, say
 so and read the timeline instead of guessing.
 
-Only the tools `journal_memory` and `journal_review` are used here.
+## Backfilling memory (回看补充)
+
+The user may ask you to look back and fill in what the journal missed: "backfill
+memory", "write down what was missed lately", "how do I usually… go check", or
+「回看补充记忆」「把最近漏掉的记下来」. That is a reading pass plus a writing
+pass, not a dump of everything you noticed.
+
+1. **Read what memory already says.** `journal_memory list`, and
+   `journal_memory search` for the subject, first: a backfill adds what is
+   missing, it does not re-add what is already there.
+2. **Look back over the last 3–7 days.** `dayflow_timeline` for each day; use
+   `dayflow_weekly` for the shape of the week, and `journal_task list` when the
+   question is about a long task. A day runs 04:00 to 04:00 local time.
+3. **Keep only what is durable.** A preference, a repeated way of working, or a
+   correction the user made. Each candidate becomes one claim whose
+   `observed_on` is the day it was seen, written "on <date>, …".
+4. **Confirm before writing.** List no more than 3–5 candidates for the user,
+   each with its date and the evidence behind it, and wait for agreement. Then
+   `journal_memory add` each accepted claim with `source_days` set to the days
+   that back it.
+5. **Supersede, do not rewrite.** When a candidate is a newer version of a claim
+   already stored, use `journal_memory supersede`; the old row stays.
+6. **Lint the result.** Finish with `journal_memory lint` and report what it
+   found — contradictions, unsourced claims, aged claims — to the user.
+
+At most five new claims per backfill. No claim without enough evidence; an
+inference is reported to the user, never stored as fact. If the timeline holds
+nothing durable, say so and write nothing.
+
+Only the tools `journal_memory` and `journal_review` write here; the backfill
+pass also reads `dayflow_timeline`, `dayflow_weekly`, and `journal_task list` for
+evidence, and those reads change nothing.

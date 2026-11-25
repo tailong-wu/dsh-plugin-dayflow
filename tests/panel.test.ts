@@ -16,7 +16,10 @@ import {
   PANEL_DAY_PATH,
   PANEL_ICON_PATH,
   PANEL_INSIGHTS_PATH,
+  PANEL_MEMORY_ADD_PATH,
   PANEL_MONTH_PATH,
+  PANEL_REFLECTION_ADD_PATH,
+  PANEL_TASK_ADD_PATH,
   PANEL_WEEK_PATH,
   shiftDayKey,
 } from '../src/panel-contract.js';
@@ -236,7 +239,17 @@ test('the day route answers JSON and rejects an impossible date', async () => {
   const routes = fakeHost(makeRuntime(fixture.path));
   assert.deepEqual(
     [...routes.keys()].sort(),
-    [PANEL_DAY_PATH, PANEL_MONTH_PATH, PANEL_WEEK_PATH, PANEL_ICON_PATH, PANEL_INSIGHTS_PATH, PANEL_CONFIG_PATH].sort(),
+    [
+      PANEL_DAY_PATH,
+      PANEL_MONTH_PATH,
+      PANEL_WEEK_PATH,
+      PANEL_ICON_PATH,
+      PANEL_INSIGHTS_PATH,
+      PANEL_CONFIG_PATH,
+      PANEL_TASK_ADD_PATH,
+      PANEL_MEMORY_ADD_PATH,
+      PANEL_REFLECTION_ADD_PATH,
+    ].sort(),
   );
 
   const day = routes.get(PANEL_DAY_PATH);

@@ -10,7 +10,10 @@ import {
   PANEL_CONFIG_PATH,
   PANEL_DAY_PATH,
   PANEL_INSIGHTS_PATH,
+  PANEL_MEMORY_ADD_PATH,
   PANEL_MONTH_PATH,
+  PANEL_REFLECTION_ADD_PATH,
+  PANEL_TASK_ADD_PATH,
   PANEL_WEEK_PATH,
 } from '../panel-contract.js';
 import type {
@@ -18,7 +21,10 @@ import type {
   PanelDay,
   PanelError,
   PanelInsights,
+  PanelMemoryAddResponse,
   PanelMonth,
+  PanelReflectionAddResponse,
+  PanelTaskAddResponse,
   PanelWeek,
 } from '../panel-contract.js';
 
@@ -115,4 +121,53 @@ export async function fetchInsights(signal?: AbortSignal): Promise<PanelInsights
   });
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as PanelInsights;
+}
+
+/**
+ * Send one JSON body to a panel write route.
+ * @param path - the exact route.
+ * @param payload - the JSON body.
+ * @param signal - caller cancellation.
+ * @returns the parsed answer.
+ */
+async function postJson<T>(path: string, payload: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(payload),
+    ...(signal === undefined ? {} : { signal }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as T;
+}
+
+/**
+ * Add one long task to the owned journal.
+ * @param title - the task title; the host trims and bounds it.
+ * @param signal - caller cancellation.
+ * @returns the new task's summary.
+ */
+export async function addTask(title: string, signal?: AbortSignal): Promise<PanelTaskAddResponse> {
+  return postJson<PanelTaskAddResponse>(PANEL_TASK_ADD_PATH, { title }, signal);
+}
+
+/**
+ * Remember one dated preference claim about how the user works.
+ * @param text - the claim; the host dates it to the current Dayflow day.
+ * @param signal - caller cancellation.
+ * @returns the new claim's summary.
+ */
+export async function addMemory(text: string, signal?: AbortSignal): Promise<PanelMemoryAddResponse> {
+  return postJson<PanelMemoryAddResponse>(PANEL_MEMORY_ADD_PATH, { text }, signal);
+}
+
+/**
+ * Append one line to today's saved day reflection.
+ * @param text - the line to append.
+ * @param signal - caller cancellation.
+ * @returns the saved reflection.
+ */
+export async function addReflection(text: string, signal?: AbortSignal): Promise<PanelReflectionAddResponse> {
+  return postJson<PanelReflectionAddResponse>(PANEL_REFLECTION_ADD_PATH, { text }, signal);
 }

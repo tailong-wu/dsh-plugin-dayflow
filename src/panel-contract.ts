@@ -147,6 +147,36 @@ export interface PanelInsights {
   reflections: PanelReflectionSummary[];
 }
 
+/** Body the panel sends to add one long task. */
+export interface PanelTaskAddRequest {
+  title: string;
+}
+
+/** Body the panel sends to remember one dated claim. */
+export interface PanelMemoryAddRequest {
+  text: string;
+}
+
+/** Body the panel sends to append a line to today's reflection. */
+export interface PanelReflectionAddRequest {
+  text: string;
+}
+
+/** Answer to a successful task add. */
+export interface PanelTaskAddResponse {
+  task: PanelTaskSummary;
+}
+
+/** Answer to a successful memory add. */
+export interface PanelMemoryAddResponse {
+  claim: PanelClaimSummary;
+}
+
+/** Answer to a successful reflection append. */
+export interface PanelReflectionAddResponse {
+  reflection: PanelReflectionSummary;
+}
+
 /** Whether the panel's entry points are exposed. */
 export interface PanelConfig {
   enabled: boolean;
@@ -174,6 +204,15 @@ export const PANEL_CONFIG_PATH = '/api/dayflow/panel';
 
 /** Exact Fetch route for the journal insights (tasks, review, memory, reflections). */
 export const PANEL_INSIGHTS_PATH = '/api/dayflow/insights';
+
+/** Exact Fetch route that adds one long task to the owned journal. */
+export const PANEL_TASK_ADD_PATH = '/api/dayflow/tasks';
+
+/** Exact Fetch route that remembers one dated preference claim. */
+export const PANEL_MEMORY_ADD_PATH = '/api/dayflow/memory';
+
+/** Exact Fetch route that appends a line to today's saved day reflection. */
+export const PANEL_REFLECTION_ADD_PATH = '/api/dayflow/reflections';
 
 const DAY_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MONTH_KEY_PATTERN = /^(\d{4})-(\d{2})$/;

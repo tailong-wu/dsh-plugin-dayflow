@@ -28,6 +28,7 @@ interface Capture {
   readonly skills: { name: string; description: string; content: string }[];
   readonly sections: { name: string; order: number; text: string | ((context: unknown) => string) }[];
   readonly contexts: { name: string; order: number; text: string | ((context: unknown) => string) }[];
+  readonly commands: { name: string; description: string; input?: { hint: string } }[];
 }
 
 /**
@@ -37,7 +38,7 @@ interface Capture {
 const missingJournalPath = join(tmpdir(), `dsh-dayflow-missing-${randomUUID()}.sqlite`);
 
 function fakeContext(): { ctx: Context; capture: Capture } {
-  const capture: Capture = { routes: [], tools: new Map(), skills: [], sections: [], contexts: [] };
+  const capture: Capture = { routes: [], tools: new Map(), skills: [], sections: [], contexts: [], commands: [] };
   const ctx = {
     tools: {
       register(tool: { name: string; description: string }) {
@@ -51,17 +52,39 @@ function fakeContext(): { ctx: Context; capture: Capture } {
         return () => {};
       },
     },
-    inject(_deps: readonly string[], callback: (connected: unknown) => void) {
-      callback({
-        connection: {
+    inject(deps: readonly string[], callback: (connected: unknown) => void) {
+      // Serve the services the registrant actually asked for, the way the
+      // loader does: the panel asks for `connection`, the commands for
+      // `commands`, and a headless composition asks for neither.
+      const connected: {
+        connection?: { fetch: { register(route: { path: string }): () => Promise<void> } };
+        commands?: {
+          register(definition: { name: string; description: string; input?: { hint: string } }): () => void;
+        };
+      } = {};
+      if (deps.includes('connection')) {
+        connected.connection = {
           fetch: {
             register(route: { path: string }) {
               capture.routes.push(route.path);
               return async () => {};
             },
           },
-        },
-      });
+        };
+      }
+      if (deps.includes('commands')) {
+        connected.commands = {
+          register(definition) {
+            capture.commands.push({
+              name: definition.name,
+              description: definition.description,
+              input: definition.input,
+            });
+            return () => {};
+          },
+        };
+      }
+      callback(connected);
     },
     systemPrompt: {
       section(section: { name: string; order: number; text: string | ((context: unknown) => string) }) {
@@ -82,6 +105,33 @@ function fakeContext(): { ctx: Context; capture: Capture } {
   } as unknown as Context;
   return { ctx, capture };
 }
+
+test('apply registers the three human slash commands', () => {
+  const { ctx, capture } = fakeContext();
+  apply(ctx, { databasePath: fixture.path });
+
+  assert.deepEqual(
+    capture.commands.map((command) => command.name),
+    ['dayflow-task', 'dayflow-remember', 'dayflow-reflect'],
+  );
+  for (const command of capture.commands) {
+    assert.ok(command.description.length > 0, `${command.name} has a description`);
+    assert.ok(command.input !== undefined, `${command.name} declares an input hint`);
+    assert.ok(command.input.hint.length > 0, `${command.name} has a usable input hint`);
+  }
+});
+
+test('the slash commands do not depend on the panel being enabled', () => {
+  const { ctx, capture } = fakeContext();
+  apply(ctx, { databasePath: fixture.path, panel: false });
+
+  assert.deepEqual(
+    capture.commands.map((command) => command.name),
+    ['dayflow-task', 'dayflow-remember', 'dayflow-reflect'],
+    'a headless panel still gets human quick capture',
+  );
+  assert.deepEqual(capture.routes, [], 'panel: false registers no Fetch routes');
+});
 
 test('the plugin advertises its name and required services', () => {
   assert.equal(name, 'dayflow');
@@ -118,8 +168,11 @@ test('apply registers twenty-three tools, eight skills, and one prompt section',
     '/api/dayflow/day',
     '/api/dayflow/icon',
     '/api/dayflow/insights',
+    '/api/dayflow/memory',
     '/api/dayflow/month',
     '/api/dayflow/panel',
+    '/api/dayflow/reflections',
+    '/api/dayflow/tasks',
     '/api/dayflow/week',
   ]);
   assert.equal(capture.sections.length, 1);

@@ -21,11 +21,20 @@ import {
   PANEL_DAY_PATH,
   PANEL_ICON_PATH,
   PANEL_INSIGHTS_PATH,
+  PANEL_MEMORY_ADD_PATH,
   PANEL_MONTH_PATH,
+  PANEL_REFLECTION_ADD_PATH,
+  PANEL_TASK_ADD_PATH,
   PANEL_WEEK_PATH,
 } from '../src/panel-contract.js';
-import type { PanelInsights } from '../src/panel-contract.js';
+import type {
+  PanelInsights,
+  PanelMemoryAddResponse,
+  PanelReflectionAddResponse,
+  PanelTaskAddResponse,
+} from '../src/panel-contract.js';
 import { buildPanelInsights, registerPanelRoutes } from '../src/panel.js';
+import { dayWindowContaining } from '../src/day.js';
 import { openJournal } from '../src/journal.js';
 import { addMemoryClaim, supersedeMemoryClaim } from '../src/memory.js';
 import { decideReviewItem, proposeReviewItem } from '../src/review.js';
@@ -83,6 +92,34 @@ function insightsRoute(routes: Map<string, RegisteredRoute>): RegisteredRoute {
 /** GET the insights route the way the browser would. */
 async function fetchInsights(routes: Map<string, RegisteredRoute>): Promise<Response> {
   return insightsRoute(routes).fetch(new Request(`http://127.0.0.1${PANEL_INSIGHTS_PATH}`));
+}
+
+/**
+ * POST one body to a registered write route the way the browser would.
+ * @param routes - the registered routes.
+ * @param path - the exact route to call.
+ * @param body - a JSON-able value, or a raw string sent verbatim.
+ * @returns the route's answer.
+ */
+async function postRoute(
+  routes: Map<string, RegisteredRoute>,
+  path: string,
+  body: unknown,
+): Promise<Response> {
+  const route = routes.get(path);
+  assert.ok(route, `route ${path} is not registered`);
+  return route.fetch(
+    new Request(`http://127.0.0.1${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+  );
+}
+
+/** The Dayflow day containing now, which the write routes date their rows to. */
+function todayKey(): string {
+  return dayWindowContaining(new Date()).dayKey;
 }
 
 /** SHA-256 of one file's bytes, used to prove a read changed nothing. */
@@ -294,7 +331,7 @@ test('the insights payload maps active tasks, open review items, active claims, 
   assert.equal(weekSummary.period_key, '2026-11-23');
 });
 
-test('the insights route coexists with the five panel routes and answers JSON', async () => {
+test('the insights route coexists with the other panel routes and answers JSON', async () => {
   const journalPath = journalFile('route');
   const db = openJournal(journalPath);
   let taskId = 0;
@@ -309,14 +346,29 @@ test('the insights route coexists with the five panel routes and answers JSON', 
   const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
   const routes = fakeHost(runtime);
 
-  // The six exact Fetch routes share the registry without replacing each other.
-  assert.deepEqual(
-    [...routes.keys()].sort(),
-    [PANEL_DAY_PATH, PANEL_MONTH_PATH, PANEL_WEEK_PATH, PANEL_ICON_PATH, PANEL_CONFIG_PATH, PANEL_INSIGHTS_PATH].sort(),
-  );
-  for (const path of routes.keys()) {
-    assert.deepEqual([...(routes.get(path)?.methods ?? [])], ['GET'], `${path} only answers GET`);
-    assert.equal(routes.get(path)?.requestBody, 'buffered', `${path} buffers its request body`);
+  // The nine exact Fetch routes share the registry without replacing each
+  // other: six reads plus the three writes that back the inline add rows.
+  const readPaths = [
+    PANEL_DAY_PATH,
+    PANEL_MONTH_PATH,
+    PANEL_WEEK_PATH,
+    PANEL_ICON_PATH,
+    PANEL_CONFIG_PATH,
+    PANEL_INSIGHTS_PATH,
+  ];
+  const writePaths = [PANEL_TASK_ADD_PATH, PANEL_MEMORY_ADD_PATH, PANEL_REFLECTION_ADD_PATH];
+  assert.deepEqual([...routes.keys()].sort(), [...readPaths, ...writePaths].sort());
+  for (const path of readPaths) {
+    const route = routes.get(path);
+    assert.ok(route);
+    assert.deepEqual([...(route.methods ?? [])], ['GET'], `${path} only answers GET`);
+    assert.equal(route.requestBody, 'buffered', `${path} buffers its request body`);
+  }
+  for (const path of writePaths) {
+    const route = routes.get(path);
+    assert.ok(route);
+    assert.deepEqual([...(route.methods ?? [])], ['POST'], `${path} only answers POST`);
+    assert.equal(route.requestBody, 'buffered', `${path} buffers its request body`);
   }
 
   const response = await fetchInsights(routes);
@@ -381,4 +433,120 @@ test('reading insights twice is deterministic and leaves the journal unchanged',
   assert.equal(statSync(journalPath).mtimeMs, mtimeBefore, 'a read must not touch the journal mtime');
   assert.equal(existsSync(`${journalPath}-journal`), false, 'a read must not leave a rollback journal');
   assert.equal(existsSync(`${journalPath}-wal`), false, 'a read must not start a WAL');
+});
+
+test('the task add route creates a user task that the insights payload then lists', async () => {
+  const journalPath = journalFile('add-task');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const routes = fakeHost(runtime);
+  assert.equal(existsSync(journalPath), false, 'the add route creates the journal on first write');
+
+  const response = await postRoute(routes, PANEL_TASK_ADD_PATH, { title: 'Ship the release' });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const payload = (await response.json()) as PanelTaskAddResponse;
+  assert.equal(typeof payload.task.id, 'number');
+  assert.equal(payload.task.title, 'Ship the release');
+  assert.equal(payload.task.status, 'active');
+  assert.equal(payload.task.origin, 'user', 'a panel add is the user own task, not an agent proposal');
+  assert.equal(payload.task.total_minutes, 0);
+  assert.equal(payload.task.session_days, 0);
+  assert.equal(payload.task.stalled, false);
+  assert.equal('last_session_day' in payload.task, false, 'a task with no session has no last session day');
+  assert.equal('target_date' in payload.task, false, 'a quick add sets no target date');
+
+  const insights = buildPanelInsights(runtime);
+  assert.deepEqual(insights.tasks, [payload.task]);
+});
+
+test('the memory add route stores a today-dated preference claim the insights list shows', async () => {
+  const journalPath = journalFile('add-memory');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const routes = fakeHost(runtime);
+
+  const text = 'On 2026-10-22 I used a checklist.';
+  const response = await postRoute(routes, PANEL_MEMORY_ADD_PATH, { text });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+  const payload = (await response.json()) as PanelMemoryAddResponse;
+  assert.equal(typeof payload.claim.id, 'number');
+  assert.equal(payload.claim.kind, 'preference');
+  assert.equal(payload.claim.subject, text, 'a short claim is its own subject');
+  assert.equal(payload.claim.observed_on, todayKey(), 'a claim added today is observed today');
+  assert.equal(payload.claim.confidence, 0.7);
+
+  const insights = buildPanelInsights(runtime);
+  assert.deepEqual(insights.memory, [payload.claim]);
+
+  // An overlong claim keeps a readable subject instead of spilling the body.
+  const longText = 'x'.repeat(80);
+  const longResponse = await postRoute(routes, PANEL_MEMORY_ADD_PATH, { text: longText });
+  assert.equal(longResponse.status, 200);
+  const longClaim = ((await longResponse.json()) as PanelMemoryAddResponse).claim;
+  assert.equal(longClaim.subject, `${'x'.repeat(60)}…`);
+  assert.equal(typeof longClaim.id, 'number');
+});
+
+test('the reflection add route creates today reflection and later appends to it', async () => {
+  const journalPath = journalFile('add-reflection');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const routes = fakeHost(runtime);
+  const today = todayKey();
+
+  const first = await postRoute(routes, PANEL_REFLECTION_ADD_PATH, { text: 'First line of the day.' });
+  assert.equal(first.status, 200);
+  assert.equal(first.headers.get('content-type'), 'application/json; charset=utf-8');
+  const created = (await first.json()) as PanelReflectionAddResponse;
+  assert.equal(typeof created.reflection.id, 'number');
+  assert.equal(created.reflection.kind, 'day');
+  assert.equal(created.reflection.period_key, today, 'adding is dated to the current Dayflow day');
+  assert.equal(created.reflection.body, 'First line of the day.');
+  assert.equal(typeof created.reflection.updated_at, 'string');
+
+  const second = await postRoute(routes, PANEL_REFLECTION_ADD_PATH, { text: 'Second line of the day.' });
+  assert.equal(second.status, 200);
+  const appended = (await second.json()) as PanelReflectionAddResponse;
+  assert.equal(appended.reflection.id, created.reflection.id, 'a second add rewrites the same day row');
+  assert.equal(appended.reflection.body, 'First line of the day.\nSecond line of the day.');
+
+  // The store keeps one row per period, so the insights list holds one entry.
+  const insights = buildPanelInsights(runtime);
+  assert.equal(insights.reflections.length, 1);
+  assert.equal(insights.reflections[0]?.period_key, today);
+  assert.equal(insights.reflections[0]?.body, 'First line of the day.\nSecond line of the day.');
+});
+
+test('the add routes reject blank, missing, overlong, and malformed input with a 400 JSON error', async () => {
+  const journalPath = journalFile('add-invalid');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const routes = fakeHost(runtime);
+
+  const invalid: { path: string; body: unknown; label: string }[] = [
+    { path: PANEL_TASK_ADD_PATH, body: { title: '   ' }, label: 'a blank task title' },
+    { path: PANEL_TASK_ADD_PATH, body: {}, label: 'a missing task title' },
+    { path: PANEL_TASK_ADD_PATH, body: { title: 'x'.repeat(201) }, label: 'an overlong task title' },
+    { path: PANEL_MEMORY_ADD_PATH, body: { text: '' }, label: 'empty memory text' },
+    { path: PANEL_MEMORY_ADD_PATH, body: { text: 'x'.repeat(4001) }, label: 'overlong memory text' },
+    { path: PANEL_REFLECTION_ADD_PATH, body: {}, label: 'a missing reflection text' },
+    { path: PANEL_REFLECTION_ADD_PATH, body: { text: 'x'.repeat(4001) }, label: 'overlong reflection text' },
+  ];
+  for (const entry of invalid) {
+    const response = await postRoute(routes, entry.path, entry.body);
+    assert.equal(response.status, 400, `${entry.label} is rejected as invalid input`);
+    assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+    const error = (await response.json()) as { error: string };
+    assert.equal(typeof error.error, 'string');
+    assert.ok(error.error.length > 0, `${entry.label} carries an explanation`);
+  }
+
+  // A body that is not JSON at all is the same caller mistake, not a 500.
+  for (const path of [PANEL_TASK_ADD_PATH, PANEL_MEMORY_ADD_PATH, PANEL_REFLECTION_ADD_PATH]) {
+    const response = await postRoute(routes, path, 'this is not json');
+    assert.equal(response.status, 400, `${path} rejects a malformed JSON body`);
+    const error = (await response.json()) as { error: string };
+    assert.match(error.error, /JSON/i);
+  }
+
+  assert.equal(existsSync(journalPath), false, 'a rejected add never creates nor writes the journal');
 });

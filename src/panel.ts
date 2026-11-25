@@ -15,12 +15,15 @@ import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-client-connection';
 
 import { readDatabase } from './tools/shared.js';
-import { journalCategories, withJournal } from './journal.js';
+import { journalCategories, withJournal, withJournalWrite } from './journal.js';
 import { IconStore } from './icons.js';
-import { listMemoryClaims } from './memory.js';
-import { listReflections } from './reflections.js';
+import { addMemoryClaim, listMemoryClaims } from './memory.js';
+import type { MemoryClaimPayload } from './memory.js';
+import { getReflection, listReflections, saveReflection } from './reflections.js';
+import type { ReflectionPayload } from './reflections.js';
 import { listReviewItems } from './review.js';
-import { listLongTasks } from './tasks.js';
+import { createLongTask, listLongTasks } from './tasks.js';
+import type { LongTaskPayload } from './tasks.js';
 import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekWindowContaining } from './day.js';
 import { DayflowError, isDayflowError } from './errors.js';
 import {
@@ -28,7 +31,10 @@ import {
   PANEL_DAY_PATH,
   PANEL_ICON_PATH,
   PANEL_INSIGHTS_PATH,
+  PANEL_MEMORY_ADD_PATH,
   PANEL_MONTH_PATH,
+  PANEL_REFLECTION_ADD_PATH,
+  PANEL_TASK_ADD_PATH,
   PANEL_WEEK_PATH,
   isMonthKey,
   monthDayKeys,
@@ -43,9 +49,15 @@ import type {
   PanelError,
   PanelGoal,
   PanelInsights,
+  PanelMemoryAddRequest,
+  PanelMemoryAddResponse,
   PanelMonth,
+  PanelReflectionAddRequest,
+  PanelReflectionAddResponse,
   PanelReflectionSummary,
   PanelReviewItem,
+  PanelTaskAddRequest,
+  PanelTaskAddResponse,
   PanelTaskSummary,
   PanelWeek,
 } from './panel-contract.js';
@@ -102,6 +114,97 @@ function failureResponse(error: unknown): Response {
     { error: error instanceof Error ? error.message : String(error) } satisfies PanelError,
     500,
   );
+}
+
+/** The longest task title the panel's add route accepts, in characters. */
+const PANEL_TASK_TITLE_MAX_CHARS = 200;
+/** The longest free text the memory and reflection add routes accept. */
+const PANEL_ADD_TEXT_MAX_CHARS = 4000;
+/** The longest memory subject the panel derives from free text, in characters. */
+const PANEL_MEMORY_SUBJECT_MAX_CHARS = 60;
+
+/**
+ * Read one JSON object request body.
+ *
+ * A malformed body is the caller's mistake, not a server failure, so it maps
+ * onto the same `invalid_input` code the rest of the validation uses (a 400).
+ * @param request - the incoming POST request.
+ * @returns the parsed object.
+ */
+async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
+  let parsed: unknown;
+  try {
+    parsed = await request.json();
+  } catch {
+    throw new DayflowError('Invalid JSON body.', 'invalid_input');
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new DayflowError('The request body must be a JSON object.', 'invalid_input');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+/**
+ * Validate one add route's free text.
+ * @param value - the untrusted field of the JSON body.
+ * @param required - the message for a missing or blank value.
+ * @param limit - the message for a value over the route's bound.
+ * @param maxChars - the route's bound, in characters after trimming.
+ * @returns the trimmed text.
+ */
+function panelAddText(value: unknown, required: string, limit: string, maxChars: number): string {
+  if (typeof value !== 'string' || value.trim() === '') throw new DayflowError(required, 'invalid_input');
+  const text = value.trim();
+  if (text.length > maxChars) throw new DayflowError(limit, 'invalid_input');
+  return text;
+}
+
+/**
+ * Derive a claim's grouping subject from its free text.
+ * @param text - the claim body, already validated.
+ * @returns the text itself, or a shortened form ending in an ellipsis.
+ */
+function memorySubject(text: string): string {
+  if (text.length <= PANEL_MEMORY_SUBJECT_MAX_CHARS) return text;
+  return `${text.slice(0, PANEL_MEMORY_SUBJECT_MAX_CHARS).trimEnd()}…`;
+}
+
+/** Project one long task into the list summary the insights view reads. */
+function taskSummary(task: LongTaskPayload): PanelTaskSummary {
+  const summary: PanelTaskSummary = {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    origin: task.origin,
+    total_minutes: task.total_minutes,
+    session_days: task.session_days,
+    stalled: task.stalled,
+  };
+  if (task.last_session_day !== undefined) summary.last_session_day = task.last_session_day;
+  if (task.target_date !== undefined) summary.target_date = task.target_date;
+  return summary;
+}
+
+/** Project one memory claim into the summary the insights view reads. */
+function claimSummary(claim: MemoryClaimPayload): PanelClaimSummary {
+  return {
+    id: claim.id,
+    kind: claim.kind,
+    subject: claim.subject,
+    observed_on: claim.observed_on,
+    confidence: claim.confidence,
+  };
+}
+
+/** Project one reflection into the summary the insights view reads. */
+function reflectionSummary(reflection: ReflectionPayload): PanelReflectionSummary {
+  return {
+    id: reflection.id,
+    kind: reflection.kind,
+    period_key: reflection.period_key,
+    body: reflection.body,
+    updated_at: reflection.updated_at,
+  };
 }
 
 /** Select categories and edit capability from the active backend. */
@@ -336,20 +439,7 @@ export function buildPanelInsights(runtime: ToolRuntime): PanelInsights {
   const empty: PanelInsights = { tasks: [], review: [], memory: [], reflections: [] };
   if (!existsSync(runtime.config.journalPath)) return empty;
   return withJournal(runtime.config.journalPath, (db) => ({
-    tasks: listLongTasks(db, { status: 'active', limit: 20 }).map((task) => {
-      const summary: PanelTaskSummary = {
-        id: task.id,
-        title: task.title,
-        status: task.status,
-        origin: task.origin,
-        total_minutes: task.total_minutes,
-        session_days: task.session_days,
-        stalled: task.stalled,
-      };
-      if (task.last_session_day !== undefined) summary.last_session_day = task.last_session_day;
-      if (task.target_date !== undefined) summary.target_date = task.target_date;
-      return summary;
-    }),
+    tasks: listLongTasks(db, { status: 'active', limit: 20 }).map(taskSummary),
     review: listReviewItems(db, { status: 'proposed', limit: 20 }).map((item) => {
       const summary: PanelReviewItem = {
         id: item.id,
@@ -361,20 +451,8 @@ export function buildPanelInsights(runtime: ToolRuntime): PanelInsights {
       if (item.source_day !== undefined) summary.source_day = item.source_day;
       return summary;
     }),
-    memory: listMemoryClaims(db, { limit: 20 }).map((claim): PanelClaimSummary => ({
-      id: claim.id,
-      kind: claim.kind,
-      subject: claim.subject,
-      observed_on: claim.observed_on,
-      confidence: claim.confidence,
-    })),
-    reflections: listReflections(db, { limit: 10 }).map((reflection): PanelReflectionSummary => ({
-      id: reflection.id,
-      kind: reflection.kind,
-      period_key: reflection.period_key,
-      body: reflection.body,
-      updated_at: reflection.updated_at,
-    })),
+    memory: listMemoryClaims(db, { limit: 20 }).map(claimSummary),
+    reflections: listReflections(db, { limit: 10 }).map(reflectionSummary),
   }));
 }
 
@@ -464,6 +542,90 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime): void {
       methods: ['GET'],
       requestBody: 'buffered',
       fetch: async () => jsonResponse({ enabled: runtime.config.panel } satisfies PanelConfig),
+    });
+    // The three write routes below are the panel's only way to grow the journal:
+    // the Insights view stays one page of reads with a small ToDo-style add row
+    // per section, and each add writes the owned journal directly.
+    connection.fetch.register({
+      path: PANEL_TASK_ADD_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = (await readJsonBody(request)) as Partial<PanelTaskAddRequest>;
+          const title = panelAddText(
+            body.title,
+            'A task needs a non-empty title.',
+            `A task title must be at most ${String(PANEL_TASK_TITLE_MAX_CHARS)} characters.`,
+            PANEL_TASK_TITLE_MAX_CHARS,
+          );
+          const task = withJournalWrite(runtime.config.journalPath, (db) =>
+            createLongTask(db, { title, origin: 'user' }),
+          );
+          return jsonResponse({ task: taskSummary(task) } satisfies PanelTaskAddResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    connection.fetch.register({
+      path: PANEL_MEMORY_ADD_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = (await readJsonBody(request)) as Partial<PanelMemoryAddRequest>;
+          const text = panelAddText(
+            body.text,
+            'A memory needs non-empty text.',
+            `A memory must be at most ${String(PANEL_ADD_TEXT_MAX_CHARS)} characters.`,
+            PANEL_ADD_TEXT_MAX_CHARS,
+          );
+          // The user's own words are dated today: the claim describes what they
+          // just told the panel, which is the current Dayflow day (04:00 boundary).
+          const today = dayWindowContaining(new Date()).dayKey;
+          const claim = withJournalWrite(runtime.config.journalPath, (db) =>
+            addMemoryClaim(db, {
+              kind: 'preference',
+              subject: memorySubject(text),
+              body: text,
+              observed_on: today,
+              confidence: 0.7,
+              source_days: [today],
+            }),
+          );
+          return jsonResponse({ claim: claimSummary(claim) } satisfies PanelMemoryAddResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    connection.fetch.register({
+      path: PANEL_REFLECTION_ADD_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = (await readJsonBody(request)) as Partial<PanelReflectionAddRequest>;
+          const text = panelAddText(
+            body.text,
+            'A reflection needs non-empty text.',
+            `A reflection must be at most ${String(PANEL_ADD_TEXT_MAX_CHARS)} characters.`,
+            PANEL_ADD_TEXT_MAX_CHARS,
+          );
+          const today = dayWindowContaining(new Date()).dayKey;
+          const reflection = withJournalWrite(runtime.config.journalPath, (db) => {
+            // Adding a line appends to today's saved reflection instead of
+            // replacing it, so repeated captures build one day summary.
+            const existing = getReflection(db, 'day', today);
+            const merged = existing !== undefined && existing.body.trim() !== '' ? `${existing.body}\n${text}` : text;
+            return saveReflection(db, { kind: 'day', period: today, body: merged, source_days: [today] });
+          });
+          return jsonResponse({ reflection: reflectionSummary(reflection) } satisfies PanelReflectionAddResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
     });
   });
 }
