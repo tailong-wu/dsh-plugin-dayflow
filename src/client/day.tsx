@@ -6,8 +6,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import type { PanelDay } from '../panel-contract.js';
-import { formatClock, formatDuration, formatShare, longDate, panelLanguage } from './format.js';
+import type { PanelDay, PanelGoal, PanelRating } from '../panel-contract.js';
+import {
+  formatClock,
+  formatDuration,
+  formatShare,
+  goalSummary,
+  longDate,
+  panelLanguage,
+  ratingLabel,
+  ratingTimeRange,
+} from './format.js';
 import type { Translate } from './format.js';
 import type { RingState } from './ring.js';
 import { AppBadge } from './app-badge.js';
@@ -82,6 +91,83 @@ function stateHint(state: RingState, t: Translate): string {
   }
 }
 
+/** The dot color for one review rating; an unknown stored value stays neutral. */
+function ratingColor(rating: string): string {
+  switch (rating) {
+    case 'focused':
+      return 'var(--dsw-alias-state-success-primary)';
+    case 'distracted':
+      return 'var(--dsw-alias-state-warn-primary)';
+    default:
+      return 'var(--dsw-alias-label-tertiary)';
+  }
+}
+
+/** The goal the user set for the day: its targets and its category split. */
+function GoalCard(props: { goal: PanelGoal; t: Translate }): ReactNode {
+  const { goal, t } = props;
+  const summary = goalSummary(goal, t);
+  // Focus categories first, then the ones the user named as distractions.
+  const categories = [...goal.focus_categories, ...goal.distraction_categories];
+  return (
+    <section className="dfp-goal">
+      <div className="dfp-goal-title">{t('goalTitle')}</div>
+      {summary !== '' && <div className="dfp-goal-meta">{summary}</div>}
+      {categories.length > 0 && (
+        <div className="dfp-goal-cats">
+          {categories.map((category, index) => (
+            <span key={`${category.name}-${index}`} className="dfp-cat">
+              <span className="dfp-dot" style={{ background: category.color_hex ?? 'var(--dsw-alias-label-tertiary)' }} />
+              {category.name}
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** The user's own focused/neutral/distracted marks for the day. */
+function RatingMarks(props: { ratings: readonly PanelRating[]; t: Translate }): ReactNode {
+  const { ratings, t } = props;
+  const language = panelLanguage(t);
+  return (
+    <section className="dfp-ratings">
+      <div className="dfp-ratings-title">{t('ratingsTitle')}</div>
+      <ul className="dfp-rating-list">
+        {ratings.map((rating, index) => {
+          const range = ratingTimeRange(rating.start, rating.end, language);
+          return (
+            <li key={`${rating.start}-${index}`} className="dfp-rating">
+              {range !== '' && (
+                <>
+                  <span className="dfp-rating-time">{range}</span>
+                  <span className="dfp-rating-sep" aria-hidden="true">
+                    ·
+                  </span>
+                </>
+              )}
+              <span className="dfp-rating-label">
+                <span className="dfp-dot" style={{ background: ratingColor(rating.rating) }} />
+                {ratingLabel(rating.rating, t)}
+              </span>
+              {rating.title !== undefined && rating.title !== '' && (
+                <>
+                  <span className="dfp-rating-sep" aria-hidden="true">
+                    ·
+                  </span>
+                  <span className="dfp-rating-title">{rating.title}</span>
+                </>
+              )}
+              {rating.record_id !== undefined && <span className="dfp-rating-id">(#{rating.record_id})</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 /**
  * Render one day.
  * @param props - the day, its load state, and the navigation callbacks.
@@ -103,6 +189,10 @@ export function DayView(props: DayViewProps): ReactNode {
 
   const status: RingState = day === undefined ? 'no-data' : dayState(day);
   const cards = day === undefined ? [] : filter === undefined ? day.cards : day.cards.filter((card) => card.category === filter);
+  // Only the day route fills these: undefined means the payload came from the
+  // month or week view, while null is a real "the user set no goal" answer.
+  const goal = day?.goal;
+  const ratings = day?.ratings;
 
   return (
     <div className="dfp-view">
@@ -169,6 +259,12 @@ export function DayView(props: DayViewProps): ReactNode {
               )}
             </div>
           )}
+
+          {goal !== undefined && goal !== null && <GoalCard goal={goal} t={t} />}
+
+          {goal === null && <p className="dfp-goal-empty">{t('goalNoGoal')}</p>}
+
+          {ratings !== undefined && ratings.length > 0 && <RatingMarks ratings={ratings} t={t} />}
 
           {day.cards.length === 0 ? (
             <div className="dfp-state">

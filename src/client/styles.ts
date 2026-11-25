@@ -835,6 +835,118 @@ export const PANEL_CSS = `
   border-style: dashed;
 }
 
+/* ── Goal and review marks ───────────────────────────────────────────── */
+
+.dfp-goal {
+  padding: 9px 12px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.dfp-goal-title,
+.dfp-ratings-title {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.dfp-goal-meta {
+  margin-top: 2px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-goal-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 5px;
+}
+
+.dfp-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dfp-goal-empty {
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.dfp-ratings {
+  padding: 8px 0 5px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.dfp-ratings-title {
+  padding: 0 12px;
+}
+
+.dfp-rating-list {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+}
+
+.dfp-rating {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  padding: 3px 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dfp-rating-time {
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-rating-sep {
+  opacity: 0.7;
+}
+
+.dfp-rating-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dfp-rating-label .dfp-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.dfp-rating-title {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dfp-rating-id {
+  flex: none;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Timeline ────────────────────────────────────────────────────────── */
 
 .dfp-events {

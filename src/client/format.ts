@@ -4,7 +4,7 @@
  */
 
 import { shiftDayKey } from '../panel-contract.js';
-import type { PanelCard } from '../panel-contract.js';
+import type { PanelCard, PanelGoal } from '../panel-contract.js';
 
 /** Translation function bound to the panel namespace. */
 export type Translate = (key: string, params?: Record<string, string | number>) => string;
@@ -47,6 +47,66 @@ export function formatClock(iso: string, language = 'en-US'): string {
   const suffix = hours < 12 ? 'AM' : 'PM';
   const twelve = hours % 12 === 0 ? 12 : hours % 12;
   return `${twelve}:${pad(date.getMinutes())} ${suffix}`;
+}
+
+/**
+ * The goal card's target line: `Focus target: 4h 30m · Distraction limit: 2h`.
+ *
+ * Only the targets the goal actually carries are joined, so a goal with one
+ * target reads as one clause and a goal with none reads as an empty string.
+ * The goal's focus and distraction categories are deliberately not flattened
+ * into this string: the view renders each as a chip beside its own color, and
+ * a plain string cannot carry that color.
+ * @param goal - the day's goal, as the host serialises it.
+ * @param t - the bound translator.
+ * @returns the target line, or an empty string when the goal has no target.
+ */
+export function goalSummary(goal: PanelGoal, t: Translate): string {
+  const parts: string[] = [];
+  if (goal.focus_minutes !== undefined) {
+    parts.push(t('goalFocusTarget', { value: formatDuration(goal.focus_minutes) }));
+  }
+  if (goal.distraction_limit_minutes !== undefined) {
+    parts.push(t('goalDistractionLimit', { value: formatDuration(goal.distraction_limit_minutes) }));
+  }
+  if (goal.is_skipped === true) parts.push(t('goalSkipped'));
+  return parts.join(' · ');
+}
+
+/** The locale key for each review rating Dayflow writes. */
+const RATING_KEYS: Record<string, string> = {
+  focused: 'ratingFocused',
+  neutral: 'ratingNeutral',
+  distracted: 'ratingDistracted',
+};
+
+/**
+ * One review mark's rating as copy: `Focused` / `Neutral` / `Distracted`, in
+ * the panel's language. An unknown rating is the user's own stored value, so it
+ * is passed through rather than hidden.
+ * @param rating - the stored rating value.
+ * @param t - the bound translator.
+ * @returns the localised label, or the stored value when it is not a known rating.
+ */
+export function ratingLabel(rating: string, t: Translate): string {
+  // `hasOwn` keeps a stored value like `toString` from resolving to a built-in.
+  if (!Object.hasOwn(RATING_KEYS, rating)) return rating;
+  return t(RATING_KEYS[rating] ?? rating);
+}
+
+/**
+ * One review mark's stretch of the day: `10:40 AM–10:55 AM` in English,
+ * `10:40–10:55` in Chinese, matching every other clock in the panel.
+ * @param start - the mark's ISO start.
+ * @param end - the mark's ISO end.
+ * @param language - the panel language; Chinese uses a 24-hour clock.
+ * @returns the range, or an empty string when either timestamp is invalid.
+ */
+export function ratingTimeRange(start: string, end: string, language = 'en-US'): string {
+  const from = formatClock(start, language);
+  const to = formatClock(end, language);
+  if (from === '' || to === '') return '';
+  return `${from}–${to}`;
 }
 
 /**

@@ -28,6 +28,30 @@ export interface PanelCategory {
   color_hex: string;
 }
 
+/** One category the user chose for a day's goal, with the user's own color. */
+export interface PanelGoalCategory {
+  name: string;
+  color_hex?: string;
+}
+
+/** The goal the user set for one day, as the panel renders it. */
+export interface PanelGoal {
+  focus_minutes?: number;
+  distraction_limit_minutes?: number;
+  is_skipped?: boolean;
+  focus_categories: PanelGoalCategory[];
+  distraction_categories: PanelGoalCategory[];
+}
+
+/** One of the user's own review marks for a stretch of the day. */
+export interface PanelRating {
+  start: string;
+  end: string;
+  rating: string;
+  record_id?: number;
+  title?: string;
+}
+
 /** Everything the panel needs for one day, in one response. */
 export interface PanelDay {
   /** The Dayflow day these cards belong to. */
@@ -42,6 +66,10 @@ export interface PanelDay {
   pending_batches: number;
   last_capture_at?: string;
   edits_enabled: boolean;
+  /** The goal the user set for this day; null means no goal. Only the day route fills this. */
+  goal?: PanelGoal | null;
+  /** The user's own review marks for this day; only the day route fills this. */
+  ratings?: PanelRating[];
 }
 
 /** One month of days, for the calendar view. */

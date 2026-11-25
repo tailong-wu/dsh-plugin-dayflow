@@ -11,6 +11,7 @@ import {
   formatDuration,
   formatHour,
   formatShare,
+  goalSummary,
   layoutDayCards,
   leadingBlanks,
   longDate,
@@ -18,13 +19,15 @@ import {
   monthLabel,
   monthOfDay,
   panelLanguage,
+  ratingLabel,
+  ratingTimeRange,
   shiftWeekKey,
   shortDate,
   todayKey,
   weekRangeLabel,
   weekdayLabels,
 } from '../src/client/format.js';
-import type { PanelCard } from '../src/panel-contract.js';
+import type { PanelCard, PanelGoal } from '../src/panel-contract.js';
 import { EN, ZH } from '../src/client/locale.js';
 
 const en = (key: string): string => EN[key] ?? key;
@@ -169,4 +172,79 @@ test('week anchors shift by whole weeks', () => {
 test('the week range label follows the language', () => {
   assert.equal(weekRangeLabel('2026-10-19', '2026-10-25', en), 'Oct 19 – Oct 25, 2026');
   assert.equal(weekRangeLabel('2026-10-19', '2026-10-25', zh), '2026年10月19日 – 10月25日');
+});
+
+/** A translator over one dictionary that fills `{name}` placeholders. */
+function translator(
+  dictionary: Record<string, string>,
+): (key: string, params?: Record<string, string | number>) => string {
+  return (key, params) => {
+    const template = dictionary[key] ?? key;
+    if (params === undefined) return template;
+    return template.replace(/\{(\w+)\}/g, (placeholder, name: string) => {
+      const value = params[name];
+      return value === undefined ? placeholder : String(value);
+    });
+  };
+}
+
+const enT = translator(EN);
+const zhT = translator(ZH);
+
+/** A goal carrying only the fields the case needs. */
+function goal(fields: Partial<PanelGoal>): PanelGoal {
+  return { focus_categories: [], distraction_categories: [], ...fields };
+}
+
+test('the goal summary joins only the targets the goal carries', () => {
+  assert.equal(
+    goalSummary(goal({ focus_minutes: 270, distraction_limit_minutes: 120 }), enT),
+    'Focus target: 4h 30m · Distraction limit: 2h',
+  );
+  assert.equal(goalSummary(goal({ focus_minutes: 270 }), enT), 'Focus target: 4h 30m');
+  assert.equal(goalSummary(goal({ distraction_limit_minutes: 60 }), enT), 'Distraction limit: 1h');
+  assert.equal(goalSummary(goal({ is_skipped: true }), enT), 'Skipped');
+  assert.equal(goalSummary(goal({}), enT), '');
+  assert.equal(
+    goalSummary(goal({ focus_minutes: 270, distraction_limit_minutes: 120 }), zhT),
+    '专注目标：4h 30m · 分心上限：2h',
+  );
+});
+
+test('review ratings localise, and an unknown rating passes through', () => {
+  assert.equal(ratingLabel('focused', enT), 'Focused');
+  assert.equal(ratingLabel('neutral', enT), 'Neutral');
+  assert.equal(ratingLabel('distracted', enT), 'Distracted');
+  assert.equal(ratingLabel('focused', zhT), '专注');
+  assert.equal(ratingLabel('neutral', zhT), '中性');
+  assert.equal(ratingLabel('distracted', zhT), '分心');
+  assert.equal(ratingLabel('tired', enT), 'tired');
+  assert.equal(ratingLabel('', enT), '');
+  assert.equal(ratingLabel('toString', enT), 'toString', 'a stored value cannot resolve to a built-in');
+});
+
+test('a review mark shows the stretch of the day it covers', () => {
+  const start = new Date(2026, 9, 19, 10, 40, 0).toISOString();
+  const end = new Date(2026, 9, 19, 10, 55, 0).toISOString();
+  assert.equal(ratingTimeRange(start, end), '10:40 AM–10:55 AM');
+  assert.equal(ratingTimeRange(start, end, 'zh-CN'), '10:40–10:55');
+  assert.equal(ratingTimeRange('not-a-date', end), '');
+});
+
+test('the goal and review copy exists in both dictionaries', () => {
+  const keys = [
+    'goalTitle',
+    'goalFocusTarget',
+    'goalDistractionLimit',
+    'goalSkipped',
+    'goalNoGoal',
+    'ratingsTitle',
+    'ratingFocused',
+    'ratingNeutral',
+    'ratingDistracted',
+  ];
+  for (const key of keys) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+  }
 });

@@ -69,6 +69,41 @@ test('the panel payload matches the tools for a day', () => {
   assert.equal(payload.categories[0]?.color_hex, '#B984FF');
   assert.equal(typeof payload.today, 'string');
   assert.ok(payload.last_capture_at !== undefined);
+
+  // The day route also carries the user's own goal and review marks.
+  assert.ok(payload.goal !== null);
+  assert.equal(payload.goal?.focus_minutes, 240);
+  assert.equal(payload.goal?.distraction_limit_minutes, 60);
+  assert.equal(payload.goal?.is_skipped, false);
+  assert.deepEqual(payload.goal?.focus_categories, [
+    { name: 'Work', color_hex: '#6A7EFF' },
+    { name: 'Communication', color_hex: '#FFAE8C' },
+  ]);
+  assert.deepEqual(payload.goal?.distraction_categories, [{ name: 'Distraction', color_hex: '#FF6B6B' }]);
+
+  assert.equal(payload.ratings?.length, 3);
+  const firstRating = payload.ratings?.[0];
+  assert.ok(firstRating);
+  assert.equal(firstRating.rating, 'focused');
+  assert.equal(firstRating.record_id, 1);
+  assert.equal(firstRating.title, 'Writing the DSH plugin');
+  assert.match(firstRating.start, /^2026-10-19T09:12:00[+-]\d{2}:\d{2}$/);
+  assert.match(firstRating.end, /^2026-10-19T09:40:00[+-]\d{2}:\d{2}$/);
+  assert.deepEqual(
+    payload.ratings?.map(({ rating, record_id, title }) => ({ rating, record_id, title })),
+    [
+      { rating: 'focused', record_id: 1, title: 'Writing the DSH plugin' },
+      { rating: 'distracted', record_id: 4, title: 'YouTube break' },
+      { rating: 'neutral', record_id: 5, title: 'No screen activity' },
+    ],
+  );
+});
+
+test('a day without a goal keeps the goal null and the ratings empty', () => {
+  const runtime = makeRuntime(fixture.path);
+  const payload = buildPanelDay(runtime, '2026-10-18');
+  assert.equal(payload.goal, null);
+  assert.deepEqual(payload.ratings, []);
 });
 
 test('a category without a stored color falls back to the neutral token color', () => {
@@ -93,6 +128,8 @@ test('the day route answers JSON and rejects an impossible date', async () => {
   const payload = (await ok.json()) as PanelDay;
   assert.equal(payload.date, '2026-10-19');
   assert.equal(payload.cards.length, 7);
+  assert.equal(payload.goal?.focus_minutes, 240);
+  assert.equal(payload.ratings?.length, 3);
 
   const bad = await day.fetch(new Request(`http://127.0.0.1${PANEL_DAY_PATH}?date=2026-02-30`));
   assert.equal(bad.status, 400);
@@ -193,6 +230,10 @@ test('a month payload covers every calendar day and keeps the day states apart',
   assert.equal(day('2026-10-20').pending_batches, 1);
   assert.ok(day('2026-10-20').last_capture_at !== undefined);
 
+  // Goals and review marks are day-route only, so no month day carries them.
+  assert.ok(payload.days.every((entry) => entry.goal === undefined));
+  assert.ok(payload.days.every((entry) => entry.ratings === undefined));
+
   assert.equal(payload.today, day('2026-10-19').today);
   assert.equal(typeof payload.time_zone, 'string');
 });
@@ -209,6 +250,8 @@ test('the month route answers JSON and rejects a malformed month', async () => {
   const payload = (await ok.json()) as PanelMonth;
   assert.equal(payload.month, '2026-10');
   assert.equal(payload.days.length, 31);
+  // The month wire shape is unchanged: the day-only keys never appear.
+  assert.ok(payload.days.every((entry) => !('goal' in entry) && !('ratings' in entry)));
 
   const bad = await month.fetch(new Request(`http://127.0.0.1${PANEL_MONTH_PATH}?month=2026-13`));
   assert.equal(bad.status, 400);
@@ -255,6 +298,10 @@ test('a week payload holds seven Monday-first days with the same shapes as the m
   assert.ok(empty);
   assert.equal(empty.last_capture_at, undefined);
   assert.equal(empty.tracked_minutes, 0);
+
+  // Goals and review marks are day-route only, so no week day carries them.
+  assert.ok(payload.days.every((day) => day.goal === undefined));
+  assert.ok(payload.days.every((day) => day.ratings === undefined));
 });
 
 test('the week route answers JSON, defaults to this week, and rejects bad dates', async () => {

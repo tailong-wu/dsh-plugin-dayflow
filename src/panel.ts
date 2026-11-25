@@ -33,6 +33,7 @@ import type {
   PanelConfig,
   PanelDay,
   PanelError,
+  PanelGoal,
   PanelMonth,
   PanelWeek,
 } from './panel-contract.js';
@@ -42,10 +43,13 @@ import {
   activityPayload,
   categoryTotals,
   dayCaptures,
+  dayGoalPayload,
   dayPendingBatches,
   lastCaptureInWindow,
   pendingBatchesInWindow,
+  reviewRatingsForDay,
 } from './queries.js';
+import type { DayGoalPayload } from './queries.js';
 import type { ToolRuntime } from './tools/shared.js';
 import { dayArgument } from './tools/shared.js';
 
@@ -143,6 +147,23 @@ function dayPayload(
 }
 
 /**
+ * Project a day's goal query result into the panel's shape.
+ * @param goal - the goal payload read for the day.
+ * @returns the goal, or null when the user set none for that day.
+ */
+function panelGoal(goal: DayGoalPayload): PanelGoal | null {
+  if (!goal.found) return null;
+  const payload: PanelGoal = {
+    focus_categories: goal.focus_categories,
+    distraction_categories: goal.distraction_categories,
+  };
+  if (goal.focus_minutes !== undefined) payload.focus_minutes = goal.focus_minutes;
+  if (goal.distraction_limit_minutes !== undefined) payload.distraction_limit_minutes = goal.distraction_limit_minutes;
+  if (goal.is_skipped !== undefined) payload.is_skipped = goal.is_skipped;
+  return payload;
+}
+
+/**
  * Build one day's panel payload.
  * @param runtime - the plugin runtime.
  * @param date - an optional `YYYY-MM-DD`; omitted means the current Dayflow day.
@@ -153,13 +174,17 @@ export function buildPanelDay(runtime: ToolRuntime, date?: string): PanelDay {
   const preferences = panelPreferences(runtime);
   const colors = new Map(preferences.categories.map((category) => [category.name, category.colorHex]));
 
-  const { activities, pending, lastCapture } = readDatabase(runtime, (db) => ({
+  // The goal and the review marks are the user's own records, so they are read
+  // on the same connection as the day's screen activity.
+  const { activities, pending, lastCapture, goal, ratings } = readDatabase(runtime, (db) => ({
     activities: activitiesForDay(db, window),
     pending: pendingBatchesInWindow(db, window),
     lastCapture: lastCaptureInWindow(db, window),
+    goal: dayGoalPayload(db, window.dayKey, !runtime.config.dayflow),
+    ratings: reviewRatingsForDay(db, window, !runtime.config.dayflow),
   }));
 
-  return dayPayload(
+  const payload = dayPayload(
     window.dayKey,
     activities,
     pending,
@@ -168,6 +193,9 @@ export function buildPanelDay(runtime: ToolRuntime, date?: string): PanelDay {
     preferences.editsEnabled,
     formatDayKey(new Date()),
   );
+  payload.goal = panelGoal(goal);
+  payload.ratings = ratings;
+  return payload;
 }
 
 /**
