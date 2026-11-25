@@ -13,6 +13,11 @@ import type {
   ActivityPayload,
   BreakdownPayload,
   DailyPayload,
+  DayGoalPayload,
+  GoalCategoryPayload,
+  JournalEntryPayload,
+  ObservationPayload,
+  ReviewRatingPayload,
   SearchPayload,
   StatusPayload,
   TimelinePayload,
@@ -26,6 +31,23 @@ function categoryPercent(share: number): string {
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
   return count === 1 ? singular : pluralForm;
+}
+
+/** 24-hour wall clock for the evidence rows, e.g. `09:13`. */
+function formatTimeOfDay(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/** A local start–end pair, e.g. `09:13–09:20`. */
+function formatTimeRange(start: string, end: string): string {
+  return `${formatTimeOfDay(new Date(start))}–${formatTimeOfDay(new Date(end))}`;
+}
+
+/** One goal category as `Name (color)`, or just the name without a color. */
+function categoryLabel(category: GoalCategoryPayload): string {
+  return category.color_hex === undefined || category.color_hex === ''
+    ? category.name
+    : `${category.name} (${category.color_hex})`;
 }
 
 /**
@@ -126,6 +148,105 @@ export function renderWeekly(payload: WeeklyPayload): string {
     .map((category) => `- ${category.name}: ${formatDuration(category.minutes)} (${categoryPercent(category.share)})`)
     .join('\n');
   return `${header}\n\n${body}`;
+}
+
+/**
+ * Render a day's own journal entry.
+ * @param payload - the `dayflow_journal` value.
+ * @returns model-facing text.
+ */
+export function renderJournal(payload: JournalEntryPayload): string {
+  const header = `Journal · ${payload.date}`;
+  if (!payload.found) return `${header}\n\n${payload.hint}`;
+  const rows: string[] = [];
+  const section = (label: string, value: string | undefined): void => {
+    if (value !== undefined && value !== '') rows.push(`${label}: ${value}`);
+  };
+  section('Status', payload.status);
+  section('Intentions', payload.intentions);
+  section('Notes', payload.notes);
+  section('Goals', payload.goals);
+  section('Reflections', payload.reflections);
+  section('Summary', payload.summary);
+  if (rows.length === 0) return `${header}\n\nAn entry exists but has no text yet.`;
+  return `${header}\n\n${rows.join('\n')}`;
+}
+
+/**
+ * Render a day's focus goal and its categories.
+ * @param payload - the `dayflow_goals` value.
+ * @returns model-facing text.
+ */
+export function renderGoals(payload: DayGoalPayload): string {
+  const header = `Goals · ${payload.date}`;
+  if (!payload.found) return `${header}\n\n${payload.hint}`;
+  const rows: string[] = [];
+  const targets: string[] = [];
+  if (payload.focus_minutes !== undefined) targets.push(`Focus target: ${formatDuration(payload.focus_minutes)}`);
+  if (payload.distraction_limit_minutes !== undefined) {
+    targets.push(`Distraction limit: ${formatDuration(payload.distraction_limit_minutes)}`);
+  }
+  if (targets.length > 0) rows.push(targets.join(' · '));
+  if (payload.is_skipped === true) rows.push('Skipped: yes');
+  if (payload.focus_categories.length > 0) {
+    rows.push(`Focus categories: ${payload.focus_categories.map(categoryLabel).join(', ')}`);
+  }
+  if (payload.distraction_categories.length > 0) {
+    rows.push(`Distraction categories: ${payload.distraction_categories.map(categoryLabel).join(', ')}`);
+  }
+  if (rows.length === 0) return `${header}\n\nA goal exists but carries no targets or categories.`;
+  return `${header}\n\n${rows.join('\n')}`;
+}
+
+/** The `dayflow_observations` payload: one activity's evidence rows. */
+export interface ObservationsPayload {
+  record_id: number;
+  observations: ObservationPayload[];
+  hint: string;
+}
+
+/**
+ * Render the per-observation evidence behind one activity.
+ * @param payload - the `dayflow_observations` value.
+ * @returns model-facing text.
+ */
+export function renderObservations(payload: ObservationsPayload): string {
+  const count = payload.observations.length;
+  const header = `#${payload.record_id} · ${count} ${plural(count, 'observation')}`;
+  if (count === 0) return `${header}\n\n${payload.hint}`;
+  const rows = payload.observations.map((observation) => {
+    const text = observation.text === '' ? '(no observation text)' : observation.text;
+    const line = `- ${formatTimeRange(observation.start, observation.end)} · ${formatDuration(observation.duration_minutes)} · ${text}`;
+    return observation.model === undefined || observation.model === ''
+      ? line
+      : `${line} (${observation.model})`;
+  });
+  return `${header}\n\n${rows.join('\n')}`;
+}
+
+/** The `dayflow_review_ratings` payload: one day's own review marks. */
+export interface ReviewRatingsPayload {
+  date: string;
+  ratings: ReviewRatingPayload[];
+  hint: string;
+}
+
+/**
+ * Render the user's focused/neutral/distracted marks for one day.
+ * @param payload - the `dayflow_review_ratings` value.
+ * @returns model-facing text.
+ */
+export function renderRatings(payload: ReviewRatingsPayload): string {
+  const header = `Ratings · ${payload.date}`;
+  if (payload.ratings.length === 0) return `${header}\n\n${payload.hint}`;
+  const rows = payload.ratings.map((rating) => {
+    const facts = [formatTimeRange(rating.start, rating.end), rating.rating];
+    if (rating.title !== undefined && rating.title !== '') facts.push(rating.title);
+    let line = `- ${facts.join(' · ')}`;
+    if (rating.record_id !== undefined) line += ` (#${rating.record_id})`;
+    return line;
+  });
+  return `${header}\n\n${rows.join('\n')}`;
 }
 
 /**

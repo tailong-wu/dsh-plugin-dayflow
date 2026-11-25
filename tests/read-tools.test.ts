@@ -5,7 +5,15 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 
 import { DayflowError } from '../src/errors.js';
-import type { DailyPayload, StatusPayload, TimelinePayload } from '../src/queries.js';
+import type {
+  DailyPayload,
+  DayGoalPayload,
+  JournalEntryPayload,
+  ObservationPayload,
+  ReviewRatingPayload,
+  StatusPayload,
+  TimelinePayload,
+} from '../src/queries.js';
 import { readTools } from '../src/tools/read.js';
 import { createFixtureDatabase } from './fixtures/database.js';
 import { makeRuntime, runAndRender, toolMap, toolNamed } from './helpers.js';
@@ -18,7 +26,7 @@ after(() => {
   fixture.cleanup();
 });
 
-test('the read suite registers eight tools with stable names', () => {
+test('the read suite registers twelve tools with stable names', () => {
   assert.deepEqual([...tools.keys()], [
     'dayflow_timeline',
     'dayflow_activity',
@@ -26,6 +34,10 @@ test('the read suite registers eight tools with stable names', () => {
     'dayflow_search',
     'dayflow_daily',
     'dayflow_weekly',
+    'dayflow_journal',
+    'dayflow_goals',
+    'dayflow_observations',
+    'dayflow_review_ratings',
     'dayflow_categories',
     'dayflow_status',
   ]);
@@ -128,6 +140,111 @@ test('dayflow_weekly rolls up the week containing a date', async () => {
   assert.equal(payload.focus_minutes, 138);
   assert.match(payload.week_start, /^2026-10-19T04:00:00/);
   assert.match(text, /focus 2h 18m/);
+});
+
+test('dayflow_journal reads the day entry and explains a missing one', async () => {
+  const { value, text } = await runAndRender(tools, 'dayflow_journal', { date: '2026-10-19' });
+  const payload = value as JournalEntryPayload;
+  assert.equal(payload.found, true);
+  assert.equal(payload.date, '2026-10-19');
+  assert.equal(payload.status, 'complete');
+  assert.equal(payload.intentions, 'Ship the journal importer.');
+  assert.match(text, /Journal · 2026-10-19/);
+  assert.match(text, /Status: complete/);
+  assert.match(text, /Ship the journal importer\./);
+
+  const missing = await runAndRender(tools, 'dayflow_journal', { date: '2026-01-02' });
+  const missingPayload = missing.value as JournalEntryPayload;
+  assert.equal(missingPayload.found, false);
+  assert.equal(missingPayload.date, '2026-01-02');
+  assert.match(missing.text, /Journal · 2026-01-02/);
+  assert.doesNotMatch(missing.text, /Status:/);
+});
+
+test('dayflow_goals reads the day goal and its categories', async () => {
+  const { value, text } = await runAndRender(tools, 'dayflow_goals', { date: '2026-10-19' });
+  const payload = value as DayGoalPayload;
+  assert.equal(payload.found, true);
+  assert.equal(payload.focus_minutes, 240);
+  assert.equal(payload.distraction_limit_minutes, 60);
+  assert.deepEqual(
+    payload.focus_categories.map((category) => category.name),
+    ['Work', 'Communication'],
+  );
+  assert.equal(payload.focus_categories[0]?.color_hex, '#6A7EFF');
+  assert.deepEqual(
+    payload.distraction_categories.map((category) => category.name),
+    ['Distraction'],
+  );
+  assert.match(text, /Goals · 2026-10-19/);
+  assert.match(text, /Focus target: 4h/);
+  assert.match(text, /Work \(#6A7EFF\)/);
+
+  const skipped = await runAndRender(tools, 'dayflow_goals', { date: '2026-10-20' });
+  assert.equal((skipped.value as DayGoalPayload).is_skipped, true);
+  assert.match(skipped.text, /Skipped: yes/);
+
+  const missing = await runAndRender(tools, 'dayflow_goals', { date: '2026-01-02' });
+  const missingPayload = missing.value as DayGoalPayload;
+  assert.equal(missingPayload.found, false);
+  assert.deepEqual(missingPayload.focus_categories, []);
+  assert.deepEqual(missingPayload.distraction_categories, []);
+});
+
+test('dayflow_observations returns the evidence behind an activity', async () => {
+  const { value, text } = await runAndRender(tools, 'dayflow_observations', { record_id: 1 });
+  const payload = value as { record_id: number; observations: ObservationPayload[]; hint: string };
+  assert.equal(payload.record_id, 1);
+  assert.equal(payload.observations.length, 2);
+  assert.deepEqual(
+    payload.observations.map((observation) => observation.duration_minutes),
+    [7, 17],
+  );
+  assert.equal(payload.observations[0]?.model, 'deepseek-flash');
+  assert.match(text, /#1 · 2 observations/);
+  assert.match(text, /09:13–09:20 · 7m · The user writes src\/journal\.ts in Cursor\./);
+  assert.match(text, /09:21–09:38 · 17m · The user runs the test suite in a terminal\./);
+  assert.match(text, /deepseek-flash/);
+
+  const quiet = await runAndRender(tools, 'dayflow_observations', { record_id: 2 });
+  assert.deepEqual((quiet.value as { observations: unknown[] }).observations, []);
+  assert.match(quiet.text, /#2 · 0 observations/);
+
+  await assert.rejects(
+    () => toolNamed(tools, 'dayflow_observations').execute({ record_id: 9999 }, undefined as never),
+    (error: unknown) => error instanceof DayflowError && error.code === 'not_found',
+  );
+});
+
+test('dayflow_review_ratings returns the day own marks', async () => {
+  const { value, text } = await runAndRender(tools, 'dayflow_review_ratings', { date: '2026-10-19' });
+  const payload = value as { date: string; ratings: ReviewRatingPayload[]; hint: string };
+  assert.equal(payload.date, '2026-10-19');
+  assert.equal(payload.ratings.length, 3);
+  assert.deepEqual(
+    payload.ratings.map((rating) => rating.rating),
+    ['focused', 'distracted', 'neutral'],
+  );
+  assert.equal(payload.ratings[0]?.title, 'Writing the DSH plugin');
+  assert.equal(payload.ratings[0]?.record_id, 1);
+  assert.match(text, /Ratings · 2026-10-19/);
+  assert.match(text, /09:12–09:40 · focused · Writing the DSH plugin \(#1\)/);
+
+  const empty = await runAndRender(tools, 'dayflow_review_ratings', { date: '2026-01-02' });
+  const emptyPayload = empty.value as { date: string; ratings: ReviewRatingPayload[] };
+  assert.equal(emptyPayload.date, '2026-01-02');
+  assert.deepEqual(emptyPayload.ratings, []);
+  assert.match(empty.text, /Ratings · 2026-01-02/);
+});
+
+test('the new day tools reject an impossible date', async () => {
+  for (const name of ['dayflow_journal', 'dayflow_goals', 'dayflow_review_ratings']) {
+    await assert.rejects(
+      () => toolNamed(tools, name).execute({ date: '2026-02-30' }, undefined as never),
+      (error: unknown) => error instanceof DayflowError && error.code === 'invalid_input',
+      `${name} rejects 2026-02-30`,
+    );
+  }
 });
 
 test('dayflow_categories reads the injected preferences', async () => {

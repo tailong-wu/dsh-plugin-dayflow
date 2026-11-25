@@ -1,6 +1,7 @@
 /**
- * The eight read tools: timeline, activity detail, range totals, search, the
- * Daily standup, the weekly rollup, categories, and capture status.
+ * The twelve read tools: timeline, activity detail, range totals, search, the
+ * Daily standup, the weekly rollup, the daily journal, goals, observations,
+ * review ratings, categories, and capture status.
  *
  * Reads always go straight to SQLite, so they keep working while the Dayflow
  * app is closed.
@@ -13,11 +14,16 @@ import { existsSync } from 'node:fs';
 
 import { categoryPayloads } from '../categories.js';
 import { formatDayKey, timeZoneName, weekWindowContaining } from '../day.js';
+import type { ObservationsPayload, ReviewRatingsPayload } from '../format.js';
 import {
   renderActivity,
   renderBreakdown,
   renderCategories,
   renderDaily,
+  renderGoals,
+  renderJournal,
+  renderObservations,
+  renderRatings,
   renderSearch,
   renderStatus,
   renderTimeline,
@@ -28,6 +34,8 @@ import type {
   ActivityPayload,
   BreakdownPayload,
   DailyPayload,
+  DayGoalPayload,
+  JournalEntryPayload,
   SearchPayload,
   StatusPayload,
   TimelinePayload,
@@ -37,9 +45,13 @@ import {
   activitiesForDay,
   activitiesInRange,
   activityById,
+  activityObservations,
   activityPayload,
   breakdownPayload,
   captureStatus,
+  dayGoalPayload,
+  journalEntryPayload,
+  reviewRatingsForDay,
   searchActivities,
   standupForDay,
   timelinePayload,
@@ -243,6 +255,133 @@ export function readTools(runtime: ToolRuntime): ToolDefinition[] {
         card: 'generic',
         kind: 'read',
         title: `Dayflow weekly · ${args.date ?? 'this week'}`,
+      }),
+    }),
+
+    defineTool({
+      name: 'dayflow_journal',
+      description:
+        "The user's own journal entry for one Dayflow day: status, intentions, notes, goals, reflections, and " +
+        'summary. Unlike the timeline, this is a record the user or the agent wrote, not screen content, so it can ' +
+        'describe what happened away from the Mac. Entries are optional, so a day may have none.',
+      parameters: {
+        date: { type: 'string', description: DATE_DESCRIPTION },
+      },
+      output: {
+        schema: { type: 'json' },
+        render: (_args, value) => [
+          { type: 'text', text: renderJournal(value as unknown as JournalEntryPayload) },
+        ],
+      },
+      isConcurrencySafe: () => true,
+      async execute(args) {
+        const window = dayArgument(args.date);
+        const payload = readDatabase(runtime, (db) =>
+          journalEntryPayload(db, window.dayKey, !runtime.config.dayflow),
+        );
+        return jsonValue(payload);
+      },
+      presentCall: (args) => ({
+        card: 'generic',
+        kind: 'read',
+        title: `Dayflow journal · ${args.date ?? 'today'}`,
+      }),
+    }),
+
+    defineTool({
+      name: 'dayflow_goals',
+      description:
+        "The user's focus goal for one Dayflow day: target focus minutes, distraction limit, whether the goal " +
+        "was skipped, and the focus and distraction categories. Goals are the user's own settings, not screen " +
+        'content, and a day may have none.',
+      parameters: {
+        date: { type: 'string', description: DATE_DESCRIPTION },
+      },
+      output: {
+        schema: { type: 'json' },
+        render: (_args, value) => [{ type: 'text', text: renderGoals(value as unknown as DayGoalPayload) }],
+      },
+      isConcurrencySafe: () => true,
+      async execute(args) {
+        const window = dayArgument(args.date);
+        const payload = readDatabase(runtime, (db) => dayGoalPayload(db, window.dayKey, !runtime.config.dayflow));
+        return jsonValue(payload);
+      },
+      presentCall: (args) => ({
+        card: 'generic',
+        kind: 'read',
+        title: `Dayflow goals · ${args.date ?? 'today'}`,
+      }),
+    }),
+
+    defineTool({
+      name: 'dayflow_observations',
+      description:
+        'The per-observation evidence behind one activity: short notes with start and end times, and the model ' +
+        'that wrote them. Pass a record_id from dayflow_timeline. Observations describe what was on screen, not ' +
+        `what the user did away from the Mac. ${UNTRUSTED_NOTICE}`,
+      parameters: {
+        record_id: { type: 'integer', required: true, description: 'Activity ID from dayflow_timeline.' },
+      },
+      output: {
+        schema: { type: 'json' },
+        render: (_args, value) => [
+          { type: 'text', text: renderObservations(value as unknown as ObservationsPayload) },
+        ],
+      },
+      isConcurrencySafe: () => true,
+      async execute(args) {
+        const activity = readDatabase(runtime, (db) => activityById(db, args.record_id));
+        if (activity === undefined) {
+          throw new DayflowError(`No activity with record ID ${args.record_id}.`, 'not_found');
+        }
+        const observations = readDatabase(runtime, (db) =>
+          activityObservations(db, activity, !runtime.config.dayflow),
+        );
+        return jsonValue({
+          record_id: args.record_id,
+          observations,
+          hint: 'No observations were recorded for this activity; analysis may not have reached it yet.',
+        });
+      },
+      presentCall: (args) => ({
+        card: 'generic',
+        kind: 'read',
+        title: `Dayflow observations · #${args.record_id}`,
+      }),
+    }),
+
+    defineTool({
+      name: 'dayflow_review_ratings',
+      description:
+        "The user's own focused, neutral, or distracted marks on a day's timeline segments. Use them in a review " +
+        "that cites the user's judgement instead of counting minutes alone. Ratings are the user's own marks, " +
+        'not screen content, and they may cover only part of the day.',
+      parameters: {
+        date: { type: 'string', description: DATE_DESCRIPTION },
+      },
+      output: {
+        schema: { type: 'json' },
+        render: (_args, value) => [
+          { type: 'text', text: renderRatings(value as unknown as ReviewRatingsPayload) },
+        ],
+      },
+      isConcurrencySafe: () => true,
+      async execute(args) {
+        const window = dayArgument(args.date);
+        const ratings = readDatabase(runtime, (db) =>
+          reviewRatingsForDay(db, window, !runtime.config.dayflow),
+        );
+        return jsonValue({
+          date: window.dayKey,
+          ratings,
+          hint: "No review ratings were recorded for this day; ratings are the user's own optional marks.",
+        });
+      },
+      presentCall: (args) => ({
+        card: 'generic',
+        kind: 'read',
+        title: `Dayflow review ratings · ${args.date ?? 'today'}`,
       }),
     }),
 

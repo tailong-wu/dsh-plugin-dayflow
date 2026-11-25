@@ -36,6 +36,12 @@ cannot answer it and offer what it can: what was on screen around that time.
   `dayflow_search`.
 - Standups and status updates: `dayflow_daily`. Week summaries:
   `dayflow_weekly`.
+- The user's own daily journal entry (intentions, notes, reflections, summary):
+  `dayflow_journal`.
+- The day's focus goal and its focus/distraction category split: `dayflow_goals`.
+- The per-observation evidence behind one activity: `dayflow_observations` with
+  its `record_id`.
+- The user's own focused/distracted marks for a day: `dayflow_review_ratings`.
 
 ## Things to know
 

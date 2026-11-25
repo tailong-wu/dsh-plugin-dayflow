@@ -573,3 +573,417 @@ export function weeklyPayload(activities: readonly Activity[], start: Date, end:
     categories: totals,
   };
 }
+
+/** One category attached to a day's goal, with its Dayflow palette color. */
+export interface GoalCategoryPayload {
+  name: string;
+  color_hex?: string;
+}
+
+/** The `dayflow_goals` payload: the targets the user set for one day. */
+export interface DayGoalPayload {
+  date: string;
+  found: boolean;
+  focus_minutes?: number;
+  distraction_limit_minutes?: number;
+  focus_categories: GoalCategoryPayload[];
+  distraction_categories: GoalCategoryPayload[];
+  is_skipped?: boolean;
+  hint: string;
+}
+
+/** The `dayflow_journal` payload: the user's own entry for one day. */
+export interface JournalEntryPayload {
+  date: string;
+  found: boolean;
+  status?: string;
+  intentions?: string;
+  notes?: string;
+  goals?: string;
+  reflections?: string;
+  summary?: string;
+  hint: string;
+}
+
+/** One screen observation behind an activity, as Dayflow's model wrote it. */
+export interface ObservationPayload {
+  start: string;
+  end: string;
+  duration_minutes: number;
+  text: string;
+  model?: string;
+}
+
+/** One of the user's own focused/distracted marks over a time range. */
+export interface ReviewRatingPayload {
+  start: string;
+  end: string;
+  rating: string;
+  record_id?: number;
+  title?: string;
+}
+
+/** Text field names shared by Dayflow's and the owned store's journal entries. */
+const JOURNAL_TEXT_FIELDS = ['intentions', 'notes', 'goals', 'reflections', 'summary'] as const;
+
+// Goals and journal entries are the user's own records, not screen activity, and
+// both backends must read the same. The hints are therefore backend-independent.
+const GOAL_FOUND_HINT = 'Goals are the targets the user set for this day, not measured screen time.';
+const GOAL_MISSING_HINT = 'No goal is set for this day; goals are optional, so the user may not have set one.';
+const JOURNAL_FOUND_HINT = "A journal entry is the user's own writing about the day, not screen activity.";
+const JOURNAL_MISSING_HINT =
+  'No journal entry exists for this day; journal entries are optional, so the user may not have written one.';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Decode one stored JSON object, treating an unreadable blob as empty. */
+function storedObject(raw: string | undefined): Record<string, unknown> {
+  if (raw === undefined || raw === '') return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  const number = asNumber(value);
+  return number === undefined ? undefined : number !== 0;
+}
+
+interface OverlapCandidate {
+  readonly id: number;
+  readonly title: string;
+  readonly start: number;
+  readonly end: number;
+}
+
+function overlapCandidates(rows: readonly SqlRow[]): OverlapCandidate[] {
+  const candidates: OverlapCandidate[] = [];
+  for (const row of rows) {
+    const id = asNumber(row.id);
+    const start = asNumber(row.start_ts);
+    const end = asNumber(row.end_ts);
+    if (id === undefined || start === undefined || end === undefined) continue;
+    candidates.push({ id, title: asText(row.title) ?? '', start, end });
+  }
+  return candidates;
+}
+
+/** The candidate whose range overlaps the target the longest, earliest on a tie. */
+function bestOverlap(
+  candidates: readonly OverlapCandidate[],
+  start: number,
+  end: number,
+): OverlapCandidate | undefined {
+  let best: OverlapCandidate | undefined;
+  let bestOverlap = 0;
+  for (const candidate of candidates) {
+    const overlap = Math.min(candidate.end, end) - Math.max(candidate.start, start);
+    if (overlap <= 0) continue;
+    const earlier = best !== undefined && (candidate.start < best.start || (candidate.start === best.start && candidate.id < best.id));
+    if (best === undefined || overlap > bestOverlap || (overlap === bestOverlap && earlier)) {
+      best = candidate;
+      bestOverlap = overlap;
+    }
+  }
+  return best;
+}
+
+/**
+ * The goal the user set for one Dayflow day.
+ * @param db - an open Dayflow database, or the owned journal when `owned`.
+ * @param dayKey - `YYYY-MM-DD`.
+ * @param owned - read the plugin's journal instead of Dayflow.
+ * @returns the goal payload; `found: false` when no goal is stored.
+ */
+export function dayGoalPayload(db: DatabaseSync, dayKey: string, owned: boolean): DayGoalPayload {
+  return owned ? ownedDayGoalPayload(db, dayKey) : dayflowDayGoalPayload(db, dayKey);
+}
+
+function dayflowDayGoalPayload(db: DatabaseSync, dayKey: string): DayGoalPayload {
+  const goalRows = queryRows(
+    db,
+    'SELECT focus_target_minutes, distraction_limit_minutes, is_skipped FROM day_goals WHERE day = ?',
+    [dayKey],
+  );
+  const goalRow = goalRows[0];
+  if (goalRow === undefined) {
+    return { date: dayKey, found: false, focus_categories: [], distraction_categories: [], hint: GOAL_MISSING_HINT };
+  }
+
+  const categoryRows = queryRows(
+    db,
+    `SELECT kind, category_name, category_color_hex FROM day_goal_categories
+      WHERE day = ?
+      ORDER BY sort_order ASC, category_name ASC`,
+    [dayKey],
+  );
+  const focusCategories: GoalCategoryPayload[] = [];
+  const distractionCategories: GoalCategoryPayload[] = [];
+  for (const row of categoryRows) {
+    const kind = asText(row.kind);
+    const name = asText(row.category_name);
+    if (name === undefined || name === '') continue;
+    const category: GoalCategoryPayload = { name };
+    const color = asText(row.category_color_hex);
+    if (color !== undefined && color !== '') category.color_hex = color;
+    if (kind === 'focus') focusCategories.push(category);
+    else if (kind === 'distraction') distractionCategories.push(category);
+  }
+
+  const payload: DayGoalPayload = {
+    date: dayKey,
+    found: true,
+    focus_categories: focusCategories,
+    distraction_categories: distractionCategories,
+    hint: GOAL_FOUND_HINT,
+  };
+  const focusMinutes = asNumber(goalRow.focus_target_minutes);
+  if (focusMinutes !== undefined) payload.focus_minutes = focusMinutes;
+  const distractionLimit = asNumber(goalRow.distraction_limit_minutes);
+  if (distractionLimit !== undefined) payload.distraction_limit_minutes = distractionLimit;
+  const skipped = asBoolean(goalRow.is_skipped);
+  if (skipped !== undefined) payload.is_skipped = skipped;
+  return payload;
+}
+
+function ownedDayGoalPayload(db: DatabaseSync, dayKey: string): DayGoalPayload {
+  const goalRows = queryRows(
+    db,
+    `SELECT id, focus_minutes, distraction_limit_minutes, payload_json FROM goals
+      WHERE day = ? AND COALESCE(is_deleted, 0) = 0
+      ORDER BY id DESC
+      LIMIT 1`,
+    [dayKey],
+  );
+  const goalRow = goalRows[0];
+  if (goalRow === undefined) {
+    return { date: dayKey, found: false, focus_categories: [], distraction_categories: [], hint: GOAL_MISSING_HINT };
+  }
+
+  const goalJson = storedObject(asText(goalRow.payload_json));
+  const payload: DayGoalPayload = {
+    date: dayKey,
+    found: true,
+    focus_categories: [],
+    distraction_categories: [],
+    hint: GOAL_FOUND_HINT,
+  };
+  const focusMinutes = asNumber(goalRow.focus_minutes);
+  if (focusMinutes !== undefined) payload.focus_minutes = focusMinutes;
+  const distractionLimit = asNumber(goalRow.distraction_limit_minutes);
+  if (distractionLimit !== undefined) payload.distraction_limit_minutes = distractionLimit;
+  const skipped = asBoolean(goalJson.is_skipped);
+  if (skipped !== undefined) payload.is_skipped = skipped;
+
+  const goalId = asNumber(goalRow.id);
+  if (goalId === undefined) return payload;
+  const categoryRows = queryRows(
+    db,
+    'SELECT category_name, role, payload_json FROM goal_categories WHERE goal_id = ? ORDER BY id ASC',
+    [goalId],
+  );
+  for (const row of categoryRows) {
+    const categoryJson = storedObject(asText(row.payload_json));
+    const name = asText(row.category_name) ?? asText(categoryJson.category_name);
+    if (name === undefined || name === '') continue;
+    const category: GoalCategoryPayload = { name };
+    const color = asText(categoryJson.category_color_hex);
+    if (color !== undefined && color !== '') category.color_hex = color;
+    const role = asText(row.role) ?? asText(categoryJson.role) ?? asText(categoryJson.kind);
+    if (role === 'focus') payload.focus_categories.push(category);
+    else if (role === 'distraction') payload.distraction_categories.push(category);
+  }
+  return payload;
+}
+
+/**
+ * The journal entry the user wrote for one Dayflow day.
+ * @param db - an open Dayflow database, or the owned journal when `owned`.
+ * @param dayKey - `YYYY-MM-DD`.
+ * @param owned - read the plugin's journal instead of Dayflow.
+ * @returns the entry payload; `found: false` when the user wrote none.
+ */
+export function journalEntryPayload(db: DatabaseSync, dayKey: string, owned: boolean): JournalEntryPayload {
+  const row = owned ? ownedJournalRow(db, dayKey) : dayflowJournalRow(db, dayKey);
+  if (row === undefined) return { date: dayKey, found: false, hint: JOURNAL_MISSING_HINT };
+
+  const stored = owned ? storedObject(asText(row.payload_json)) : {};
+  const payload: JournalEntryPayload = { date: dayKey, found: true, hint: JOURNAL_FOUND_HINT };
+  for (const field of JOURNAL_TEXT_FIELDS) {
+    const value = journalTextField(stored, row, field);
+    if (value !== undefined) payload[field] = value;
+  }
+  const status = asText(row.status) ?? asText(stored.status);
+  if (status !== undefined && status !== '') payload.status = status;
+  return payload;
+}
+
+function dayflowJournalRow(db: DatabaseSync, dayKey: string): SqlRow | undefined {
+  return queryRows(
+    db,
+    `SELECT intentions, notes, goals, reflections, summary, status FROM journal_entries
+      WHERE day = ?
+      LIMIT 1`,
+    [dayKey],
+  )[0];
+}
+
+function ownedJournalRow(db: DatabaseSync, dayKey: string): SqlRow | undefined {
+  return queryRows(
+    db,
+    `SELECT * FROM journal_entries
+      WHERE day = ? AND COALESCE(is_deleted, 0) = 0
+      ORDER BY id DESC
+      LIMIT 1`,
+    [dayKey],
+  )[0];
+}
+
+/** Payload JSON wins over a column of the same name, per the owned journal contract. */
+function journalTextField(stored: Record<string, unknown>, row: SqlRow, field: string): string | undefined {
+  const fromPayload = asText(stored[field]);
+  if (fromPayload !== undefined && fromPayload !== '') return fromPayload;
+  const fromColumn = asText(row[field]);
+  if (fromColumn !== undefined && fromColumn !== '') return fromColumn;
+  return undefined;
+}
+
+/**
+ * The observations Dayflow recorded behind one activity.
+ * @param db - an open Dayflow database, or the owned journal when `owned`.
+ * @param activity - the card to read evidence for.
+ * @param owned - read the plugin's journal instead of Dayflow.
+ * @returns observations overlapping the card, in start order.
+ */
+export function activityObservations(db: DatabaseSync, activity: Activity, owned: boolean): ObservationPayload[] {
+  const from = epochSeconds(activity.start);
+  const to = epochSeconds(activity.end);
+  const rows = owned
+    ? queryRows(
+        db,
+        `SELECT start_ts, end_ts, payload_json FROM observations
+          WHERE start_ts < ? AND end_ts > ? AND COALESCE(is_deleted, 0) = 0
+          ORDER BY start_ts ASC, id ASC`,
+        [to, from],
+      )
+    : queryRows(
+        db,
+        `SELECT start_ts, end_ts, observation, llm_model FROM observations
+          WHERE start_ts < ? AND end_ts > ?
+          ORDER BY start_ts ASC, id ASC`,
+        [to, from],
+      );
+
+  const observations: ObservationPayload[] = [];
+  for (const row of rows) {
+    const stored = owned ? storedObject(asText(row.payload_json)) : undefined;
+    const text = owned ? asText(stored?.observation) : asText(row.observation);
+    const model = owned ? asText(stored?.llm_model) : asText(row.llm_model);
+    const start = asNumber(row.start_ts);
+    const end = asNumber(row.end_ts);
+    if (start === undefined || end === undefined) continue;
+    const payload: ObservationPayload = {
+      start: formatIso(new Date(start * 1000)),
+      end: formatIso(new Date(end * 1000)),
+      duration_minutes: Math.max(0, Math.floor((end - start) / 60)),
+      text: text ?? '',
+    };
+    if (model !== undefined && model !== '') payload.model = model;
+    observations.push(payload);
+  }
+  return observations;
+}
+
+/**
+ * The user's own review ratings overlapping one Dayflow day.
+ * @param db - an open Dayflow database, or the owned journal when `owned`.
+ * @param window - the day to read.
+ * @param owned - read the plugin's journal instead of Dayflow.
+ * @returns ratings in start order, each resolved to the card it covers.
+ */
+export function reviewRatingsForDay(db: DatabaseSync, window: DayWindow, owned: boolean): ReviewRatingPayload[] {
+  const from = epochSeconds(window.start);
+  const to = epochSeconds(window.end);
+  const rows = owned
+    ? queryRows(
+        db,
+        `SELECT id, start_ts, end_ts, rating, activity_id FROM reviews
+          WHERE start_ts < ? AND end_ts > ? AND COALESCE(is_deleted, 0) = 0
+          ORDER BY start_ts ASC, id ASC`,
+        [to, from],
+      )
+    : queryRows(
+        db,
+        `SELECT id, start_ts, end_ts, rating FROM timeline_review_ratings
+          WHERE start_ts < ? AND end_ts > ?
+          ORDER BY start_ts ASC, id ASC`,
+        [to, from],
+      );
+
+  const ratings: ReviewRatingPayload[] = [];
+  for (const row of rows) {
+    const start = asNumber(row.start_ts);
+    const end = asNumber(row.end_ts);
+    const rating = asText(row.rating);
+    if (start === undefined || end === undefined || rating === undefined || rating === '') continue;
+    const payload: ReviewRatingPayload = {
+      start: formatIso(new Date(start * 1000)),
+      end: formatIso(new Date(end * 1000)),
+      rating,
+    };
+    const record = owned ? ownedRecordForRating(db, row, start, end) : dayflowRecordForRating(db, start, end);
+    if (record !== undefined) {
+      payload.record_id = record.id;
+      payload.title = record.title;
+    }
+    ratings.push(payload);
+  }
+  return ratings;
+}
+
+/** Prefer the explicitly linked activity, then the activity the range covers most. */
+function ownedRecordForRating(
+  db: DatabaseSync,
+  row: SqlRow,
+  start: number,
+  end: number,
+): OverlapCandidate | undefined {
+  const activityId = asNumber(row.activity_id);
+  if (activityId !== undefined) {
+    const linked = queryRows(
+      db,
+      `SELECT id, title, start_ts, end_ts FROM activities
+        WHERE id = ? AND COALESCE(is_deleted, 0) = 0
+        LIMIT 1`,
+      [activityId],
+    );
+    const direct = overlapCandidates(linked)[0];
+    if (direct !== undefined) return direct;
+  }
+  const overlapping = queryRows(
+    db,
+    `SELECT id, title, start_ts, end_ts FROM activities
+      WHERE start_ts < ? AND end_ts > ? AND COALESCE(is_deleted, 0) = 0
+      ORDER BY start_ts ASC`,
+    [end, start],
+  );
+  return bestOverlap(overlapCandidates(overlapping), start, end);
+}
+
+/** Dayflow's ratings carry no card reference, so resolve the overlapping card. */
+function dayflowRecordForRating(db: DatabaseSync, start: number, end: number): OverlapCandidate | undefined {
+  const overlapping = queryRows(
+    db,
+    `SELECT id, title, start_ts, end_ts FROM timeline_cards
+      WHERE start_ts < ? AND end_ts > ? AND is_deleted = 0
+      ORDER BY start_ts ASC`,
+    [end, start],
+  );
+  return bestOverlap(overlapCandidates(overlapping), start, end);
+}

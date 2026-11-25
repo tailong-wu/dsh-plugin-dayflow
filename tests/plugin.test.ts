@@ -70,12 +70,21 @@ test('the plugin advertises its name and required services', () => {
   assert.deepEqual([...inject], ['tools', 'skills', 'systemPrompt']);
 });
 
-test('apply registers eight reads, one import, six edits, four skills, and one prompt section', () => {
+test('apply registers twelve reads, one import, six edits, four skills, and one prompt section', () => {
   const { ctx, capture } = fakeContext();
   apply(ctx, { databasePath: fixture.path });
 
-  assert.equal(capture.tools.size, 15);
-  for (const tool of ['dayflow_timeline', 'journal_import', 'dayflow_delete_activity', 'dayflow_status']) {
+  assert.equal(capture.tools.size, 19);
+  for (const tool of [
+    'dayflow_timeline',
+    'dayflow_journal',
+    'dayflow_goals',
+    'dayflow_observations',
+    'dayflow_review_ratings',
+    'journal_import',
+    'dayflow_delete_activity',
+    'dayflow_status',
+  ]) {
     assert.ok(capture.tools.has(tool), `${tool} is registered`);
   }
 
@@ -128,13 +137,13 @@ test('the installer is off by default and appears only with allowInstall', () =>
 test('edits and skills can be switched off independently', () => {
   const editsOff = fakeContext();
   apply(editsOff.ctx, { databasePath: fixture.path, edits: false });
-  assert.equal(editsOff.capture.tools.size, 9);
+  assert.equal(editsOff.capture.tools.size, 13);
   assert.equal(editsOff.capture.tools.has('dayflow_update_activity'), false);
 
   const skillsOff = fakeContext();
   apply(skillsOff.ctx, { databasePath: fixture.path, skills: false });
   assert.equal(skillsOff.capture.skills.length, 0);
-  assert.equal(skillsOff.capture.tools.size, 15);
+  assert.equal(skillsOff.capture.tools.size, 19);
 });
 
 test('every tool a skill names is registered when the full surface is on', () => {

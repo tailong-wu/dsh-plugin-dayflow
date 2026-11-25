@@ -2,7 +2,7 @@
  * dsh-plugin-dayflow: the Dayflow work journal as DSH tools and skills.
  *
  * The Dayflow Mac app records the user's screen and turns it into a timeline of
- * activities. This plugin exposes that timeline natively: eight read tools,
+ * activities. This plugin exposes that timeline natively: twelve read tools,
  * one journal importer, six gated editing tools, and Dayflow's four skills. The
  * read backend can be the app's SQLite database or the plugin-owned journal.
  *

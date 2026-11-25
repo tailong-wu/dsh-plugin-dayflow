@@ -19,6 +19,10 @@ import type {
   ActivityPayload,
   BreakdownPayload,
   DailyPayload,
+  DayGoalPayload,
+  JournalEntryPayload,
+  ObservationPayload,
+  ReviewRatingPayload,
   SearchPayload,
   TimelinePayload,
   WeeklyPayload,
@@ -837,4 +841,236 @@ test('the source database stays readable after import', () => {
   const count = source.prepare('SELECT count(*) AS count FROM timeline_cards').get() as { count: number };
   assert.equal(count.count, 9);
   source.close();
+});
+
+/** The payload `dayflow_observations` returns: its rows plus a hint. */
+interface ObservationsPayload {
+  record_id: number;
+  observations: ObservationPayload[];
+  hint: string;
+}
+
+/** The payload `dayflow_review_ratings` returns: its rows plus a hint. */
+interface RatingsPayload {
+  date: string;
+  ratings: ReviewRatingPayload[];
+  hint: string;
+}
+
+/**
+ * Import the fixture into a throwaway owned journal and point both backends at it.
+ *
+ * Each parity test gets its own journal so a soft-delete probe in one test
+ * cannot leak into another.
+ * @returns the disposable directory, the owned journal, and both runtimes.
+ */
+function seedOwnedJournal(): {
+  directory: string;
+  journalPath: string;
+  dayflowRuntime: ReturnType<typeof makeRuntime>;
+  ownedRuntime: ReturnType<typeof makeRuntime>;
+} {
+  const directory = mkdtempSync(join(tmpdir(), 'dsh-dayflow-parity-'));
+  const ownedJournalPath = join(directory, 'journal.sqlite');
+  importDayflowDatabase({ sourcePath: fixture.path, journalPath: ownedJournalPath, categories: DEFAULT_CATEGORIES });
+  return {
+    directory,
+    journalPath: ownedJournalPath,
+    dayflowRuntime: makeRuntime(fixture.path, { source: 'dayflow', dayflow: true, journalPath: ownedJournalPath }),
+    ownedRuntime: makeRuntime(fixture.path, { source: 'owned', dayflow: false, journalPath: ownedJournalPath }),
+  };
+}
+
+test('owned and Dayflow backends return the same payload for the Phase 3 read tools', async () => {
+  const seeded = seedOwnedJournal();
+  try {
+    const dayflow = toolMap(readTools(seeded.dayflowRuntime));
+    const owned = toolMap(readTools(seeded.ownedRuntime));
+
+    // journal: both backends expose the user's own entry, not screen content.
+    const journal = (await runAndRender(dayflow, 'dayflow_journal', { date: FIXTURE_DAY })).value as JournalEntryPayload;
+    const ownedJournal = (await runAndRender(owned, 'dayflow_journal', { date: FIXTURE_DAY })).value as JournalEntryPayload;
+    assert.deepEqual(ownedJournal, journal);
+    const expectedJournal = {
+      date: FIXTURE_DAY,
+      status: 'complete',
+      intentions: 'Ship the journal importer.',
+      notes: 'Reviewed the roadmap before coding.',
+      goals: 'Finish Phase 2.',
+      reflections: 'The source fixture was the slow part.',
+      summary: 'A focused build day.',
+    };
+    const journalFields = (payload: JournalEntryPayload) => ({
+      date: payload.date,
+      status: payload.status,
+      intentions: payload.intentions,
+      notes: payload.notes,
+      goals: payload.goals,
+      reflections: payload.reflections,
+      summary: payload.summary,
+    });
+    assert.deepEqual(journalFields(journal), expectedJournal);
+    assert.deepEqual(journalFields(ownedJournal), expectedJournal);
+
+    // goals: the target minutes and both category roles survive the import.
+    const goals = (await runAndRender(dayflow, 'dayflow_goals', { date: FIXTURE_DAY })).value as DayGoalPayload;
+    const ownedGoals = (await runAndRender(owned, 'dayflow_goals', { date: FIXTURE_DAY })).value as DayGoalPayload;
+    assert.deepEqual(ownedGoals, goals);
+    assert.equal(ownedGoals.found, true);
+    assert.equal(ownedGoals.focus_minutes, 240);
+    assert.equal(ownedGoals.distraction_limit_minutes, 60);
+    assert.deepEqual(ownedGoals.focus_categories, [
+      { name: 'Work', color_hex: '#6A7EFF' },
+      { name: 'Communication', color_hex: '#FFAE8C' },
+    ]);
+    assert.deepEqual(ownedGoals.distraction_categories, [{ name: 'Distraction', color_hex: '#FF6B6B' }]);
+
+    const nextGoals = (await runAndRender(owned, 'dayflow_goals', { date: FIXTURE_NEXT_DAY })).value as DayGoalPayload;
+    const dayflowNextGoals = (await runAndRender(dayflow, 'dayflow_goals', { date: FIXTURE_NEXT_DAY })).value as DayGoalPayload;
+    assert.deepEqual(nextGoals, dayflowNextGoals);
+    assert.equal(nextGoals.found, true);
+    assert.equal(nextGoals.focus_minutes, 180);
+    assert.equal(nextGoals.distraction_limit_minutes, 90);
+    assert.equal(nextGoals.is_skipped, true);
+    assert.deepEqual(nextGoals.focus_categories.map((category) => category.name), ['Work']);
+
+    // observations: both map the same rows onto the same card with the same text.
+    const observations = (await runAndRender(dayflow, 'dayflow_observations', { record_id: 1 })).value as ObservationsPayload;
+    const ownedObservations = (await runAndRender(owned, 'dayflow_observations', { record_id: 1 })).value as ObservationsPayload;
+    assert.deepEqual(ownedObservations, observations);
+    for (const payload of [observations, ownedObservations]) {
+      assert.equal(payload.record_id, 1);
+      assert.deepEqual(payload.observations.map((item) => item.text), [
+        'The user writes src/journal.ts in Cursor.',
+        'The user runs the test suite in a terminal.',
+      ]);
+      assert.deepEqual(payload.observations.map((item) => item.duration_minutes), [7, 17]);
+      assert.deepEqual(payload.observations.map((item) => item.model), ['deepseek-flash', 'deepseek-flash']);
+    }
+
+    // ratings: both resolve the rated card, including the rating that carries no
+    // card link and is resolved by time overlap.
+    const ratings = (await runAndRender(dayflow, 'dayflow_review_ratings', { date: FIXTURE_DAY })).value as RatingsPayload;
+    const ownedRatings = (await runAndRender(owned, 'dayflow_review_ratings', { date: FIXTURE_DAY })).value as RatingsPayload;
+    assert.deepEqual(ownedRatings, ratings);
+    const expectedRatings = [
+      { rating: 'focused', record_id: 1, title: 'Writing the DSH plugin' },
+      { rating: 'distracted', record_id: 4, title: 'YouTube break' },
+      { rating: 'neutral', record_id: 5, title: 'No screen activity' },
+    ];
+    for (const payload of [ratings, ownedRatings]) {
+      assert.equal(payload.date, FIXTURE_DAY);
+      assert.deepEqual(
+        payload.ratings.map(({ rating, record_id, title }) => ({ rating, record_id, title })),
+        expectedRatings,
+      );
+    }
+  } finally {
+    rmSync(seeded.directory, { recursive: true, force: true });
+  }
+});
+
+test('the owned import maps the Dayflow goals and journal prose onto its columns', () => {
+  const seeded = seedOwnedJournal();
+  try {
+    const db = openDatabase(seeded.journalPath);
+    try {
+      // The importer used to look only for focus_minutes/focusMinutes, so the
+      // app's real focus_target_minutes column landed as NULL.
+      const goals = db
+        .prepare('SELECT day, focus_minutes, distraction_limit_minutes FROM goals ORDER BY day')
+        .all()
+        .map((row) => ({ ...row }));
+      assert.deepEqual(goals, [
+        { day: FIXTURE_DAY, focus_minutes: 240, distraction_limit_minutes: 60 },
+        { day: FIXTURE_NEXT_DAY, focus_minutes: 180, distraction_limit_minutes: 90 },
+      ]);
+
+      const categories = db
+        .prepare(
+          `SELECT g.day AS day, c.category_name AS name, c.role AS role
+             FROM goal_categories c JOIN goals g ON g.id = c.goal_id
+            ORDER BY c.id`,
+        )
+        .all()
+        .map((row) => ({ day: row.day as string, name: row.name as string, role: row.role as string }));
+      const firstDayCategories = categories.filter((row) => row.day === FIXTURE_DAY);
+      assert.deepEqual(
+        firstDayCategories.map(({ name, role }) => ({ name, role })),
+        [
+          { name: 'Work', role: 'focus' },
+          { name: 'Communication', role: 'focus' },
+          { name: 'Distraction', role: 'distraction' },
+        ],
+      );
+      assert.equal(firstDayCategories.filter((row) => row.role === 'focus').length, 2);
+      assert.equal(firstDayCategories.filter((row) => row.role === 'distraction').length, 1);
+
+      // The prose the owned schema does not model survives in the payload the
+      // owned reader parses.
+      const entry = db.prepare('SELECT status, payload_json FROM journal_entries WHERE day = ?').get(FIXTURE_DAY) as {
+        status: string;
+        payload_json: string;
+      };
+      assert.equal(entry.status, 'complete');
+      const payload = JSON.parse(entry.payload_json) as Record<string, unknown>;
+      assert.deepEqual(
+        {
+          intentions: payload.intentions,
+          notes: payload.notes,
+          goals: payload.goals,
+          reflections: payload.reflections,
+          summary: payload.summary,
+        },
+        {
+          intentions: 'Ship the journal importer.',
+          notes: 'Reviewed the roadmap before coding.',
+          goals: 'Finish Phase 2.',
+          reflections: 'The source fixture was the slow part.',
+          summary: 'A focused build day.',
+        },
+      );
+    } finally {
+      db.close();
+    }
+  } finally {
+    rmSync(seeded.directory, { recursive: true, force: true });
+  }
+});
+
+test('the owned Phase 3 tools report missing data and honor soft deletes', async () => {
+  const seeded = seedOwnedJournal();
+  try {
+    const owned = toolMap(readTools(seeded.ownedRuntime));
+    await assert.rejects(
+      () => runAndRender(owned, 'dayflow_observations', { record_id: 9999 }),
+      (error: unknown) => error instanceof DayflowError && error.code === 'not_found',
+    );
+
+    const emptyJournal = (await runAndRender(owned, 'dayflow_journal', { date: '2026-01-02' })).value as JournalEntryPayload;
+    assert.equal(emptyJournal.found, false);
+    assert.equal(emptyJournal.date, '2026-01-02');
+    const emptyGoals = (await runAndRender(owned, 'dayflow_goals', { date: '2026-01-02' })).value as DayGoalPayload;
+    assert.equal(emptyGoals.found, false);
+    assert.deepEqual(emptyGoals.focus_categories, []);
+    assert.deepEqual(emptyGoals.distraction_categories, []);
+    const emptyRatings = (await runAndRender(owned, 'dayflow_review_ratings', { date: '2026-01-02' })).value as RatingsPayload;
+    assert.deepEqual(emptyRatings.ratings, []);
+
+    // A soft-deleted review disappears from the owned answer; the Dayflow
+    // source still carries it, so the two backends deliberately differ.
+    const before = (await runAndRender(owned, 'dayflow_review_ratings', { date: FIXTURE_DAY })).value as RatingsPayload;
+    assert.equal(before.ratings.length, 3);
+    const writer = new DatabaseSync(seeded.journalPath);
+    writer.exec("UPDATE reviews SET is_deleted = 1 WHERE rating = 'neutral'");
+    writer.close();
+    const after = (await runAndRender(owned, 'dayflow_review_ratings', { date: FIXTURE_DAY })).value as RatingsPayload;
+    assert.deepEqual(after.ratings.map((rating) => rating.rating), ['focused', 'distracted']);
+    const sourceRatings = (await runAndRender(toolMap(readTools(seeded.dayflowRuntime)), 'dayflow_review_ratings', {
+      date: FIXTURE_DAY,
+    })).value as RatingsPayload;
+    assert.equal(sourceRatings.ratings.length, 3);
+  } finally {
+    rmSync(seeded.directory, { recursive: true, force: true });
+  }
 });
