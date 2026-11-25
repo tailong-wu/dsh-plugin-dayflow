@@ -20,7 +20,7 @@ import type { ResolvedConfig } from './config.js';
 import { defaultJournalPath } from './paths.js';
 
 /** Current owned-store schema version. Migrations are forward-only. */
-export const JOURNAL_SCHEMA_VERSION = 2;
+export const JOURNAL_SCHEMA_VERSION = 3;
 /** Default source id used by an import from a Dayflow database. */
 export const DAYFLOW_SOURCE_ID = 'dayflow';
 
@@ -277,6 +277,39 @@ const MIGRATION_1 = `
     UNIQUE (source_id, source_key)
   );
   CREATE INDEX IF NOT EXISTS standup_day_idx ON daily_standup_entries (standup_day);
+`;
+
+/**
+ * Migration 3 adds the review queue: proposals the agent raises (distillations,
+ * loops, improvements, task proposals) and the user's decision on each.
+ *
+ * `suppression` records how a rejection was meant: `soft` means "not now, but
+ * propose again if the evidence is materially new", `hard` means "never propose
+ * this again" until the user clears it. `fingerprint` is the normalized
+ * kind + title hash used to recognize the same idea across proposals.
+ */
+const MIGRATION_3 = `
+  CREATE TABLE IF NOT EXISTS review_items (
+    id INTEGER PRIMARY KEY,
+    fingerprint TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('distillation','loop','improvement','task_proposal')),
+    status TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed','kept','discarded','accepted','rejected')),
+    title TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    confidence REAL NOT NULL DEFAULT 0,
+    source_day TEXT,
+    source_activity_ids_json TEXT,
+    evidence TEXT,
+    loop_occurrences INTEGER,
+    loop_span_days INTEGER,
+    loop_trigger TEXT,
+    suppression TEXT NOT NULL DEFAULT 'none' CHECK (suppression IN ('none','soft','hard')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    decided_at TEXT,
+    decision_note TEXT
+  );
+  CREATE INDEX IF NOT EXISTS review_items_status_idx ON review_items (status, kind);
+  CREATE INDEX IF NOT EXISTS review_items_fingerprint_idx ON review_items (fingerprint);
 `;
 
 /**
@@ -774,6 +807,11 @@ export function migrateJournal(db: DatabaseSync): number {
       db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(2);
       version = 2;
     }
+    if (version < 3) {
+      db.exec(MIGRATION_3);
+      db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(3);
+      version = 3;
+    }
     db.exec('COMMIT');
     return version;
   } catch (cause) {
@@ -809,7 +847,11 @@ function journalReady(path: string): boolean {
     const view = db
       .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'view' AND name = 'timeline_cards'")
       .get() as Row | undefined;
-    return view?.present === 1;
+    if (view?.present !== 1) return false;
+    const reviewItems = db
+      .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'review_items'")
+      .get() as Row | undefined;
+    return reviewItems?.present === 1;
   } finally {
     db.close();
   }
@@ -840,6 +882,20 @@ export function withJournal<T>(pathOrRead: string | ((db: DatabaseSync) => T), m
 
 /** Compatibility name for backend code selecting the owned journal. */
 export const withJournalDatabase = withJournal;
+
+/**
+ * Run a callback with an opened, migrated, writable journal and close it
+ * afterwards. Write tools use this; reads keep using {@link withJournal}, which
+ * leaves a stable journal read-only.
+ */
+export function withJournalWrite<T>(path: string, write: (db: DatabaseSync) => T): T {
+  const db = openJournal(path);
+  try {
+    return write(db);
+  } finally {
+    db.close();
+  }
+}
 
 /**
  * Select the active backend while preserving the existing query callback shape.

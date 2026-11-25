@@ -24,6 +24,7 @@ import type {
   WeeklyPayload,
 } from './queries.js';
 import type { ImportReport } from './journal.js';
+import type { ReviewItemPayload, ReviewToolPayload } from './review.js';
 
 function categoryPercent(share: number): string {
   return `${Math.round(share * 100)}%`;
@@ -247,6 +248,49 @@ export function renderRatings(payload: ReviewRatingsPayload): string {
     return line;
   });
   return `${header}\n\n${rows.join('\n')}`;
+}
+
+/**
+ * Render one review-queue row: `- #3 · distillation · Title · confidence 0.80 · 2026-11-25`.
+ * @param item - the review item payload.
+ * @returns one line.
+ */
+function renderReviewItem(item: ReviewItemPayload): string {
+  const facts = [`#${item.id}`, item.kind, item.title === '' ? '(untitled item)' : item.title];
+  facts.push(`confidence ${item.confidence.toFixed(2)}`);
+  if (item.source_day !== undefined && item.source_day !== '') facts.push(item.source_day);
+  return `- ${facts.join(' · ')}`;
+}
+
+/**
+ * Render the agent's review queue and the outcome of a proposal or decision.
+ * @param payload - the `journal_review` value.
+ * @returns model-facing text.
+ */
+export function renderReview(payload: ReviewToolPayload): string {
+  if (payload.action === 'list') {
+    const items = payload.items ?? [];
+    if (items.length === 0) return payload.hint;
+    const status = items[0]?.status ?? 'proposed';
+    const header = `Review queue · ${items.length} ${status} ${plural(items.length, 'item')}`;
+    return `${header}\n\n${items.map((item) => renderReviewItem(item)).join('\n')}`;
+  }
+
+  if (payload.action === 'propose') {
+    if (payload.dropped === true) return `Proposal dropped: ${payload.reason ?? 'no reason given'}`;
+    if (payload.item === undefined) return payload.hint;
+    return `Proposed #${payload.item.id} · ${payload.item.kind} · ${payload.item.title}`;
+  }
+
+  const item = payload.item;
+  if (item === undefined) return payload.hint;
+  if (payload.action === 'decide') {
+    const line = `#${item.id} · ${item.status} · ${item.title}`;
+    return item.decision_note !== undefined && item.decision_note !== ''
+      ? `${line}\nDecision note: ${item.decision_note}`
+      : line;
+  }
+  return `#${item.id} · suppression cleared · ${item.title}`;
 }
 
 /**
