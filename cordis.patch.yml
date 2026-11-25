@@ -30,6 +30,9 @@
         panel: true
         # Fetch site favicons for the panel cards; false makes no outbound request.
         icons: true
+        # Inject a budgeted snapshot of active long tasks and recent memory claims
+        # as system context. Empty data injects nothing.
+        memoryContext: true
         # Register the Dayflow installer tool. Off by default: it changes this Mac.
         allowInstall: false
         # Maximum matches one dayflow_search call returns (1-200).

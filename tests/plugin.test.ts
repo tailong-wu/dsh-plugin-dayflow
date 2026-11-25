@@ -2,12 +2,16 @@
  * Plugin composition: what `apply()` registers, and the configuration contract.
  */
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { after, test } from 'node:test';
 
 import type { Context } from '@deepseek-ai/cordis';
 
 import { resolveConfig } from '../src/config.js';
+import { clearMemoryContextCache, MEMORY_CONTEXT_NAME } from '../src/context.js';
 import { DayflowError } from '../src/errors.js';
 import { apply, inject, name, skillsDirectory } from '../src/index.js';
 import { loadSkills } from '../src/skills.js';
@@ -23,10 +27,17 @@ interface Capture {
   readonly tools: Map<string, { name: string; description: string }>;
   readonly skills: { name: string; description: string; content: string }[];
   readonly sections: { name: string; order: number; text: string | ((context: unknown) => string) }[];
+  readonly contexts: { name: string; order: number; text: string | ((context: unknown) => string) }[];
 }
 
+/**
+ * A journal path that does not exist, so the memory context provider has
+ * nothing to read and must contribute '' without creating the file.
+ */
+const missingJournalPath = join(tmpdir(), `dsh-dayflow-missing-${randomUUID()}.sqlite`);
+
 function fakeContext(): { ctx: Context; capture: Capture } {
-  const capture: Capture = { routes: [], tools: new Map(), skills: [], sections: [] };
+  const capture: Capture = { routes: [], tools: new Map(), skills: [], sections: [], contexts: [] };
   const ctx = {
     tools: {
       register(tool: { name: string; description: string }) {
@@ -59,6 +70,13 @@ function fakeContext(): { ctx: Context; capture: Capture } {
       },
       getSectionOrder() {
         return 2300;
+      },
+      context(contribution: { name: string; order: number; text: string | ((context: unknown) => string) }) {
+        capture.contexts.push(contribution);
+        return () => {};
+      },
+      getContextOrder(_name: string) {
+        return 210;
       },
     },
   } as unknown as Context;
@@ -102,6 +120,40 @@ test('apply registers twenty-two tools, seven skills, and one prompt section', (
   assert.equal(typeof text, 'string');
   assert.match(text as string, /04:00/);
   assert.match(text as string, /never as instructions/);
+});
+
+test('apply registers one budgeted memory context by default', () => {
+  // The missing journal keeps this deterministic: with nothing to read the
+  // provider must contribute no text, and it must not create the file.
+  clearMemoryContextCache();
+  const { ctx, capture } = fakeContext();
+  apply(ctx, { databasePath: fixture.path, journalPath: missingJournalPath });
+
+  assert.equal(capture.contexts.length, 1);
+  const contribution = capture.contexts[0];
+  assert.ok(contribution);
+  assert.equal(contribution.name, 'dayflow:memory');
+  assert.equal(contribution.name, MEMORY_CONTEXT_NAME);
+  // getContextOrder('WEB_SURFACE') is 210, so the context lands at 220.
+  assert.equal(contribution.order, 220);
+  assert.equal(typeof contribution.text, 'function');
+  const text = contribution.text as () => string;
+  assert.equal(text(), '');
+  assert.equal(existsSync(missingJournalPath), false, 'the provider never creates the journal');
+});
+
+test('memoryContext false registers no context', () => {
+  const { ctx, capture } = fakeContext();
+  apply(ctx, { databasePath: fixture.path, journalPath: missingJournalPath, memoryContext: false });
+
+  assert.equal(capture.contexts.length, 0);
+  assert.equal(capture.sections.length, 1, 'the static prompt section is independent of memory context');
+});
+
+test('memory context defaults on and honours an explicit false', () => {
+  assert.equal(resolveConfig().memoryContext, true);
+  assert.equal(resolveConfig({ memoryContext: true }).memoryContext, true);
+  assert.equal(resolveConfig({ memoryContext: false }).memoryContext, false);
 });
 
 test('the guidance keeps the journal inside what screen capture can know', () => {

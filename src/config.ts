@@ -37,6 +37,12 @@ export interface DayflowConfig {
   /** Fetch and show site favicons on the panel's activity cards. */
   icons?: boolean;
   /**
+   * Inject the active long tasks and the most recent non-superseded memory
+   * claims as a budgeted system context. On by default; empty data injects
+   * nothing.
+   */
+  memoryContext?: boolean;
+  /**
    * Register the tool that installs Dayflow itself. Off by default: it changes
    * the user's machine, so it must be an explicit deployment choice.
    */
@@ -56,6 +62,8 @@ export interface ResolvedConfig {
   readonly skills: boolean;
   readonly panel: boolean;
   readonly icons: boolean;
+  /** Whether the budgeted long-task/memory-claim context is injected. */
+  readonly memoryContext: boolean;
   readonly allowInstall: boolean;
   readonly iconDirectory: string;
   readonly searchLimit: number;
@@ -102,6 +110,12 @@ export const Config = z.object({
     .description(
       'Show each site icon on the panel cards. Turning this off makes no outbound request; it also refuses already cached icons.',
     ),
+  memoryContext: z
+    .boolean()
+    .default(true)
+    .description(
+      'Inject a budgeted snapshot of active long tasks and recent memory claims as system context. Empty data injects nothing.',
+    ),
   searchLimit: z.number().default(50).description('Maximum number of search matches a single call returns (1-200).'),
 });
 
@@ -145,6 +159,7 @@ export function resolveConfig(config: DayflowConfig = {}): ResolvedConfig {
     skills: config.skills ?? true,
     panel: config.panel ?? true,
     icons: config.icons ?? true,
+    memoryContext: config.memoryContext ?? true,
     allowInstall: config.allowInstall ?? false,
     iconDirectory: iconDirectory(dshHome()),
     searchLimit,

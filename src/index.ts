@@ -7,6 +7,10 @@
  * memory tool, and six gated edits), plus Dayflow's seven skills. The read
  * backend can be the app's SQLite database or the plugin-owned journal.
  *
+ * It also injects one budgeted system context: the active long tasks and the
+ * most recent non-superseded memory claims, so the model starts each session
+ * knowing what is in flight. Empty data injects nothing.
+ *
  * The timeline covers screen activity only. It has no location, calendar, or
  * presence data, so a quiet stretch means nothing was captured rather than
  * nothing happened; the prompt and the skills tell the model to say so.
@@ -21,6 +25,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { Config, resolveConfig } from './config.js';
 import type { DayflowConfig } from './config.js';
 import { readPreferences } from './categories.js';
+import { registerMemoryContext } from './context.js';
 import { registerPanelRoutes } from './panel.js';
 import { registerPrompt } from './prompt.js';
 import { detectDayflow } from './setup.js';
@@ -93,4 +98,7 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
     registerPanelRoutes(ctx, runtime);
   }
   registerPrompt(ctx);
+  // Budgeted, read-only context: active long tasks and recent memory claims.
+  // A profile can switch it off; empty data contributes no context at all.
+  registerMemoryContext(ctx, runtime);
 }
