@@ -203,10 +203,26 @@ export function DayflowPanel({ loadDay, loadMonth, loadWeek, loadInsights, t }: 
     if (selected !== undefined && next === 'week') setWeekAnchor(selected);
   };
 
+  const toolbar = (
+    <div className="dfp-view-switch" role="group" aria-label={t('viewLabel')}>
+      <SegmentedControl<PanelView>
+        id="dayflow-view"
+        label={t('viewLabel')}
+        value={view}
+        options={[
+          { value: 'month', label: t('viewMonth') },
+          { value: 'week', label: t('viewWeek') },
+          { value: 'insights', label: t('insightsTabTitle') },
+        ]}
+        onChange={switchView}
+      />
+    </div>
+  );
+
   if (view === 'insights') {
     return (
       <div className="dfp-root">
-        <InsightsPanel loadInsights={loadInsights} t={t} />
+        <InsightsPanel loadInsights={loadInsights} t={t} toolbar={toolbar} />
       </div>
     );
   }
@@ -229,21 +245,6 @@ export function DayflowPanel({ loadDay, loadMonth, loadWeek, loadInsights, t }: 
     );
   }
 
-  const toolbar = (
-    <div className="dfp-view-switch" role="group" aria-label={t('viewLabel')}>
-      <SegmentedControl<PanelView>
-        id="dayflow-view"
-        label={t('viewLabel')}
-        value={view}
-        options={[
-          { value: 'month', label: t('viewMonth') },
-          { value: 'week', label: t('viewWeek') },
-          { value: 'insights', label: t('insightsTabTitle') },
-        ]}
-        onChange={switchView}
-      />
-    </div>
-  );
   // The control's tabs name `<id>-<value>-panel`; give the shown view that id.
   const panelProps = { id: `dayflow-view-${view}-panel`, role: 'tabpanel' as const };
 

@@ -36,6 +36,8 @@ export interface InsightsPanelProps {
   loadInsights: (signal?: AbortSignal) => Promise<PanelInsights>;
   /** Namespace-bound translation. */
   t: Translate;
+  /** The panel's month/week/insights switch, so the other views stay reachable. */
+  toolbar?: ReactNode;
 }
 
 function rawMessage(cause: unknown): string {
@@ -99,7 +101,7 @@ function Section(props: { title: string; count: number; empty: string; children:
  * @param props - the injected reader and translator.
  * @returns the four journal sections, or one of the page states.
  */
-export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNode {
+export function InsightsPanel({ loadInsights, t, toolbar }: InsightsPanelProps): ReactNode {
   const [data, setData] = useState<PanelInsights | undefined>(undefined);
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState('');
@@ -138,6 +140,8 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
               <span className="dfp-insights-sub">{t('activeTasksCount', { count: data.tasks.length })}</span>
             )}
           </div>
+          <span className="dfp-spacer" />
+          {toolbar}
           <button
             type="button"
             className="dfp-icon-button"
