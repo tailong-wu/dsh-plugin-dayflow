@@ -119,7 +119,7 @@ function createV2Journal(path: string): void {
   }
 }
 
-test('a new journal migrates to schema v3 with the review queue tables', () => {
+test('a new journal migrates to the current schema with the review queue tables', () => {
   const path = journalFile('fresh');
   const db = openJournal(path);
   const version = db.prepare('SELECT version FROM schema_version').get() as { version: number } | undefined;
@@ -131,14 +131,14 @@ test('a new journal migrates to schema v3 with the review queue tables', () => {
     .all() as { name: string }[];
   db.close();
 
-  assert.equal(JOURNAL_SCHEMA_VERSION, 3);
-  assert.equal(version?.version, 3);
+  assert.equal(version?.version, JOURNAL_SCHEMA_VERSION);
+  assert.ok(JOURNAL_SCHEMA_VERSION >= 3, 'the review queue needs at least schema v3');
   assert.equal(table?.name, 'review_items');
   assert.deepEqual(indexes.map((row) => row.name), ['review_items_fingerprint_idx', 'review_items_status_idx']);
   assert.deepEqual(withJournal(path, (read) => listReviewItems(read)), []);
 });
 
-test('a v2 journal migrates to v3 and keeps its rows', () => {
+test('a v2 journal migrates to the current schema and keeps its rows', () => {
   const path = journalFile('v2-read');
   createV2Journal(path);
   assert.equal(schemaVersion(path), 2);
@@ -152,7 +152,7 @@ test('a v2 journal migrates to v3 and keeps its rows', () => {
   try {
     assert.equal(
       (migrated.prepare('SELECT version FROM schema_version').get() as { version: number }).version,
-      3,
+      JOURNAL_SCHEMA_VERSION,
     );
     assert.equal((migrated.prepare('SELECT count(*) AS count FROM activities').get() as { count: number }).count, 1);
     assert.equal(
@@ -181,7 +181,7 @@ test('the read path and the write path both upgrade a v2 journal', () => {
     return row.title;
   });
   assert.equal(legacyTitle, 'Legacy activity');
-  assert.equal(schemaVersion(readPath), 3);
+  assert.equal(schemaVersion(readPath), JOURNAL_SCHEMA_VERSION);
 
   const writePath = journalFile('v2-write');
   createV2Journal(writePath);
@@ -189,7 +189,7 @@ test('the read path and the write path both upgrade a v2 journal', () => {
     proposeReviewItem(db, { kind: 'distillation', title: 'Lands after the upgrade', confidence: 0.8 }),
   );
   assert.equal(storedProposal(result).status, 'proposed');
-  assert.equal(schemaVersion(writePath), 3);
+  assert.equal(schemaVersion(writePath), JOURNAL_SCHEMA_VERSION);
   assert.equal(reviewItemCount(writePath), 1);
   assert.equal(queryRow(writePath, 'SELECT title FROM activities WHERE source_key = ?', 'legacy-card')?.title, 'Legacy activity');
 });
@@ -222,7 +222,7 @@ test('withJournalWrite migrates, writes, and propagates callback errors', () => 
 
   // The row survives the closed write connection and is visible to the read path.
   assert.deepEqual(withJournal(path, (db) => listReviewItems(db)), [item]);
-  assert.equal(schemaVersion(path), 3);
+  assert.equal(schemaVersion(path), JOURNAL_SCHEMA_VERSION);
 
   const failure = new Error('write callback failed');
   assert.throws(

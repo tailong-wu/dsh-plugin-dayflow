@@ -25,6 +25,7 @@ import type {
 } from './queries.js';
 import type { ImportReport } from './journal.js';
 import type { ReviewItemPayload, ReviewToolPayload } from './review.js';
+import type { TaskToolPayload } from './tools/task.js';
 
 function categoryPercent(share: number): string {
   return `${Math.round(share * 100)}%`;
@@ -285,12 +286,98 @@ export function renderReview(payload: ReviewToolPayload): string {
   const item = payload.item;
   if (item === undefined) return payload.hint;
   if (payload.action === 'decide') {
-    const line = `#${item.id} · ${item.status} · ${item.title}`;
+    let line = `#${item.id} · ${item.status} · ${item.title}`;
+    if (payload.task_id !== undefined) {
+      line += ` → created task #${payload.task_id}${payload.task_title === undefined ? '' : ` "${payload.task_title}"`}`;
+    }
     return item.decision_note !== undefined && item.decision_note !== ''
       ? `${line}\nDecision note: ${item.decision_note}`
       : line;
   }
   return `#${item.id} · suppression cleared · ${item.title}`;
+}
+
+/**
+ * Render one task's number, title, and progress facts, e.g.
+ * `active · user · total 2h 30m · 3 days`.
+ * @param task - the long-task payload.
+ * @returns the facts line.
+ */
+function taskFacts(task: NonNullable<TaskToolPayload['task']>): string {
+  const facts = [
+    task.status,
+    task.origin,
+    `total ${formatDuration(task.total_minutes)}`,
+    `${task.session_days} ${plural(task.session_days, 'day')}`,
+  ];
+  if (task.last_session_day !== undefined && task.last_session_day !== '') {
+    facts.push(`last ${task.last_session_day}`);
+  }
+  if (task.target_date !== undefined && task.target_date !== '') facts.push(`target ${task.target_date}`);
+  if (task.stalled) facts.push('STALLED');
+  return facts.join(' · ');
+}
+
+/**
+ * Render one task in full, or list tasks and suggestion matches.
+ *
+ * A single task keeps its progress on one line and, when present, its sessions
+ * one per day; the list and the suggestion pass stay one line per row so a
+ * review can scan them.
+ * @param payload - the `journal_task` value.
+ * @returns model-facing text.
+ */
+export function renderTask(payload: TaskToolPayload): string {
+  if (payload.action === 'list') {
+    const tasks = payload.tasks ?? [];
+    if (tasks.length === 0) return payload.hint;
+    const statuses = new Set(tasks.map((task) => task.status));
+    const label = statuses.size === 1 ? [...statuses][0] : 'matching';
+    const rows = tasks.map((task) => {
+      const facts = [
+        `#${task.id}`,
+        task.title === '' ? '(untitled task)' : task.title,
+        task.status,
+        `total ${formatDuration(task.total_minutes)}`,
+        `${task.session_days} ${plural(task.session_days, 'day')}`,
+      ];
+      if (task.stalled) facts.push('stalled');
+      return `- ${facts.join(' · ')}`;
+    });
+    return `Long tasks · ${tasks.length} ${label}\n\n${rows.join('\n')}`;
+  }
+
+  if (payload.action === 'suggest') {
+    const candidates = payload.candidates ?? [];
+    if (candidates.length === 0) return payload.hint;
+    const header = `Matches for ${payload.day ?? 'today'} · ${candidates.length} ${plural(candidates.length, 'candidate')}`;
+    const rows = candidates.map((candidate) => {
+      const facts = [`#${candidate.task_id}`, candidate.title === '' ? '(untitled task)' : candidate.title];
+      facts.push(`score ${candidate.score}`);
+      if (candidate.activity_ids.length > 0) {
+        facts.push(`activity ${candidate.activity_ids.map((id: number) => `#${id}`).join(',')}`);
+      }
+      if (candidate.reasons.length > 0) facts.push(candidate.reasons.join(', '));
+      return `- ${facts.join(' · ')}`;
+    });
+    return `${header}\n\n${rows.join('\n')}`;
+  }
+
+  const task = payload.task;
+  if (task === undefined) return payload.hint;
+  const lines = [`Task #${task.id} · ${task.title === '' ? '(untitled task)' : task.title}`, taskFacts(task)];
+  if (task.sessions !== undefined && task.sessions.length > 0) {
+    lines.push('sessions:');
+    for (const session of task.sessions) {
+      const facts = [session.day, formatDuration(session.minutes)];
+      if (session.activity_ids !== undefined && session.activity_ids.length > 0) {
+        facts.push(`${session.activity_ids.length} ${plural(session.activity_ids.length, 'activity', 'activities')}`);
+      }
+      if (session.note !== undefined && session.note !== '') facts.push(session.note);
+      lines.push(`- ${facts.join(' · ')}`);
+    }
+  }
+  return lines.join('\n');
 }
 
 /**

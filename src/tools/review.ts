@@ -22,6 +22,8 @@ import type {
   ReviewToolPayload,
   ReviewTrigger,
 } from '../review.js';
+import { createTaskFromReviewItem } from '../tasks.js';
+import type { LongTaskPayload } from '../tasks.js';
 import type { ToolRuntime } from './shared.js';
 import { jsonValue } from './shared.js';
 
@@ -40,7 +42,9 @@ const PROPOSE_HINT = "The item waits for the user's decision; do not decide on t
 
 /** Guidance after a successful decide. */
 const DECIDE_HINT =
-  'Decision recorded. Discard and reject are soft by default: without forever: true the item can return with substantial new evidence.';
+  'Decision recorded. An accepted task_proposal becomes a long task automatically; track its sessions with ' +
+  'journal_task. Discard and reject are soft by default: without forever: true the item can return with ' +
+  'substantial new evidence.';
 
 /** Guidance after clearing a hard suppression. */
 const UNSUPPRESS_HINT = 'Hard suppression cleared; the item can be proposed again if it still has evidence.';
@@ -217,13 +221,29 @@ export function reviewTools(runtime: ToolRuntime): ToolDefinition[] {
                 'A decision belongs to the user: get their explicit agreement first, then pass confirm: true. Nothing was changed.',
               );
             }
-            const item = withJournalWrite(runtime.config.journalPath, (db) =>
-              decideReviewItem(db, id, decision as ReviewDecision, {
-                ...(args.forever === undefined ? {} : { forever: args.forever }),
-                ...(args.note === undefined ? {} : { note: args.note }),
-              }),
+            const decided = withJournalWrite(
+              runtime.config.journalPath,
+              (db): { item: ReviewItemPayload; task?: LongTaskPayload } => {
+                const item = decideReviewItem(db, id, decision as ReviewDecision, {
+                  ...(args.forever === undefined ? {} : { forever: args.forever }),
+                  ...(args.note === undefined ? {} : { note: args.note }),
+                });
+                // Accepting a task proposal creates the task in the same write
+                // connection, so the decision and the task cannot diverge.
+                if (item.kind === 'task_proposal' && item.status === 'accepted') {
+                  return { item, task: createTaskFromReviewItem(db, item) };
+                }
+                return { item };
+              },
             );
-            const payload: ReviewToolPayload = { action: 'decide', item, hint: DECIDE_HINT };
+            const payload: ReviewToolPayload = {
+              action: 'decide',
+              item: decided.item,
+              ...(decided.task === undefined
+                ? {}
+                : { task_id: decided.task.id, task_title: decided.task.title }),
+              hint: DECIDE_HINT,
+            };
             return jsonValue(payload);
           }
 

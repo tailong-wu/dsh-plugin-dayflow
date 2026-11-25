@@ -2,10 +2,10 @@
  * dsh-plugin-dayflow: the Dayflow work journal as DSH tools and skills.
  *
  * The Dayflow Mac app records the user's screen and turns it into a timeline of
- * activities. This plugin exposes that timeline natively: twenty tools (twelve
- * reads, one journal importer, one review queue, and six gated edits), plus
- * Dayflow's five skills. The read backend can be the app's SQLite database or
- * the plugin-owned journal.
+ * activities. This plugin exposes that timeline natively: twenty-one tools
+ * (twelve reads, one journal importer, one review queue, one long-task tool,
+ * and six gated edits), plus Dayflow's six skills. The read backend can be the
+ * app's SQLite database or the plugin-owned journal.
  *
  * The timeline covers screen activity only. It has no location, calendar, or
  * presence data, so a quiet stretch means nothing was captured rather than
@@ -30,6 +30,7 @@ import { readTools } from './tools/read.js';
 import { journalImportTools } from './tools/import.js';
 import { reviewTools } from './tools/review.js';
 import { setupTools } from './tools/setup.js';
+import { taskTools } from './tools/task.js';
 import { writeTools } from './tools/write.js';
 
 /** Cordis plugin name, used in loader diagnostics and log lines. */
@@ -73,6 +74,7 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
   for (const tool of readTools(runtime)) ctx.tools.register(tool);
   for (const tool of journalImportTools(runtime)) ctx.tools.register(tool);
   for (const tool of reviewTools(runtime)) ctx.tools.register(tool);
+  for (const tool of taskTools(runtime)) ctx.tools.register(tool);
   if (resolved.edits) {
     for (const tool of writeTools(runtime)) ctx.tools.register(tool);
   }

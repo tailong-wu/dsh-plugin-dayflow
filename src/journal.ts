@@ -20,7 +20,7 @@ import type { ResolvedConfig } from './config.js';
 import { defaultJournalPath } from './paths.js';
 
 /** Current owned-store schema version. Migrations are forward-only. */
-export const JOURNAL_SCHEMA_VERSION = 3;
+export const JOURNAL_SCHEMA_VERSION = 4;
 /** Default source id used by an import from a Dayflow database. */
 export const DAYFLOW_SOURCE_ID = 'dayflow';
 
@@ -310,6 +310,45 @@ const MIGRATION_3 = `
   );
   CREATE INDEX IF NOT EXISTS review_items_status_idx ON review_items (status, kind);
   CREATE INDEX IF NOT EXISTS review_items_fingerprint_idx ON review_items (fingerprint);
+`;
+
+/**
+ * Migration 4 adds long tasks: a task that spans days and the work sessions
+ * attached to it. A session is one day's evidence (`minutes`, the activities it
+ * came from, an optional note); the task's progress, last-touched day, and stall
+ * state are derived from those sessions rather than stored, so attaching the
+ * same day twice stays idempotent.
+ *
+ * `origin` records who raised the task: the user (`user`) or an agent proposal
+ * (`agent`, whose `accepted_at` marks when the user adopted it).
+ */
+const MIGRATION_4 = `
+  CREATE TABLE IF NOT EXISTS long_tasks (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','done','dropped')),
+    origin TEXT NOT NULL DEFAULT 'user' CHECK (origin IN ('user','agent')),
+    proposed_by TEXT,
+    review_item_id INTEGER,
+    target_date TEXT,
+    categories_json TEXT,
+    apps_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    accepted_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS long_tasks_status_idx ON long_tasks (status);
+  CREATE TABLE IF NOT EXISTS long_task_sessions (
+    id INTEGER PRIMARY KEY,
+    task_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    activity_ids_json TEXT,
+    minutes INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS long_task_sessions_task_idx ON long_task_sessions (task_id, day);
 `;
 
 /**
@@ -812,6 +851,11 @@ export function migrateJournal(db: DatabaseSync): number {
       db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(3);
       version = 3;
     }
+    if (version < 4) {
+      db.exec(MIGRATION_4);
+      db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(4);
+      version = 4;
+    }
     db.exec('COMMIT');
     return version;
   } catch (cause) {
@@ -848,10 +892,13 @@ function journalReady(path: string): boolean {
       .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'view' AND name = 'timeline_cards'")
       .get() as Row | undefined;
     if (view?.present !== 1) return false;
-    const reviewItems = db
-      .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'review_items'")
-      .get() as Row | undefined;
-    return reviewItems?.present === 1;
+    for (const table of ['review_items', 'long_tasks', 'long_task_sessions']) {
+      const present = db
+        .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(table) as Row | undefined;
+      if (present?.present !== 1) return false;
+    }
+    return true;
   } finally {
     db.close();
   }

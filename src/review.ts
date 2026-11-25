@@ -84,6 +84,10 @@ export interface ReviewToolPayload {
   action: 'list' | 'propose' | 'decide' | 'unsuppress';
   items?: ReviewItemPayload[];
   item?: ReviewItemPayload;
+  /** The long task created when an accepted task_proposal was decided. */
+  task_id?: number;
+  /** The title of that long task, for the decision summary. */
+  task_title?: string;
   dropped?: boolean;
   reason?: string;
   hint: string;
