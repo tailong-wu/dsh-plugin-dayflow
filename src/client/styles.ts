@@ -1059,6 +1059,159 @@ export const PANEL_CSS = `
   font-size: 12px;
   line-height: 17px;
 }
+
+/* ── Journal insights ────────────────────────────────────────────────── */
+
+.dfp-insights-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.dfp-insights-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.dfp-insights-title {
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dfp-insights-sub {
+  display: block;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-insights-section {
+  padding: 8px 0 6px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.dfp-insights-section:last-child {
+  border-bottom: 0;
+}
+
+.dfp-insights-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 12px;
+}
+
+.dfp-insights-section-title {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.dfp-insights-count {
+  margin-left: auto;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-insights-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.dfp-insights-row {
+  padding: 5px 12px;
+}
+
+.dfp-insights-row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dfp-insights-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 19px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dfp-insights-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-3);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 10px;
+  line-height: 16px;
+  text-transform: lowercase;
+}
+
+.dfp-insights-badge.is-warn {
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 14%, transparent);
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+.dfp-insights-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 5px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dfp-insights-kind {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dfp-insights-num,
+.dfp-insights-period,
+.dfp-insights-target {
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-insights-sep {
+  opacity: 0.7;
+}
+
+.dfp-insights-body {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dfp-insights-empty {
+  margin: 3px 0 0;
+  padding: 0 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 17px;
+}
 `;
 
 /**

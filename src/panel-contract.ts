@@ -98,6 +98,55 @@ export interface PanelWeek {
   days: PanelDay[];
 }
 
+/** One active long task, as the insights list shows it. */
+export interface PanelTaskSummary {
+  id: number;
+  title: string;
+  status: string;
+  origin: string;
+  total_minutes: number;
+  session_days: number;
+  last_session_day?: string;
+  target_date?: string;
+  stalled: boolean;
+}
+
+/** One still-open review item. */
+export interface PanelReviewItem {
+  id: number;
+  kind: string;
+  status: string;
+  title: string;
+  confidence: number;
+  source_day?: string;
+}
+
+/** One active memory claim. */
+export interface PanelClaimSummary {
+  id: number;
+  kind: string;
+  subject: string;
+  observed_on: string;
+  confidence: number;
+}
+
+/** One stored reflection. */
+export interface PanelReflectionSummary {
+  id: number;
+  kind: string;
+  period_key: string;
+  body: string;
+  updated_at: string;
+}
+
+/** Everything the Insights tab renders, in one response. */
+export interface PanelInsights {
+  tasks: PanelTaskSummary[];
+  review: PanelReviewItem[];
+  memory: PanelClaimSummary[];
+  reflections: PanelReflectionSummary[];
+}
+
 /** Whether the panel's entry points are exposed. */
 export interface PanelConfig {
   enabled: boolean;
@@ -122,6 +171,9 @@ export const PANEL_ICON_PATH = '/api/dayflow/icon';
 
 /** Exact Fetch route for the panel's enablement. */
 export const PANEL_CONFIG_PATH = '/api/dayflow/panel';
+
+/** Exact Fetch route for the journal insights (tasks, review, memory, reflections). */
+export const PANEL_INSIGHTS_PATH = '/api/dayflow/insights';
 
 const DAY_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MONTH_KEY_PATTERN = /^(\d{4})-(\d{2})$/;

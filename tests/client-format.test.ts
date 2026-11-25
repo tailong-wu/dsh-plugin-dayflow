@@ -248,3 +248,39 @@ test('the goal and review copy exists in both dictionaries', () => {
     assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
   }
 });
+
+test('the insights copy exists in both dictionaries', () => {
+  const keys = [
+    'insightsTitle',
+    'insightsTabTitle',
+    'insightsGuideTitle',
+    'insightsGuideDescription',
+    'insightsRefresh',
+    'insightsLoading',
+    'insightsError',
+    'insightsEmpty',
+    'tasksSection',
+    'reviewSection',
+    'memorySection',
+    'reflectionsSection',
+    'noTasks',
+    'noReviewItems',
+    'noMemoryClaims',
+    'noReflections',
+    'stalledLabel',
+    'targetLabel',
+    'confidenceLabel',
+    'observedLabel',
+    'activeTasksCount',
+  ];
+  for (const key of keys) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+  }
+  // The count label is the only insights key with a placeholder; both
+  // dictionaries must carry the same interpolation point.
+  assert.match(EN['activeTasksCount'] ?? '', /\{count\}/);
+  assert.match(ZH['activeTasksCount'] ?? '', /\{count\}/);
+  assert.equal(enT('activeTasksCount', { count: 3 }), '3 active');
+  assert.equal(zhT('activeTasksCount', { count: 3 }), '3 个进行中');
+});

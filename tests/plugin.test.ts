@@ -114,7 +114,14 @@ test('apply registers twenty-three tools, eight skills, and one prompt section',
     capture.skills.map((skill) => skill.name),
     ['dayflow', 'long-task', 'memory', 'onboarding', 'reflection', 'review-queue', 'standup', 'weekly-review'],
   );
-  assert.deepEqual([...capture.routes].sort(), ['/api/dayflow/day', '/api/dayflow/icon', '/api/dayflow/month', '/api/dayflow/panel', '/api/dayflow/week']);
+  assert.deepEqual([...capture.routes].sort(), [
+    '/api/dayflow/day',
+    '/api/dayflow/icon',
+    '/api/dayflow/insights',
+    '/api/dayflow/month',
+    '/api/dayflow/panel',
+    '/api/dayflow/week',
+  ]);
   assert.equal(capture.sections.length, 1);
   assert.equal(capture.sections[0]?.name, 'tool:dayflow');
   const text = capture.sections[0]?.text;

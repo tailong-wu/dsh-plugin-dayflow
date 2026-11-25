@@ -9,18 +9,25 @@
  * @module dsh-plugin-dayflow/panel
  */
 
+import { existsSync } from 'node:fs';
+
 import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-client-connection';
 
 import { readDatabase } from './tools/shared.js';
-import { journalCategories } from './journal.js';
+import { journalCategories, withJournal } from './journal.js';
 import { IconStore } from './icons.js';
+import { listMemoryClaims } from './memory.js';
+import { listReflections } from './reflections.js';
+import { listReviewItems } from './review.js';
+import { listLongTasks } from './tasks.js';
 import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekWindowContaining } from './day.js';
 import { DayflowError, isDayflowError } from './errors.js';
 import {
   PANEL_CONFIG_PATH,
   PANEL_DAY_PATH,
   PANEL_ICON_PATH,
+  PANEL_INSIGHTS_PATH,
   PANEL_MONTH_PATH,
   PANEL_WEEK_PATH,
   isMonthKey,
@@ -30,11 +37,16 @@ import {
 import type {
   PanelCard,
   PanelCategory,
+  PanelClaimSummary,
   PanelConfig,
   PanelDay,
   PanelError,
   PanelGoal,
+  PanelInsights,
   PanelMonth,
+  PanelReflectionSummary,
+  PanelReviewItem,
+  PanelTaskSummary,
   PanelWeek,
 } from './panel-contract.js';
 import {
@@ -313,6 +325,60 @@ export function buildPanelWeek(runtime: ToolRuntime, date?: string): PanelWeek {
 }
 
 /**
+ * Build the Insights payload from the owned journal.
+ *
+ * A missing journal is not an error: it is the shape of a fresh install, so the
+ * answer is four empty lists and the file is never created by a read.
+ * @param runtime - the plugin runtime.
+ * @returns the journal's tasks, review queue, memory claims, and reflections.
+ */
+export function buildPanelInsights(runtime: ToolRuntime): PanelInsights {
+  const empty: PanelInsights = { tasks: [], review: [], memory: [], reflections: [] };
+  if (!existsSync(runtime.config.journalPath)) return empty;
+  return withJournal(runtime.config.journalPath, (db) => ({
+    tasks: listLongTasks(db, { status: 'active', limit: 20 }).map((task) => {
+      const summary: PanelTaskSummary = {
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        origin: task.origin,
+        total_minutes: task.total_minutes,
+        session_days: task.session_days,
+        stalled: task.stalled,
+      };
+      if (task.last_session_day !== undefined) summary.last_session_day = task.last_session_day;
+      if (task.target_date !== undefined) summary.target_date = task.target_date;
+      return summary;
+    }),
+    review: listReviewItems(db, { status: 'proposed', limit: 20 }).map((item) => {
+      const summary: PanelReviewItem = {
+        id: item.id,
+        kind: item.kind,
+        status: item.status,
+        title: item.title,
+        confidence: item.confidence,
+      };
+      if (item.source_day !== undefined) summary.source_day = item.source_day;
+      return summary;
+    }),
+    memory: listMemoryClaims(db, { limit: 20 }).map((claim): PanelClaimSummary => ({
+      id: claim.id,
+      kind: claim.kind,
+      subject: claim.subject,
+      observed_on: claim.observed_on,
+      confidence: claim.confidence,
+    })),
+    reflections: listReflections(db, { limit: 10 }).map((reflection): PanelReflectionSummary => ({
+      id: reflection.id,
+      kind: reflection.kind,
+      period_key: reflection.period_key,
+      body: reflection.body,
+      updated_at: reflection.updated_at,
+    })),
+  }));
+}
+
+/**
  * Register the panel's routes when a web connection exists.
  * @param ctx - the plugin context.
  * @param runtime - the plugin runtime.
@@ -376,6 +442,18 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime): void {
         try {
           const date = new URL(request.url).searchParams.get('date') ?? undefined;
           return jsonResponse(buildPanelWeek(runtime, date));
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    connection.fetch.register({
+      path: PANEL_INSIGHTS_PATH,
+      methods: ['GET'],
+      requestBody: 'buffered',
+      fetch: async () => {
+        try {
+          return jsonResponse(buildPanelInsights(runtime));
         } catch (error) {
           return failureResponse(error);
         }

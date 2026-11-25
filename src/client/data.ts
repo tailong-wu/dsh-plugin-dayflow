@@ -6,8 +6,21 @@
  * @module dsh-plugin-dayflow/client/data
  */
 
-import { PANEL_CONFIG_PATH, PANEL_DAY_PATH, PANEL_MONTH_PATH, PANEL_WEEK_PATH } from '../panel-contract.js';
-import type { PanelConfig, PanelDay, PanelError, PanelMonth, PanelWeek } from '../panel-contract.js';
+import {
+  PANEL_CONFIG_PATH,
+  PANEL_DAY_PATH,
+  PANEL_INSIGHTS_PATH,
+  PANEL_MONTH_PATH,
+  PANEL_WEEK_PATH,
+} from '../panel-contract.js';
+import type {
+  PanelConfig,
+  PanelDay,
+  PanelError,
+  PanelInsights,
+  PanelMonth,
+  PanelWeek,
+} from '../panel-contract.js';
 
 async function readError(response: Response): Promise<string> {
   try {
@@ -83,4 +96,23 @@ export async function fetchWeek(date?: string, signal?: AbortSignal): Promise<Pa
   });
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as PanelWeek;
+}
+
+/**
+ * Read the journal's insights: long tasks, the review queue, dated memory
+ * claims, and saved reflections.
+ *
+ * The host answers all four lists in one response, so the Insights tab never
+ * flashes four independently-loading sections.
+ * @param signal - caller cancellation.
+ * @returns the insights payload.
+ */
+export async function fetchInsights(signal?: AbortSignal): Promise<PanelInsights> {
+  const response = await fetch(PANEL_INSIGHTS_PATH, {
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+    ...(signal === undefined ? {} : { signal }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as PanelInsights;
 }
