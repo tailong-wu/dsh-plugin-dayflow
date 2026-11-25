@@ -40,8 +40,8 @@ are still being analyzed.
 
 ## What you get
 
-- **21 tools**: 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, 1 `journal_task` tool, and 6 editing tools.
-- **6 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, and `long-task`.
+- **22 tools**: 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, 1 `journal_task` tool, 1 `journal_memory` tool, and 6 editing tools.
+- **7 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, and `memory`.
 - **An optional Web panel**: a month calendar of segmented rings, with hover
   cards and a per-day timeline, opened from a conversation-header button and
   drawn with the harness's own tokens.
@@ -319,6 +319,22 @@ seven days is reported as stalled.
 Agent-noticed work must go through the review queue first (`task_proposal`);
 only an accepted proposal, or an explicit user request, creates a task.
 
+### Memory
+
+Memory is the plugin's long-term, **dated** history of what it learned about the
+user: preferences, lessons, recurring loops, and corrections. Every claim carries
+the day it describes (`observed_on`), never just "the present", so an old claim
+can be read as what was true then. Changing something appends a new claim and
+marks the old one superseded; the old row is kept, not rewritten. Kept
+distillations and loops from the review queue become memory automatically.
+
+| Tool | Arguments | Effect |
+| --- | --- | --- |
+| `journal_memory` | `action`, `query?`, `kind?`, `id?`, … | `add` writes a dated claim; `search` and `list` read claims (superseded ones hidden by default); `supersede` appends the new version and marks the old one; `forget` deletes a claim and needs `confirm: true`. |
+
+Search uses SQLite FTS5 when the runtime has it and falls back to `LIKE` when it
+does not, so the tool works on the older Node builds the plugin still supports.
+
 ### Mapping from Dayflow's own MCP server
 
 If you used Dayflow's `dayflow mcp` server, the tools are the same operations
@@ -351,6 +367,7 @@ under a `dayflow_` prefix:
 | `weekly-review` | Reviewing a week and comparing it with the one before. |
 | `review-queue` | Turning a task outcome or weekly review into distillations, loops, improvements, and task proposals, and asking the user to decide. |
 | `long-task` | Tracking work that outlives a day: stalled tasks, attaching a day's sessions with evidence, and status changes. |
+| `memory` | Keeping a dated history of what the agent learned: search first, append new claims, supersede instead of rewriting, and forget only on request. |
 
 Skills are registered at runtime from `skills/`, so installing the plugin is
 enough; no skills root needs configuring.
@@ -415,7 +432,7 @@ defaults in `cordis.patch.yml`:
     journalPath: ''    # default: $DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # default: agent.sock beside the database
     edits: true        # register the six editing tools
-    skills: true       # register the six bundled skills
+    skills: true       # register the seven bundled skills
     panel: true        # the optional Web panel and its header button
     icons: true        # site favicons on the panel cards (its only outbound request)
     allowInstall: false  # register dayflow_install_dayflow (it changes this Mac)
@@ -443,7 +460,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 167 tests: boundaries, SQL, adapters, import, review queue, long tasks, panel, bundle
+npm test            # 185 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```

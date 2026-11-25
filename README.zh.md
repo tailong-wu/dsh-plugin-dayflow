@@ -32,8 +32,8 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 
 ## 你会得到什么
 
-- **21 个工具**：12 个只读工具、1 个 `journal_import` 导入工具、1 个 `journal_review` 回顾队列工具、1 个 `journal_task` 长任务工具、6 个编辑工具。
-- **6 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`、`long-task`。
+- **22 个工具**：12 个只读工具、1 个 `journal_import` 导入工具、1 个 `journal_review` 回顾队列工具、1 个 `journal_task` 长任务工具、1 个 `journal_memory` 记忆工具、6 个编辑工具。
+- **7 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`、`long-task`、`memory`。
 - **一个可选的面板**：按月展示每天的分段圆环，悬停看摘要，点开看当天时间线；
   从对话头部的按钮打开，不打开就不占任何空间。
 - **一段系统提示词**：说明正确解读数据所需的规则——凌晨 4 点换日、`Idle` 与 `System`
@@ -266,6 +266,19 @@ active 任务超过七天没有新 session 会被标记为 stalled（停滞）�
 
 agent 自己发现的工作必须先走回顾队列（`task_proposal`）；只有被 accept 的提案或用户明确要求才创建任务。
 
+### 记忆
+
+记忆是插件对用户长期、**带日期**的历史：偏好、经验、反复出现的模式与纠正。
+每条 claim 都带它描述的日期（`observed_on`），而不是「目前」，所以旧 claim 可以按它当时
+描述的日期来读。事实变化时追加一条新 claim 并把旧的标记为被取代，旧行保留不重写；
+回顾队列里 kept 的 distillation/loop 会自动进入记忆。
+
+| 工具 | 参数 | 作用 |
+| --- | --- | --- |
+| `journal_memory` | `action`、`query?`、`kind?`、`id?` 等 | `add` 写入带日期的 claim；`search`/`list` 读取（默认隐藏被取代的）；`supersede` 追加新版本并标记旧版本；`forget` 删除且需要 `confirm: true`。 |
+
+检索优先用 SQLite FTS5，运行时没有 FTS5 时回退到 `LIKE`，因此在插件仍支持的旧 Node 上也能用。
+
 ### 与 Dayflow 自带 MCP 服务的对应关系
 
 如果你用过 Dayflow 的 `dayflow mcp`，这里的工具是同一批操作，只是加了 `dayflow_` 前缀：
@@ -297,6 +310,7 @@ agent 自己发现的工作必须先走回顾队列（`task_proposal`）；只�
 | `weekly-review` | 复盘一周，并与上一周对比。 |
 | `review-queue` | 把任务结果或周复盘整理成 distillation / loop / improvement / task proposal，并请用户做决定。 |
 | `long-task` | 跟踪跨天目标：停滞任务、按证据挂接每日 session、改任务状态。 |
+| `memory` | 维护带日期的长期记忆：先检索、追加新 claim、用 supersede 而不是改写旧行、只在用户要求时 forget。 |
 
 技能在运行时从 `skills/` 注册，装好插件即可用，不需要配置技能目录。
 
@@ -345,7 +359,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
     journalPath: ''    # 默认：$DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # 默认：与数据库同目录的 agent.sock
     edits: true        # 是否注册 6 个编辑工具
-    skills: true       # 是否注册 6 个技能
+    skills: true       # 是否注册 7 个技能
     panel: true        # 是否显示可选的 Web 面板与头部按钮
     icons: true        # 面板卡片上的站点图标（插件唯一的对外请求）
     allowInstall: false  # 是否注册 dayflow_install_dayflow（会改动本机）
@@ -369,7 +383,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 167 个测试：边界、SQL、适配器、导入、回顾队列、长任务、面板、bundle
+npm test            # 185 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```

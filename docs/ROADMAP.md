@@ -11,13 +11,17 @@
 > development line adds the Phase 3.7 **storage and tool** slice: long tasks and
 > their per-day sessions (owned schema version 4), the `journal_task` tool, the
 > `long-task` skill, and automatic task creation when a `task_proposal` is
-> accepted. The write path (editing tools still go through Dayflow), the
-> `dsh dayflow import` CLI, the month/week panel surfaces, the review-queue panel
-> UI, the `review.cards` switch (the plugin never had a card stack, so that
-> switch has no surface here yet), task tagging from the summarization prompt,
-> and automatic activity attribution (matching is an inspectable `suggest` step
-> the agent calls) remain later work. Phase 3.6 and everything after it remain
-> proposals.
+> accepted. It also adds the Phase 4 **storage and tool** slice: dated,
+> append-and-supersede memory claims (owned schema version 5), the
+> `journal_memory` tool, the `memory` skill, review-kept distillation/loop
+> promotion into memory, and FTS5 search with a `LIKE` fallback. The write path
+> (editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
+> month/week panel surfaces, the review-queue panel UI, the `review.cards` switch
+> (the plugin never had a card stack, so that switch has no surface here yet),
+> task tagging from the summarization prompt, automatic activity attribution
+> (matching is an inspectable `suggest` step the agent calls), per-turn memory
+> injection, reflections, and the memory lint pass remain later work. Phase 5 and
+> everything after it remain proposals.
 > Last revised: 2026-11-25 (status restated for the 0.6.0 release and the Phase 3
 > read-gap, review-queue, and long-task increments).
 
@@ -478,6 +482,13 @@ I usually doing at this hour" and "what did I keep postponing" from memory
 alone; a test asserts the injected block stays under its byte budget; and a test
 asserts that superseding a claim leaves the old row intact with
 `superseded_by` set, so retrieval at an older date still answers correctly.
+
+**Shipped in the 0.7.0 development line (unreleased, on `main`):** the
+`memory_claims` schema (version 5), `journal_memory` (add/search/list/supersede/
+forget), append-only dated claims with `superseded_by`/`superseded_on`, FTS5
+retrieval with a `LIKE` fallback, and review-kept distillation/loop promotion
+into memory. Per-turn context injection (4b), reflections (4c), the lint pass,
+and the panel surface remain open.
 
 ### Phase 5 — Personalization that acts
 

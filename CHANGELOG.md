@@ -36,6 +36,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   match, and never writes; `attach` and `detach` record or correct a session.
   Accepting a `task_proposal` in the review queue now creates the task in the
   same transaction, so a proposal becomes tracked work without a second step.
+- A dated memory layer in the owned journal (schema version 5, `memory_claims`)
+  with the `journal_memory` tool and a `memory` skill. Claims are history, not
+  the present: each carries the day it describes, a change appends a new claim
+  and marks the old one superseded (the old row stays for audit), and retrieval
+  hides superseded claims unless asked. Kept distillations and loops from the
+  review queue become memory automatically; `forget` hard-deletes a claim only
+  with `confirm: true`. Search uses FTS5 when the runtime has it and falls back
+  to `LIKE` when it does not.
 
 ### Fixed
 
