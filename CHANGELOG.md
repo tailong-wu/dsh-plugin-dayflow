@@ -6,6 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Four read tools that close the roadmap Phase 3 read gap, on both the Dayflow
+  backend and the owned journal: `dayflow_journal` (the user's own journal entry
+  for a day), `dayflow_goals` (the day's focus target and its focus/distraction
+  category split), `dayflow_observations` (the per-observation evidence behind
+  one activity), and `dayflow_review_ratings` (the user's own focused/distracted
+  marks). Observations and ratings are matched to activities by time overlap,
+  because Dayflow does not store a card foreign key for those rows.
+
+### Fixed
+
+- The importer now maps Dayflow's real `day_goals.focus_target_minutes` column
+  into the owned `goals.focus_minutes`; previously an owned journal exposed a
+  NULL focus target while Dayflow had the value.
+- The system-prompt section now says that `dayflow_journal` and `dayflow_goals`
+  return the user's own writing and targets rather than screen content, so the
+  model does not treat an on-screen-only timeline as the whole day.
+
 ## [0.6.0] - 2026-11-11
 
 ### Added

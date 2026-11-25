@@ -40,7 +40,7 @@ are still being analyzed.
 
 ## What you get
 
-- **15 tools**: 8 Dayflow-compatible read tools, 1 `journal_import` tool, and 6 editing tools.
+- **19 tools**: 12 read tools, 1 `journal_import` tool, and 6 editing tools.
 - **4 skills**: `dayflow`, `onboarding`, `standup`, and `weekly-review`.
 - **An optional Web panel**: a month calendar of segmented rings, with hover
   cards and a per-day timeline, opened from a conversation-header button and
@@ -254,6 +254,10 @@ Dates are `YYYY-MM-DD` and mean a Dayflow day, which starts at **4 AM**.
 | `dayflow_weekly` | `date?` | Tracked and focus minutes plus category totals for a week. |
 | `dayflow_categories` | — | The user's categories, colors, and flags. |
 | `dayflow_status` | — | Capture freshness, analysis backlog, edit switch, edit-bridge state. |
+| `dayflow_journal` | `date?` | The user's own journal entry for a day: intentions, notes, reflections, summary, status. |
+| `dayflow_goals` | `date?` | The day's focus goal and its focus/distraction category split. |
+| `dayflow_observations` | `record_id` | The per-observation evidence behind one activity. |
+| `dayflow_review_ratings` | `date?` | The user's own focused/distracted marks for a day. |
 
 ### Editing tools
 
@@ -399,7 +403,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 116 tests: boundaries, SQL, adapters, import, panel, bundle
+npm test            # 124 tests: boundaries, SQL, adapters, import, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```
@@ -425,7 +429,7 @@ src/
   prompt.ts       the guidance section
   panel.ts        the three host Fetch routes behind the Web panel
   panel-contract.ts  the wire payloads shared by host and browser
-  tools/read.ts   the eight read tools
+  tools/read.ts   the twelve read tools
   tools/import.ts the journal_import tool
   tools/write.ts  the six editing tools
   client/         the browser half: month calendar, day detail, rings, styles

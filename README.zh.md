@@ -32,7 +32,7 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 
 ## 你会得到什么
 
-- **15 个工具**：8 个兼容 Dayflow 的只读工具、1 个 `journal_import` 导入工具、6 个编辑工具。
+- **19 个工具**：12 个只读工具、1 个 `journal_import` 导入工具、6 个编辑工具。
 - **4 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`。
 - **一个可选的面板**：按月展示每天的分段圆环，悬停看摘要，点开看当天时间线；
   从对话头部的按钮打开，不打开就不占任何空间。
@@ -211,6 +211,10 @@ journal_import({})
 | `dayflow_weekly` | `date?` | 一周的 tracked / focus 时长与分类总计。 |
 | `dayflow_categories` | — | 用户的分类、颜色与标记。 |
 | `dayflow_status` | — | 采集新鲜度、分析积压、编辑开关、编辑桥状态。 |
+| `dayflow_journal` | `date?` | 用户自己的日志条目：意图、笔记、复盘、总结、状态。 |
+| `dayflow_goals` | `date?` | 当天的专注目标与 focus/distraction 分类划分。 |
+| `dayflow_observations` | `record_id` | 某条活动背后的逐条观察证据。 |
+| `dayflow_review_ratings` | `date?` | 用户自己当天的 focused/distracted 标记。 |
 
 ### 编辑工具
 
@@ -334,7 +338,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 116 个测试：边界、SQL、适配器、导入、面板、bundle
+npm test            # 124 个测试：边界、SQL、适配器、导入、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```
@@ -359,7 +363,7 @@ src/
   prompt.ts       系统提示词段落
   panel.ts        Web 面板背后的三个 host Fetch 路由
   panel-contract.ts  host 与浏览器共享的线上载荷
-  tools/read.ts   8 个只读工具
+  tools/read.ts   12 个只读工具
   tools/import.ts journal_import 导入工具
   tools/write.ts  6 个编辑工具
   client/         浏览器半边：月历、日详情、圆环、样式、文案
