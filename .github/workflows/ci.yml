@@ -33,7 +33,9 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Check the package contents
-        run: npm pack --dry-run
+        run: |
+          npm pack --dry-run --json > /tmp/dayflow-pack.json
+          node scripts/check-package.mjs /tmp/dayflow-pack.json
 
   release-check:
     # A release tag must name exactly the version in package.json.
