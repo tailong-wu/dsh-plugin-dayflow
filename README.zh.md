@@ -144,8 +144,10 @@ ln -sfn "$PWD" ~/.dsh/profiles/web/node_modules/dsh-plugin-dayflow
 - 日详情还会显示用户自己的记录：当天的专注目标及其 focus/distraction 分类（没有目标时只显示一行弱化提示），
   以及用户给时间线做的回顾标记。月/周 payload 不变，只有打开某一天时才读取这两项。
 - 触屏设备没有悬停，用点击代替：点一下进入当天，返回入口就在详情头部。
+- 第二个标签页 **洞察 / Journal insights** 展示 agent 学到的东西：进行中的长任务（含进度与停滞标记）、
+  待决的回顾队列、最近带日期的记忆 claim，以及已保存的日/周反思。头部按钮可打开它；日历标签页不变。
 - 面板通过 harness 认证的 `/api` 通道读取 `GET /api/dayflow/month`、
-  `GET /api/dayflow/week` 和 `GET /api/dayflow/day`，自己不会碰数据库。
+  `GET /api/dayflow/week`、`GET /api/dayflow/day` 与 `GET /api/dayflow/insights`，自己不会碰数据库。
 - 图标来自 `GET /api/dayflow/icon?domain=…`：每个域名首次使用时抓一次
   `favicon.ico`，缓存在 `$DSH_HOME/dayflow-icons`。这是插件唯一的对外请求，
   不发送 cookie 也不带 referrer，拒绝 loopback 与裸 IP；设 `icons: false` 可完全关闭。
@@ -397,7 +399,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 238 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、bundle
+npm test            # 248 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```

@@ -17,15 +17,17 @@
 > promotion into memory, FTS5 search with a `LIKE` fallback, a budgeted dynamic
 > memory context (1000-byte cap, cached, empty when there is nothing to say),
 > reflections written back into the journal (owned schema version 6), and the
-> read-only memory lint (`journal_memory` action `lint`) with its four findings.
-> The write path
+> read-only memory lint (`journal_memory` action `lint`) with its four findings,
+> and the panel's second tab, **Journal insights**, which renders the review
+> queue, active tasks, memory claims, and reflections from a new
+> `/api/dayflow/insights` route. The write path
 > (editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
 > month/week panel surfaces, the review-queue panel UI, the `review.cards` switch
 > (the plugin never had a card stack, so that switch has no surface here yet),
 > task tagging from the summarization prompt, automatic activity attribution
 > (matching is an inspectable `suggest` step the agent calls), the scheduled lint
-> job, and the review/task/memory panel surfaces remain later work. Phase 5 and
-> everything after it remain proposals.
+> job, and Phase 5 remain later work. Phase 5 and everything after it remain
+> proposals.
 > Last revised: 2026-11-25 (status restated for the 0.6.0 release and the Phase 3
 > read-gap, review-queue, and long-task increments).
 
@@ -494,8 +496,9 @@ retrieval with a `LIKE` fallback, and review-kept distillation/loop promotion
 into memory, the budgeted dynamic context (4b: 1000-byte cap, 60-second cache,
 nothing injected when empty), and reflections (4c) stored in the owned journal
 so later sessions read a compiled summary instead of replaying raw days. The
-read-only lint is implemented as `journal_memory` `action: "lint"`; the
-scheduled lint job and the panel surface remain open.
+read-only lint is implemented as `journal_memory` `action: "lint"`; the panel's
+second tab (Journal insights) renders review items, tasks, claims, and
+reflections. The scheduled lint job remains open.
 
 ### Phase 5 — Personalization that acts
 

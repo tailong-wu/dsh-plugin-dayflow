@@ -176,9 +176,13 @@ card placed at its time and tinted with its category colour.
   unchanged, so only opening a day pays for those reads.
 - On touch devices hover is replaced by tap: a tap opens the day, and the back
   control sits in the day header.
-- The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`, and
-  `GET /api/dayflow/day` through the harness's authenticated `/api` bridge. It
-  never touches the database itself.
+- A second tab, **Journal insights**, lists what the agent has learned: active
+  long tasks (with progress and stalled marks), the open review queue, recent
+  date-stamped memory claims, and stored day/week reflections. Its header button
+  opens it; the calendar tab is unchanged.
+- The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`,
+  `GET /api/dayflow/day`, and `GET /api/dayflow/insights` through the harness's
+  authenticated `/api` bridge. It never touches the database itself.
 - Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
   `favicon.ico` per domain on first use and caches it under
   `$DSH_HOME/dayflow-icons`. That is the plugin's only outbound request: it
@@ -482,7 +486,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 238 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, bundle
+npm test            # 248 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```
