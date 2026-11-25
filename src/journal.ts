@@ -20,7 +20,7 @@ import type { ResolvedConfig } from './config.js';
 import { defaultJournalPath } from './paths.js';
 
 /** Current owned-store schema version. Migrations are forward-only. */
-export const JOURNAL_SCHEMA_VERSION = 4;
+export const JOURNAL_SCHEMA_VERSION = 5;
 /** Default source id used by an import from a Dayflow database. */
 export const DAYFLOW_SOURCE_ID = 'dayflow';
 
@@ -349,6 +349,67 @@ const MIGRATION_4 = `
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS long_task_sessions_task_idx ON long_task_sessions (task_id, day);
+`;
+
+/**
+ * Migration 5 adds the memory store: dated claims the assistant keeps about the
+ * user's work — a distillation of a day, a recurring loop, a stated preference,
+ * or a correction the user made. A row is never rewritten: when a claim changes,
+ * a new row is appended and the old one is marked `superseded_by`/`superseded_on`,
+ * so the history of what was believed (and when) stays auditable.
+ *
+ * `observed_on` is the day the claim describes, not the day it was recorded.
+ * `source_review_item` traces a claim back to the review-queue proposal the user
+ * kept, and `source_days_json` stores the days that evidence came from.
+ */
+const MIGRATION_5 = `
+  CREATE TABLE IF NOT EXISTS memory_claims (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('distillation','loop','preference','correction')),
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    observed_on TEXT NOT NULL,
+    recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    source_review_item INTEGER,
+    source_days_json TEXT,
+    confidence REAL NOT NULL DEFAULT 0.7,
+    superseded_by INTEGER,
+    superseded_on TEXT
+  );
+  CREATE INDEX IF NOT EXISTS memory_claims_subject_idx ON memory_claims (subject);
+  CREATE INDEX IF NOT EXISTS memory_claims_active_idx ON memory_claims (superseded_by);
+`;
+
+/**
+ * The optional full-text index over memory claims.
+ *
+ * FTS5 is not guaranteed: a Node build can ship `node:sqlite` without the FTS5
+ * module compiled in, and CI runs on Node 22 where that is the common case. The
+ * index and its keep-in-sync triggers are therefore best-effort — when they
+ * cannot be created the migration still succeeds and the memory store falls back
+ * to `LIKE` searches. {@link MIGRATION_5_FTS_CLEANUP} removes any partial attempt
+ * so the two representations never disagree.
+ */
+const MIGRATION_5_FTS = `
+  CREATE VIRTUAL TABLE IF NOT EXISTS memory_claims_fts USING fts5(subject, body);
+  CREATE TRIGGER IF NOT EXISTS memory_claims_ai AFTER INSERT ON memory_claims BEGIN
+    INSERT INTO memory_claims_fts(rowid, subject, body) VALUES (new.id, new.subject, new.body);
+  END;
+  CREATE TRIGGER IF NOT EXISTS memory_claims_ad AFTER DELETE ON memory_claims BEGIN
+    DELETE FROM memory_claims_fts WHERE rowid = old.id;
+  END;
+  CREATE TRIGGER IF NOT EXISTS memory_claims_au AFTER UPDATE OF subject, body ON memory_claims BEGIN
+    DELETE FROM memory_claims_fts WHERE rowid = old.id;
+    INSERT INTO memory_claims_fts(rowid, subject, body) VALUES (new.id, new.subject, new.body);
+  END;
+`;
+
+/** Roll back a partial FTS5 attempt: drop the shadow table and its triggers. */
+const MIGRATION_5_FTS_CLEANUP = `
+  DROP TRIGGER IF EXISTS memory_claims_ai;
+  DROP TRIGGER IF EXISTS memory_claims_ad;
+  DROP TRIGGER IF EXISTS memory_claims_au;
+  DROP TABLE IF EXISTS memory_claims_fts;
 `;
 
 /**
@@ -856,6 +917,22 @@ export function migrateJournal(db: DatabaseSync): number {
       db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(4);
       version = 4;
     }
+    if (version < 5) {
+      db.exec(MIGRATION_5);
+      try {
+        db.exec(MIGRATION_5_FTS);
+      } catch {
+        // FTS5 is optional. Drop anything the failed attempt left behind so
+        // search's "is there an index?" check cannot see a half-built one.
+        try {
+          db.exec(MIGRATION_5_FTS_CLEANUP);
+        } catch {
+          // The migration itself still succeeds: search falls back to LIKE.
+        }
+      }
+      db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(5);
+      version = 5;
+    }
     db.exec('COMMIT');
     return version;
   } catch (cause) {
@@ -892,7 +969,7 @@ function journalReady(path: string): boolean {
       .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'view' AND name = 'timeline_cards'")
       .get() as Row | undefined;
     if (view?.present !== 1) return false;
-    for (const table of ['review_items', 'long_tasks', 'long_task_sessions']) {
+    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims']) {
       const present = db
         .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?")
         .get(table) as Row | undefined;

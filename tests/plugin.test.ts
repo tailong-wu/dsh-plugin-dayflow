@@ -70,11 +70,11 @@ test('the plugin advertises its name and required services', () => {
   assert.deepEqual([...inject], ['tools', 'skills', 'systemPrompt']);
 });
 
-test('apply registers twenty-one tools, six skills, and one prompt section', () => {
+test('apply registers twenty-two tools, seven skills, and one prompt section', () => {
   const { ctx, capture } = fakeContext();
   apply(ctx, { databasePath: fixture.path });
 
-  assert.equal(capture.tools.size, 21);
+  assert.equal(capture.tools.size, 22);
   for (const tool of [
     'dayflow_timeline',
     'dayflow_journal',
@@ -84,6 +84,7 @@ test('apply registers twenty-one tools, six skills, and one prompt section', () 
     'journal_import',
     'journal_review',
     'journal_task',
+    'journal_memory',
     'dayflow_delete_activity',
     'dayflow_status',
   ]) {
@@ -92,7 +93,7 @@ test('apply registers twenty-one tools, six skills, and one prompt section', () 
 
   assert.deepEqual(
     capture.skills.map((skill) => skill.name),
-    ['dayflow', 'long-task', 'onboarding', 'review-queue', 'standup', 'weekly-review'],
+    ['dayflow', 'long-task', 'memory', 'onboarding', 'review-queue', 'standup', 'weekly-review'],
   );
   assert.deepEqual([...capture.routes].sort(), ['/api/dayflow/day', '/api/dayflow/icon', '/api/dayflow/month', '/api/dayflow/panel', '/api/dayflow/week']);
   assert.equal(capture.sections.length, 1);
@@ -139,14 +140,14 @@ test('the installer is off by default and appears only with allowInstall', () =>
 test('edits and skills can be switched off independently', () => {
   const editsOff = fakeContext();
   apply(editsOff.ctx, { databasePath: fixture.path, edits: false });
-  assert.equal(editsOff.capture.tools.size, 15);
+  assert.equal(editsOff.capture.tools.size, 16);
   assert.equal(editsOff.capture.tools.has('dayflow_update_activity'), false);
   assert.equal(editsOff.capture.tools.has('journal_review'), true, 'the review queue is not gated by edits');
 
   const skillsOff = fakeContext();
   apply(skillsOff.ctx, { databasePath: fixture.path, skills: false });
   assert.equal(skillsOff.capture.skills.length, 0);
-  assert.equal(skillsOff.capture.tools.size, 21);
+  assert.equal(skillsOff.capture.tools.size, 22);
 });
 
 test('every tool a skill names is registered when the full surface is on', () => {
@@ -156,7 +157,7 @@ test('every tool a skill names is registered when the full surface is on', () =>
   apply(ctx, { databasePath: fixture.path, allowInstall: true });
 
   const skills = loadSkills(skillsDirectory());
-  assert.equal(skills.length, 6);
+  assert.equal(skills.length, 7);
   for (const skill of skills) {
     const referenced = new Set(skill.content.match(/(?:dayflow|journal)_[a-z_]+/g) ?? []);
     for (const tool of referenced) {

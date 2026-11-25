@@ -88,6 +88,10 @@ export interface ReviewToolPayload {
   task_id?: number;
   /** The title of that long task, for the decision summary. */
   task_title?: string;
+  /** The memory claim created when a kept distillation or loop was decided. */
+  memory_id?: number;
+  /** The subject of that claim, for the decision summary. */
+  memory_subject?: string;
   dropped?: boolean;
   reason?: string;
   hint: string;

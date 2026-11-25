@@ -13,6 +13,8 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools';
 import { DayflowError } from '../errors.js';
 import { renderReview } from '../format.js';
 import { withJournal, withJournalWrite } from '../journal.js';
+import { createMemoryFromReviewItem } from '../memory.js';
+import type { MemoryClaimPayload } from '../memory.js';
 import { decideReviewItem, listReviewItems, proposeReviewItem, unsuppressReviewItem } from '../review.js';
 import type {
   ReviewItemPayload,
@@ -43,8 +45,9 @@ const PROPOSE_HINT = "The item waits for the user's decision; do not decide on t
 /** Guidance after a successful decide. */
 const DECIDE_HINT =
   'Decision recorded. An accepted task_proposal becomes a long task automatically; track its sessions with ' +
-  'journal_task. Discard and reject are soft by default: without forever: true the item can return with ' +
-  'substantial new evidence.';
+  'journal_task. A kept distillation or loop is written to journal_memory as a dated claim, so do not add the ' +
+  'same lesson there again. Discard and reject are soft by default: without forever: true the item can return ' +
+  'with substantial new evidence.';
 
 /** Guidance after clearing a hard suppression. */
 const UNSUPPRESS_HINT = 'Hard suppression cleared; the item can be proposed again if it still has evidence.';
@@ -223,17 +226,35 @@ export function reviewTools(runtime: ToolRuntime): ToolDefinition[] {
             }
             const decided = withJournalWrite(
               runtime.config.journalPath,
-              (db): { item: ReviewItemPayload; task?: LongTaskPayload } => {
+              (db): { item: ReviewItemPayload; task?: LongTaskPayload; memory?: MemoryClaimPayload } => {
                 const item = decideReviewItem(db, id, decision as ReviewDecision, {
                   ...(args.forever === undefined ? {} : { forever: args.forever }),
                   ...(args.note === undefined ? {} : { note: args.note }),
                 });
+                const outcome: {
+                  item: ReviewItemPayload;
+                  task?: LongTaskPayload;
+                  memory?: MemoryClaimPayload;
+                } = { item };
                 // Accepting a task proposal creates the task in the same write
                 // connection, so the decision and the task cannot diverge.
                 if (item.kind === 'task_proposal' && item.status === 'accepted') {
-                  return { item, task: createTaskFromReviewItem(db, item) };
+                  outcome.task = createTaskFromReviewItem(db, item);
                 }
-                return { item };
+                // A kept distillation or loop becomes a dated memory claim in the
+                // same write connection, so the user's keep and the memory it
+                // implies are one atomic act.
+                if (item.status === 'kept' && (item.kind === 'distillation' || item.kind === 'loop')) {
+                  outcome.memory = createMemoryFromReviewItem(db, {
+                    id: item.id,
+                    kind: item.kind,
+                    title: item.title,
+                    body: item.body,
+                    source_day: item.source_day,
+                    confidence: item.confidence,
+                  });
+                }
+                return outcome;
               },
             );
             const payload: ReviewToolPayload = {
@@ -242,6 +263,9 @@ export function reviewTools(runtime: ToolRuntime): ToolDefinition[] {
               ...(decided.task === undefined
                 ? {}
                 : { task_id: decided.task.id, task_title: decided.task.title }),
+              ...(decided.memory === undefined
+                ? {}
+                : { memory_id: decided.memory.id, memory_subject: decided.memory.subject }),
               hint: DECIDE_HINT,
             };
             return jsonValue(payload);

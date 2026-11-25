@@ -24,7 +24,9 @@ import type {
   WeeklyPayload,
 } from './queries.js';
 import type { ImportReport } from './journal.js';
+import type { MemoryClaimPayload } from './memory.js';
 import type { ReviewItemPayload, ReviewToolPayload } from './review.js';
+import type { MemoryToolPayload } from './tools/memory.js';
 import type { TaskToolPayload } from './tools/task.js';
 
 function categoryPercent(share: number): string {
@@ -290,11 +292,87 @@ export function renderReview(payload: ReviewToolPayload): string {
     if (payload.task_id !== undefined) {
       line += ` → created task #${payload.task_id}${payload.task_title === undefined ? '' : ` "${payload.task_title}"`}`;
     }
+    if (payload.memory_id !== undefined) line += ` → remembered as claim #${payload.memory_id}`;
     return item.decision_note !== undefined && item.decision_note !== ''
       ? `${line}\nDecision note: ${item.decision_note}`
       : line;
   }
   return `#${item.id} · suppression cleared · ${item.title}`;
+}
+
+/**
+ * Collapse a claim body onto one line and cap its length, so a memory row stays
+ * scannable even when the body is a paragraph.
+ * @param text - the claim body.
+ * @param maxLength - the longest text kept before a trailing ellipsis.
+ * @returns one line of text.
+ */
+function oneLine(text: string, maxLength = 120): string {
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  return collapsed.length <= maxLength ? collapsed : `${collapsed.slice(0, maxLength - 1)}…`;
+}
+
+/**
+ * Render one memory claim as a list row: `- #3 · subject · observed 2026-10-19 · preference`
+ * followed by its body on an indented line.
+ * @param claim - the memory claim payload.
+ * @returns one or two lines.
+ */
+function renderMemoryClaim(claim: MemoryClaimPayload): string {
+  const line = `- #${claim.id} · ${claim.subject} · observed ${claim.observed_on} · ${claim.kind}`;
+  const body = oneLine(claim.body);
+  return body === '' ? line : `${line}\n  ${body}`;
+}
+
+/**
+ * Render the journal's dated memory and the outcome of a write.
+ *
+ * A claim is always shown with its `observed_on` date, because the store keeps
+ * what was true on a day rather than what is true now; the empty list falls
+ * back to the hint, which explains how to search more broadly.
+ * @param payload - the `journal_memory` value.
+ * @returns model-facing text.
+ */
+export function renderMemory(payload: MemoryToolPayload): string {
+  if (payload.action === 'add') {
+    const claim = payload.claim;
+    if (claim === undefined) return payload.hint;
+    const facts = [`observed ${claim.observed_on}`, `confidence ${claim.confidence.toFixed(2)}`];
+    if (claim.source_review_item !== undefined) facts.push(`review item #${claim.source_review_item}`);
+    if (claim.source_days !== undefined && claim.source_days.length > 0) {
+      facts.push(`days ${claim.source_days.join(', ')}`);
+    }
+    return `Remembered #${claim.id} · ${claim.kind} · ${claim.subject}\n${facts.join(' · ')}`;
+  }
+
+  if (payload.action === 'search' || payload.action === 'list') {
+    const claims = payload.claims ?? [];
+    if (claims.length === 0) return payload.hint;
+    const count = `${claims.length} ${plural(claims.length, 'claim')}`;
+    const header =
+      payload.action === 'search'
+        ? `Memory · ${count} for "${payload.query ?? ''}"`
+        : `Memory · ${count}`;
+    return `${header}\n\n${claims.map((claim) => renderMemoryClaim(claim)).join('\n')}`;
+  }
+
+  if (payload.action === 'supersede') {
+    const claim = payload.claim;
+    if (claim === undefined || payload.previous_id === undefined) return payload.hint;
+    const lines = [
+      `Superseded #${payload.previous_id} → #${claim.id} · ${claim.subject}`,
+      `observed ${claim.observed_on} · confidence ${claim.confidence.toFixed(2)} · ${claim.kind}`,
+    ];
+    const body = oneLine(claim.body);
+    if (body !== '') lines.push(body);
+    return lines.join('\n');
+  }
+
+  if (payload.action === 'forget') {
+    return payload.forgotten === undefined ? payload.hint : `Forgot claim #${payload.forgotten}`;
+  }
+
+  return payload.hint;
 }
 
 /**
