@@ -38,7 +38,7 @@ are still being analyzed.
 > and its importer, and Dayflow-socket edits. `main` is the **unreleased `0.7.0`
 > development line** this README describes — 23 tools, 8 skills, the owned
 > journal with its review queue, long tasks, dated memory, reflections, and the
-> Journal insights tab (see `CHANGELOG.md` `[Unreleased]` and
+> Journal insights view (see `CHANGELOG.md` `[Unreleased]` and
 > `docs/ROADMAP.md`). A registry install will not carry that surface until
 > `0.7.0` is published; the checkout install below builds the development line.
 
@@ -47,9 +47,9 @@ are still being analyzed.
 - **23 tools** (17 when `edits: false`): 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, 1 `journal_task` tool, 1 `journal_memory` tool, 1 `journal_reflection` tool, and 6 editing tools.
 - **8 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`, and `reflection`.
 - **An optional Web panel**: a month calendar of segmented rings with hover
-  cards, week swim lanes, a per-day timeline, and a **Journal insights** tab for
-  long tasks, the review queue, memory claims, and reflections; opened from
-  conversation-header buttons and drawn with the harness's own tokens.
+  cards, week swim lanes, a per-day timeline, and a **Journal insights** view for
+  long tasks, the review queue, memory claims, and reflections; opened from one
+  conversation-header button and drawn with the harness's own tokens.
 - **A system-prompt section** stating the rules that make the data readable:
   the 4 AM day boundary, `Idle` and `System` handling, analysis lag, and the
   untrusted-content boundary.
@@ -183,10 +183,11 @@ card placed at its time and tinted with its category colour.
   unchanged, so only opening a day pays for those reads.
 - On touch devices hover is replaced by tap: a tap opens the day, and the back
   control sits in the day header.
-- A second tab, **Journal insights**, lists what the agent has learned: active
-  long tasks (with progress and stalled marks), the open review queue, recent
-  date-stamped memory claims, and stored day/week reflections. Its header button
-  opens it; the calendar tab is unchanged.
+- The panel's month/week switch has a third view, **Journal insights**: it lists
+  what the agent has learned — active long tasks (with progress and stalled
+  marks), the open review queue, recent date-stamped memory claims, and stored
+  day/week reflections. It is a view inside the panel, not a second tab or
+  button, so the plugin keeps one entry.
 - The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`,
   `GET /api/dayflow/day`, `GET /api/dayflow/insights`, and
   `GET /api/dayflow/panel` (the enablement probe) through the harness's
@@ -200,7 +201,7 @@ card placed at its time and tinted with its category colour.
 - Switching views keeps the selected day, so a day picked in the calendar stays
   marked when you move to the week and back.
 
-Set `panel: false` to remove both the header button and the tab type.
+Set `panel: false` to remove the header button and the tab type.
 
 The recordings and stills above all come from one real week of this project's own
 Dayflow data: the timings, durations, categories, and capture times are what the

@@ -67,13 +67,15 @@ registered tool, so rename tools and skills together.
 
 ## Working on the Web panel
 
-The panel is two page-type tabs in the right Sidebar (the calendar and **Journal
-insights**) plus two conversation-header buttons. The calendar reads
-`GET /api/dayflow/month`, the swim lanes read `GET /api/dayflow/week`, a day
-reads `GET /api/dayflow/day`, the insights tab reads `GET /api/dayflow/insights`,
-enablement comes from `GET /api/dayflow/panel`, and icons come from
-`GET /api/dayflow/icon`; all six routes are registered through the connection
-service and inherit the `/api` trust fence and session cookie.
+The panel is one page-type tab in the right Sidebar, opened by one
+conversation-header button. Inside it, the month calendar, week swim lanes, and
+**Journal insights** share one segmented switch, so the plugin never registers a
+second tab or button. The calendar reads `GET /api/dayflow/month`, the swim
+lanes read `GET /api/dayflow/week`, a day reads `GET /api/dayflow/day`, the
+insights view reads `GET /api/dayflow/insights`, enablement comes from
+`GET /api/dayflow/panel`, and icons come from `GET /api/dayflow/icon`; all six
+routes are registered through the connection service and inherit the `/api`
+trust fence and session cookie.
 
 - `src/client/` is bundled by `scripts/build-client.mjs` into `lib/client.js` in
   the harness's lazy-CJS `window.__ModuleLoader__.load({ id, factory })` format.

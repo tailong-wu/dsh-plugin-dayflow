@@ -253,8 +253,6 @@ test('the insights copy exists in both dictionaries', () => {
   const keys = [
     'insightsTitle',
     'insightsTabTitle',
-    'insightsGuideTitle',
-    'insightsGuideDescription',
     'insightsRefresh',
     'insightsLoading',
     'insightsError',

@@ -80,7 +80,7 @@ function loadBundle(fetchImpl: (input: string, init?: RequestInit) => Promise<Re
       case 'react-dom':
         return { createPortal: (children: unknown) => children };
       case '@deepseek-ai/dsh-client-ui-primitives':
-        return { Button: () => null, Tooltip: () => null, StateDot: () => null };
+        return { Button: () => null, Tooltip: () => null, StateDot: () => null, SegmentedControl: () => null };
       default:
         throw new Error(`unexpected platform module: ${id}`);
     }
@@ -178,7 +178,7 @@ test('the bundle declares the client plugin contract', () => {
   assert.equal(typeof module.apply, 'function');
 });
 
-test('an enabled panel registers both tabs, both bodies, and both header toggles', async () => {
+test('an enabled panel registers one tab, one body, and one header toggle', async () => {
   const { module, requests } = loadBundle(async (input) => {
     if (input === '/api/dayflow/insights') return jsonResponse(INSIGHTS);
     return jsonResponse({ enabled: true });
@@ -195,82 +195,61 @@ test('an enabled panel registers both tabs, both bodies, and both header toggles
   assert.ok(requests.includes('/api/dayflow/panel'), 'the panel asks the host whether it is enabled');
 
   // ── tab types ────────────────────────────────────────────────────────
-  assert.equal(calls.tabs.length, 2);
+  // The plugin keeps exactly one harness entry: one tab, one header button.
+  assert.equal(calls.tabs.length, 1);
 
-  const timelineTab = calls.tabs.find((entry) => entry.kind === 'dayflow.timeline');
+  const timelineTab = calls.tabs[0];
   assert.ok(timelineTab);
   assert.equal(timelineTab.id, 'dsh-plugin-dayflow');
+  assert.equal(timelineTab.kind, 'dayflow.timeline');
   assert.equal(timelineTab.priority, 'extension');
   assert.equal(typeof timelineTab.title, 'function');
   assert.equal((timelineTab.title as () => string)(), 'Dayflow');
   assert.equal((timelineTab.guide as unknown[]).length, 1);
-
-  const insightsTab = calls.tabs.find((entry) => entry.kind === 'dayflow.insights');
-  assert.ok(insightsTab);
-  assert.equal(insightsTab.id, 'dsh-plugin-dayflow-insights');
-  assert.equal(insightsTab.priority, 'extension');
-  assert.equal(typeof insightsTab.title, 'function');
-  assert.equal((insightsTab.title as () => string)(), 'Insights');
-  const guide = insightsTab.guide as { id: string; order: number; title: () => string; description: () => string }[];
-  assert.equal(guide.length, 1);
-  assert.equal(guide[0]?.id, 'dayflow.insights');
-  assert.equal(guide[0]?.order, 43);
-  assert.equal(guide[0]?.title(), 'Journal insights');
-  assert.ok((guide[0]?.description() ?? '').length > 0);
+  assert.ok(calls.tabs.every((entry) => entry.kind !== 'dayflow.insights'), 'no second tab is registered');
 
   // ── body slots ───────────────────────────────────────────────────────
   assert.deepEqual([...calls.injectedSlots].sort(), [
     'conversation.session.header.actions',
-    'conversation.session.header.actions',
-    'sidebar.right.pane.tab',
     'sidebar.right.pane.tab',
   ]);
-  assert.equal(calls.slots.length, 4);
+  assert.equal(calls.slots.length, 2);
 
   const bodies = calls.slots.filter((entry) => entry.spec.name === 'sidebar.right.pane.tab');
-  assert.equal(bodies.length, 2);
-  const timelineBody = bodies.find((entry) => entry.spec.key === 'dsh-plugin-dayflow');
+  assert.equal(bodies.length, 1);
+  const timelineBody = bodies[0];
   assert.ok(timelineBody);
+  assert.equal(timelineBody.spec.key, 'dsh-plugin-dayflow');
   assert.equal(timelineBody.spec.locale, 'dayflowPanel');
   const bodyInject = (timelineBody.spec.inject as () => {
     loadDay: (date?: string) => Promise<unknown>;
     loadMonth: (month?: string) => Promise<unknown>;
     loadWeek: (date?: string) => Promise<unknown>;
+    loadInsights: (signal?: AbortSignal) => Promise<unknown>;
   })();
   assert.equal(typeof bodyInject.loadMonth, 'function');
   assert.equal(typeof bodyInject.loadWeek, 'function');
+  assert.equal(typeof bodyInject.loadInsights, 'function');
   await bodyInject.loadDay('2026-10-19');
   await bodyInject.loadMonth('2026-10');
   await bodyInject.loadWeek('2026-10-19');
+  assert.deepEqual(await bodyInject.loadInsights(), INSIGHTS);
   assert.ok(requests.some((url) => url === '/api/dayflow/day?date=2026-10-19'));
   assert.ok(requests.some((url) => url === '/api/dayflow/month?month=2026-10'));
   assert.ok(requests.some((url) => url === '/api/dayflow/week?date=2026-10-19'));
-
-  const insightsBody = bodies.find((entry) => entry.spec.key === 'dsh-plugin-dayflow-insights');
-  assert.ok(insightsBody);
-  assert.equal(insightsBody.spec.locale, 'dayflowPanel');
-  const insightsInject = (insightsBody.spec.inject as () => {
-    loadInsights: (signal?: AbortSignal) => Promise<unknown>;
-  })();
-  assert.equal(typeof insightsInject.loadInsights, 'function');
-  assert.deepEqual(await insightsInject.loadInsights(), INSIGHTS);
   assert.ok(requests.some((url) => url === '/api/dayflow/insights'));
 
   // ── header actions ───────────────────────────────────────────────────
   const actions = calls.slots.filter((entry) => entry.spec.name === 'conversation.session.header.actions');
-  assert.equal(actions.length, 2);
+  assert.equal(actions.length, 1);
 
-  const timelineToggle = actions.find((entry) => entry.spec.id === 'dayflow-toggle');
+  const timelineToggle = actions[0];
   assert.ok(timelineToggle);
+  assert.equal(timelineToggle.spec.id, 'dayflow-toggle');
   assert.equal(timelineToggle.spec.order, 15);
   (timelineToggle.spec.inject as () => { openPanel: () => void })().openPanel();
 
-  const insightsToggle = actions.find((entry) => entry.spec.id === 'dayflow-insights-toggle');
-  assert.ok(insightsToggle);
-  assert.equal(insightsToggle.spec.order, 16);
-  (insightsToggle.spec.inject as () => { openPanel: () => void })().openPanel();
-
-  assert.deepEqual(calls.opened, ['dayflow.timeline', 'dayflow.insights']);
+  assert.deepEqual(calls.opened, ['dayflow.timeline']);
 });
 
 test('a disabled panel registers nothing but still loads its styles', async () => {
@@ -293,7 +272,7 @@ test('a failed enablement probe fails open', async () => {
   module.apply(ctx);
   await settle();
 
-  assert.equal(calls.tabs.length, 2, 'a broken probe must not hide a working panel');
+  assert.equal(calls.tabs.length, 1, 'a broken probe must not hide a working panel');
 });
 
 test('disposing before the probe settles blocks registration', async () => {

@@ -1,17 +1,17 @@
 /**
  * Client half of the Dayflow plugin.
  *
- * Registers two optional, closed-by-default tabs in the right Sidebar — the
- * timeline panel and the journal insights — plus the conversation-header
- * buttons that open them. Both are page-type tabs, so they never appear until
- * the user asks for one, and closing the tab restores the layout they had.
+ * Registers one optional, closed-by-default timeline panel in the right
+ * Sidebar plus the single conversation-header button that opens it. The panel
+ * is a page-type tab, so it never appears until the user asks for it, and
+ * closing the tab restores the layout they had. The journal insights are a
+ * view inside that panel, not a second entry.
  * @module dsh-plugin-dayflow/client
  */
 
 import { fetchDay, fetchInsights, fetchMonth, fetchPanelConfig, fetchWeek } from './data.js';
 import { EN, NAMESPACE, ZH } from './locale.js';
 import { DayflowPanel } from './app.js';
-import { InsightsPanel, InsightsToggle } from './insights.js';
 import { installStyles } from './styles.js';
 import { DayflowToggle } from './toggle.js';
 
@@ -26,12 +26,6 @@ export const TAB_ID = 'dsh-plugin-dayflow';
 
 /** The page kind `openTab` names. */
 export const TAB_KIND = 'dayflow.timeline';
-
-/** The Insights tab's identity in the tab system, and its body's slot key. */
-export const TAB_ID_INSIGHTS = 'dsh-plugin-dayflow-insights';
-
-/** The page kind `openTab` names for the Insights tab. */
-export const TAB_KIND_INSIGHTS = 'dayflow.insights';
 
 /** The narrow slice of the client context this half uses. */
 export interface ClientContext {
@@ -49,7 +43,7 @@ export interface ClientContext {
 }
 
 /**
- * Register both tabs' stages and header entry points, once.
+ * Register the panel's two stages and its single entry point, once.
  * @param ctx - the client context.
  */
 export function registerPanelUi(ctx: ClientContext): void {
@@ -76,25 +70,6 @@ export function registerPanelUi(ctx: ClientContext): void {
 
   ctx.effect(
     () =>
-      ctx.sidebarRightTabs.register({
-        id: TAB_ID_INSIGHTS,
-        kind: TAB_KIND_INSIGHTS,
-        priority: 'extension',
-        title: () => text('insightsTabTitle'),
-        guide: [
-          {
-            id: 'dayflow.insights',
-            order: 43,
-            title: () => text('insightsGuideTitle'),
-            description: () => text('insightsGuideDescription'),
-          },
-        ],
-      }),
-    'dayflow insights: tab type',
-  );
-
-  ctx.effect(
-    () =>
       ctx.slots.inject('sidebar.right.pane.tab', () =>
         ctx.slots.register(
           {
@@ -105,30 +80,13 @@ export function registerPanelUi(ctx: ClientContext): void {
               loadDay: (date?: string, signal?: AbortSignal) => fetchDay(date, signal),
               loadMonth: (month?: string, signal?: AbortSignal) => fetchMonth(month, signal),
               loadWeek: (date?: string, signal?: AbortSignal) => fetchWeek(date, signal),
+              loadInsights: (signal?: AbortSignal) => fetchInsights(signal),
             }),
           },
           DayflowPanel,
         ),
       ),
     'dayflow panel: body',
-  );
-
-  ctx.effect(
-    () =>
-      ctx.slots.inject('sidebar.right.pane.tab', () =>
-        ctx.slots.register(
-          {
-            name: 'sidebar.right.pane.tab',
-            key: TAB_ID_INSIGHTS,
-            locale: NAMESPACE,
-            inject: () => ({
-              loadInsights: (signal?: AbortSignal) => fetchInsights(signal),
-            }),
-          },
-          InsightsPanel,
-        ),
-      ),
-    'dayflow insights: body',
   );
 
   ctx.effect(
@@ -148,25 +106,6 @@ export function registerPanelUi(ctx: ClientContext): void {
         ),
       ),
     'dayflow panel: toggle',
-  );
-
-  ctx.effect(
-    () =>
-      ctx.slots.inject('conversation.session.header.actions', () =>
-        ctx.slots.register(
-          {
-            name: 'conversation.session.header.actions',
-            id: 'dayflow-insights-toggle',
-            order: 16,
-            locale: NAMESPACE,
-            inject: () => ({
-              openPanel: () => ctx.sidebarRight.openTab(TAB_KIND_INSIGHTS),
-            }),
-          },
-          InsightsToggle,
-        ),
-      ),
-    'dayflow insights: toggle',
   );
 }
 

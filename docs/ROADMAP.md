@@ -18,13 +18,13 @@
 > memory context (1000-byte cap, cached, empty when there is nothing to say),
 > reflections written back into the journal (owned schema version 6), and the
 > read-only memory lint (`journal_memory` action `lint`) with its four findings,
-> and the panel's second tab, **Journal insights**, which renders the review
-> queue, active tasks, memory claims, and reflections from a new
-> `/api/dayflow/insights` route. The write path
+> and an in-panel **Journal insights** view, which renders the review queue,
+> active tasks, memory claims, and reflections from a new
+> `/api/dayflow/insights` route while the plugin keeps a single UI entry. The write path
 > (editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
 > month/week panel surfaces (only the day view carries goals and review marks
 > today; month and week do not yet), the interactive review-queue panel UI (the
-> Journal insights tab already renders the queue read-only), the `review.cards`
+> Journal insights view already renders the queue read-only), the `review.cards`
 > switch (the plugin never had a card stack, so that switch has no surface here
 > yet), task tagging from the summarization prompt, automatic activity
 > attribution (matching is an inspectable `suggest` step the agent calls), the
@@ -296,7 +296,7 @@ schema (version 3) stores `review_items` with kind/status/confidence/evidence,
 `journal_review` exposes list/propose/decide/unsuppress, and the `review-queue`
 skill teaches the push-right proposal discipline. The hard/soft suppression
 rules, the confidence floor, and the per-day cap are enforced and tested. The
-panel renders that queue read-only in the Journal insights tab (Phase 4);
+panel renders that queue read-only in the Journal insights view (Phase 4);
 interactive queue management and the `review.cards` switch remain open.
 
 ### Phase 3.6 — Privacy for cloud summarization
@@ -416,7 +416,7 @@ days, explainable category/app matching as a `suggest` step, and review-queue
 `task_proposal` acceptance creating the task in the same transaction. Sessions
 are attached by the agent from an inspectable `suggest` result rather than
 tagged silently; summarization-prompt tagging and interactive task management
-in the panel remain open (the Journal insights tab already lists tasks
+in the panel remain open (the Journal insights view already lists tasks
 read-only).
 
 ### Phase 4 — The memory layer (the actual product)
@@ -504,8 +504,8 @@ into memory, the budgeted dynamic context (4b: 1000-byte cap, 60-second cache,
 nothing injected when empty), and reflections (4c) stored in the owned journal
 so later sessions read a compiled summary instead of replaying raw days. The
 read-only lint is implemented as `journal_memory` `action: "lint"`; the panel's
-second tab (Journal insights) renders review items, tasks, claims, and
-reflections. The scheduled lint job remains open.
+in-panel insights view renders review items, tasks, claims, and reflections. The
+scheduled lint job remains open.
 
 ### Phase 5 — Personalization that acts
 

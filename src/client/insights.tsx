@@ -1,15 +1,14 @@
 /**
- * The Insights tab: the journal's long tasks, review queue, memory claims, and
- * reflections on one page.
+ * The insights view: the journal's long tasks, review queue, memory claims, and
+ * reflections on one page, shown inside the single Dayflow panel.
  *
- * The host answers all four lists in one response, so the page has a single
+ * The host answers all four lists in one response, so the view has a single
  * load state and a single refresh: no section can be stale while another is
  * fresh. Every section is still optional — an empty journal shows one quiet
  * empty state instead of four.
  * @module dsh-plugin-dayflow/client/insights
  */
 
-import { Button, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -31,18 +30,10 @@ const REFRESH_GLYPH = (
 /** Longest reflection line the list shows before shortening it. */
 const REFLECTION_PREVIEW_CHARS = 140;
 
-/** Props the slot runtime injects into the insights body. */
+/** Props the panel body passes to the insights view. */
 export interface InsightsPanelProps {
   /** Reads the journal's insights from the host. */
   loadInsights: (signal?: AbortSignal) => Promise<PanelInsights>;
-  /** Namespace-bound translation. */
-  t: Translate;
-}
-
-/** Props the slot runtime injects into the header action. */
-export interface InsightsToggleProps {
-  /** Opens (and focuses) the insights tab. */
-  openPanel: () => void;
   /** Namespace-bound translation. */
   t: Translate;
 }
@@ -104,7 +95,7 @@ function Section(props: { title: string; count: number; empty: string; children:
 }
 
 /**
- * Render the Insights tab.
+ * Render the insights view.
  * @param props - the injected reader and translator.
  * @returns the four journal sections, or one of the page states.
  */
@@ -139,8 +130,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   const retry = (): void => setNonce((value) => value + 1);
 
   return (
-    <div className="dfp-root">
-      <div className="dfp-view dfp-insights">
+    <div className="dfp-view dfp-insights">
         <div className="dfp-insights-head">
           <div className="dfp-insights-heading">
             <span className="dfp-insights-title">{t('insightsTitle')}</span>
@@ -278,46 +268,6 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
             )}
           </>
         )}
-      </div>
     </div>
-  );
-}
-
-function InsightsGlyph(): ReactNode {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path
-        d="M2.5 4.5h6M2.5 8h6M2.5 11.5h4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M12.2 2.6l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-/**
- * Render the conversation-header action that opens the Insights tab.
- * @param props - the injected opener and translator.
- * @returns the button anchored in the conversation header.
- */
-export function InsightsToggle({ openPanel, t }: InsightsToggleProps): ReactNode {
-  return (
-    <Tooltip label={t('insightsTitle')} side="bottom">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="dfp-header-button"
-        icon={<InsightsGlyph />}
-        aria-label={t('insightsTitle')}
-        onClick={openPanel}
-      >
-        <span className="dfp-toggle-label">{t('insightsTabTitle')}</span>
-      </Button>
-    </Tooltip>
   );
 }

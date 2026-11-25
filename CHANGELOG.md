@@ -62,12 +62,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   newer dated claim, claims with no source to trace, and active claims aged past
   180 days. Nothing is repaired automatically; acting on a finding stays a
   supersede/forget decision for the user.
-- A second panel tab, **Journal insights**: it lists active long tasks with
-  progress and stalled marks, the open review queue, recent date-stamped memory
-  claims, and stored day/week reflections, served by a new
-  `GET /api/dayflow/insights` route over the owned journal. The calendar tab is
-  unchanged, the server never creates or migrates a journal just to render the
-  tab, and a missing journal renders as empty lists instead of an error.
+- A **Journal insights** view inside the panel (one of its month/week/insights
+  views, not a second tab): it lists active long tasks with progress and stalled
+  marks, the open review queue, recent date-stamped memory claims, and stored
+  day/week reflections, served by a new `GET /api/dayflow/insights` route over
+  the owned journal. The plugin still has exactly one UI entry: one
+  conversation-header button and one panel tab. The server never creates or
+  migrates a journal just to render the view, and a missing journal renders as
+  empty lists instead of an error.
 
 ### Fixed
 
