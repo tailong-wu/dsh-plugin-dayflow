@@ -40,8 +40,8 @@ are still being analyzed.
 
 ## What you get
 
-- **19 tools**: 12 read tools, 1 `journal_import` tool, and 6 editing tools.
-- **4 skills**: `dayflow`, `onboarding`, `standup`, and `weekly-review`.
+- **20 tools**: 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, and 6 editing tools.
+- **5 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, and `review-queue`.
 - **An optional Web panel**: a month calendar of segmented rings, with hover
   cards and a per-day timeline, opened from a conversation-header button and
   drawn with the harness's own tokens.
@@ -285,6 +285,25 @@ stale tool list.
 | --- | --- | --- |
 | `journal_import` | `source_path?`, `source_id?` | Import a Dayflow `chunks.sqlite` into the owned journal, idempotently and with a skip report. |
 
+### Review queue tool
+
+The review queue is where the agent keeps what it noticed and wants to carry
+forward: a **distillation** (a lesson worth keeping), a **loop** (a pattern that
+keeps repeating), an **improvement** (a concrete change to the setup), or a
+**task proposal** (work that should become a task). The agent may only propose;
+the user decides. It lives in the plugin-owned journal (schema version 3), not
+in Dayflow, and is not gated by Dayflow's edits switch.
+
+| Tool | Arguments | Effect |
+| --- | --- | --- |
+| `journal_review` | `action`, `kind?`, `title?`, … | `list` reads the queue; `propose` adds an item with evidence and confidence; `decide` records the user's keep/accept/discard/reject; `unsuppress` clears a permanent suppression. |
+
+A plain discard or reject is **soft**: the same idea may come back once the
+evidence is materially new (a different day, a higher confidence, more
+occurrences). Only `forever: true`, with the user's agreement, hard-suppresses
+an item by its fingerprint. `decide` and `unsuppress` refuse to run without
+`confirm: true`.
+
 ### Mapping from Dayflow's own MCP server
 
 If you used Dayflow's `dayflow mcp` server, the tools are the same operations
@@ -315,6 +334,7 @@ under a `dayflow_` prefix:
 | `onboarding` | Checking that Dayflow is installed, recording, and producing data. |
 | `standup` | Drafting a standup or daily update from the timeline. |
 | `weekly-review` | Reviewing a week and comparing it with the one before. |
+| `review-queue` | Turning a task outcome or weekly review into distillations, loops, improvements, and task proposals, and asking the user to decide. |
 
 Skills are registered at runtime from `skills/`, so installing the plugin is
 enough; no skills root needs configuring.
@@ -379,7 +399,7 @@ defaults in `cordis.patch.yml`:
     journalPath: ''    # default: $DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # default: agent.sock beside the database
     edits: true        # register the six editing tools
-    skills: true       # register the four bundled skills
+    skills: true       # register the five bundled skills
     panel: true        # the optional Web panel and its header button
     icons: true        # site favicons on the panel cards (its only outbound request)
     allowInstall: false  # register dayflow_install_dayflow (it changes this Mac)
@@ -407,7 +427,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 129 tests: boundaries, SQL, adapters, import, panel, bundle
+npm test            # 153 tests: boundaries, SQL, adapters, import, review queue, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```

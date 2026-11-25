@@ -19,6 +19,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with its focus and distraction categories, and the review marks they made on
   the timeline. Both are read only by `GET /api/dayflow/day`; the month and week
   payloads are unchanged, so no extra work happens while browsing the calendar.
+- A review queue in the owned journal (schema version 3, `review_items`) with the
+  `journal_review` tool and a `review-queue` skill. The agent may propose a
+  distillation, loop, improvement, or task proposal with its evidence and
+  confidence; keep/accept/discard/reject decisions belong to the user and need
+  `confirm: true`. A plain discard or reject is soft and the idea may return once
+  the evidence is materially new; `forever: true` hard-suppresses it by
+  fingerprint, and `unsuppress` clears that. Confidence below 0.5 is dropped, and
+  at most five proposals are kept open per source day.
 
 ### Fixed
 

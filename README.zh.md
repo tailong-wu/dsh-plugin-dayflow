@@ -32,8 +32,8 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 
 ## 你会得到什么
 
-- **19 个工具**：12 个只读工具、1 个 `journal_import` 导入工具、6 个编辑工具。
-- **4 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`。
+- **20 个工具**：12 个只读工具、1 个 `journal_import` 导入工具、1 个 `journal_review` 回顾队列工具、6 个编辑工具。
+- **5 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`。
 - **一个可选的面板**：按月展示每天的分段圆环，悬停看摘要，点开看当天时间线；
   从对话头部的按钮打开，不打开就不占任何空间。
 - **一段系统提示词**：说明正确解读数据所需的规则——凌晨 4 点换日、`Idle` 与 `System`
@@ -239,6 +239,21 @@ journal_import({})
 | --- | --- | --- |
 | `journal_import` | `source_path?`、`source_id?` | 把 Dayflow 的 `chunks.sqlite` 幂等导入自有日志，并返回跳过报告。 |
 
+### 回顾队列工具
+
+回顾队列存放 agent 注意到、并希望留下来的东西：**distillation**（值得保留的经验）、
+**loop**（反复出现的模式）、**improvement**（可落地的改进）、**task proposal**（应该变成任务的工作）。
+agent 只能提案，决定由用户做。队列在插件自有日志里（schema 版本 3），不属于 Dayflow，
+也不受 Dayflow 编辑开关约束。
+
+| 工具 | 参数 | 作用 |
+| --- | --- | --- |
+| `journal_review` | `action`、`kind?`、`title?` 等 | `list` 读取队列；`propose` 带证据与置信度提一条；`decide` 记录用户的 keep/accept/discard/reject；`unsuppress` 清除永久抑制。 |
+
+普通的 discard/reject 是**软丢弃**：同一想法在证据实质更新后（换一天、置信度提高、出现次数增加）
+可以再次出现；只有带 `forever: true` 且用户同意才会按指纹永久抑制。
+`decide` 与 `unsuppress` 必须传 `confirm: true` 才会执行。
+
 ### 与 Dayflow 自带 MCP 服务的对应关系
 
 如果你用过 Dayflow 的 `dayflow mcp`，这里的工具是同一批操作，只是加了 `dayflow_` 前缀：
@@ -268,6 +283,7 @@ journal_import({})
 | `onboarding` | 检查 Dayflow 是否安装、是否在记录、是否已有数据。 |
 | `standup` | 根据时间线起草 standup 或日报。 |
 | `weekly-review` | 复盘一周，并与上一周对比。 |
+| `review-queue` | 把任务结果或周复盘整理成 distillation / loop / improvement / task proposal，并请用户做决定。 |
 
 技能在运行时从 `skills/` 注册，装好插件即可用，不需要配置技能目录。
 
@@ -316,7 +332,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
     journalPath: ''    # 默认：$DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # 默认：与数据库同目录的 agent.sock
     edits: true        # 是否注册 6 个编辑工具
-    skills: true       # 是否注册 4 个技能
+    skills: true       # 是否注册 5 个技能
     panel: true        # 是否显示可选的 Web 面板与头部按钮
     icons: true        # 面板卡片上的站点图标（插件唯一的对外请求）
     allowInstall: false  # 是否注册 dayflow_install_dayflow（会改动本机）
@@ -340,7 +356,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 129 个测试：边界、SQL、适配器、导入、面板、bundle
+npm test            # 153 个测试：边界、SQL、适配器、导入、回顾队列、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```

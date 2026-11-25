@@ -5,12 +5,15 @@
 > the owned read backend. The next development increment on `main` (unreleased)
 > closes the Phase 3 read gap with `dayflow_journal`, `dayflow_goals`,
 > `dayflow_observations`, and `dayflow_review_ratings`, and surfaces the goal and
-> review marks in the panel's day view. The write path (editing tools still go
-> through Dayflow), the `dsh dayflow import` CLI, and the month/week panel
-> surfaces remain later work; Phase 3.5 and everything after it remain
-> proposals.
+> review marks in the panel's day view. It also lands the Phase 3.5 **storage and
+> tool** slice: the `review_items` identity/decision queue (owned schema version
+> 3), the `journal_review` tool, and the `review-queue` skill. The write path
+> (editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
+> month/week panel surfaces, the review-queue panel UI, and the `review.cards`
+> switch (the plugin never had a card stack, so that switch has no surface here
+> yet) remain later work. Phase 3.6 and everything after it remain proposals.
 > Last revised: 2026-11-25 (status restated for the 0.6.0 release and the Phase 3
-> read-gap increment).
+> read-gap plus review-queue increments).
 
 ## Where this starts
 
@@ -267,6 +270,13 @@ badge anywhere; the distillation, loop, and improvement queues are reachable; de
 an item changes retrievable state; a `hard`-suppressed item is never re-proposed
 (a test replays the same evidence and asserts it is dropped); a `soft`-discarded
 item *is* re-proposed when the evidence changes.
+
+**Shipped in the 0.7.0 development line (unreleased, on `main`):** the owned
+schema (version 3) stores `review_items` with kind/status/confidence/evidence,
+`journal_review` exposes list/propose/decide/unsuppress, and the `review-queue`
+skill teaches the push-right proposal discipline. The hard/soft suppression
+rules, the confidence floor, and the per-day cap are enforced and tested. The
+panel-side queue and the `review.cards` switch remain open.
 
 ### Phase 3.6 — Privacy for cloud summarization
 
