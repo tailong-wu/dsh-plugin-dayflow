@@ -25,6 +25,7 @@ import { withJournal, withJournalWrite } from '../journal.js';
 import {
   addMemoryClaim,
   forgetMemoryClaim,
+  lintMemoryClaims,
   listMemoryClaims,
   searchMemoryClaims,
   supersedeMemoryClaim,
@@ -33,6 +34,7 @@ import type {
   AddMemoryClaimInput,
   MemoryClaimKind,
   MemoryClaimPayload,
+  MemoryLintReport,
   SupersedeMemoryClaimInput,
 } from '../memory.js';
 import type { ToolRuntime } from './shared.js';
@@ -40,7 +42,7 @@ import { jsonValue } from './shared.js';
 
 /** The tool-facing value of one `journal_memory` call. */
 export interface MemoryToolPayload {
-  action: 'add' | 'search' | 'list' | 'supersede' | 'forget';
+  action: 'add' | 'search' | 'list' | 'supersede' | 'forget' | 'lint';
   /** The new claim of add and supersede. */
   claim?: MemoryClaimPayload;
   /** The list and search results, newest observed claim first. */
@@ -51,6 +53,8 @@ export interface MemoryToolPayload {
   previous_id?: number;
   /** forget: the id of the claim that was deleted. */
   forgotten?: number;
+  /** lint: the read-only inspection report. */
+  report?: MemoryLintReport;
   hint: string;
 }
 
@@ -143,14 +147,17 @@ export function memoryTools(runtime: ToolRuntime): ToolDefinition[] {
         'new dated claim: the old row stays and is marked superseded, so history stays readable at an older ' +
         'date. search and list return only claims that have not been superseded unless include_superseded is ' +
         'true. forget hard-deletes a claim; because deleting a memory is the user\'s decision, it requires ' +
-        'confirm: true after the user has explicitly asked for it. A distillation or loop the user keeps in ' +
+        'confirm: true after the user has explicitly asked for it. lint is a read-only inspection that reports ' +
+        'claims which contradict each other, claims a newer claim already supersedes, claims with no traceable ' +
+        'source, and claims older than the aging window; it changes nothing, and fixing a finding goes through ' +
+        'supersede or forget, with the user deciding. A distillation or loop the user keeps in ' +
         'journal_review is written here automatically, so do not add the same lesson twice. Claims live in the ' +
         "plugin-owned journal, separate from Dayflow's own data, and are not gated by Dayflow's edits switch.",
       parameters: {
         action: {
           type: 'string',
           required: true,
-          description: "'add' | 'search' | 'list' | 'supersede' | 'forget'",
+          description: "'add' | 'search' | 'list' | 'supersede' | 'forget' | 'lint'",
         },
         kind: {
           type: 'string',
@@ -159,7 +166,8 @@ export function memoryTools(runtime: ToolRuntime): ToolDefinition[] {
         subject: {
           type: 'string',
           description:
-            'add: the few words the claim is about, e.g. "release ritual". supersede: the new subject, if it changed.',
+            'add: the few words the claim is about, e.g. "release ritual". supersede: the new subject, if it changed. ' +
+            'lint: only inspect claims with this exact subject.',
         },
         body: {
           type: 'string',
@@ -189,7 +197,11 @@ export function memoryTools(runtime: ToolRuntime): ToolDefinition[] {
           type: 'boolean',
           description: 'search/list: true also returns claims that a newer claim replaced. Defaults to false.',
         },
-        limit: { type: 'integer', description: 'search/list: maximum rows, 1..100. Defaults to 20.' },
+        limit: {
+          type: 'integer',
+          description:
+            'search/list: maximum rows, 1..100. Defaults to 20. lint: maximum findings per section, 1..100. Defaults to 20.',
+        },
         id: {
           type: 'integer',
           description: 'supersede: the id of the claim being replaced. forget: the id of the claim to delete.',
@@ -263,6 +275,19 @@ export function memoryTools(runtime: ToolRuntime): ToolDefinition[] {
             return jsonValue(payload);
           }
 
+          case 'lint': {
+            const options: { subject?: string; limit?: number } = {};
+            if (args.subject !== undefined) options.subject = args.subject;
+            if (args.limit !== undefined) options.limit = args.limit;
+            // A read opens the journal through withJournal, never withJournalWrite,
+            // so a lint pass cannot touch a claim.
+            const report = withJournal(runtime.config.journalPath, (db) =>
+              lintMemoryClaims(db, options),
+            );
+            const payload: MemoryToolPayload = { action: 'lint', report, hint: report.hint };
+            return jsonValue(payload);
+          }
+
           case 'supersede': {
             const id = requiredId(args.id, 'supersede');
             const input: SupersedeMemoryClaimInput = {
@@ -310,7 +335,7 @@ export function memoryTools(runtime: ToolRuntime): ToolDefinition[] {
 
           default:
             throw invalidInput(
-              `Unknown action "${args.action}": use add, search, list, supersede, or forget.`,
+              `Unknown action "${args.action}": use add, search, list, supersede, forget, or lint.`,
             );
         }
       },
@@ -327,6 +352,12 @@ export function memoryTools(runtime: ToolRuntime): ToolDefinition[] {
               card: 'generic' as const,
               kind: 'read' as const,
               title: `Memory claims${args.kind === undefined ? '' : ` · ${args.kind}`}`,
+            };
+          case 'lint':
+            return {
+              card: 'generic' as const,
+              kind: 'read' as const,
+              title: `Memory lint${args.subject === undefined ? '' : ` · ${args.subject}`}`,
             };
           case 'add':
             return {

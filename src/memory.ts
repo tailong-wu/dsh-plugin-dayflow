@@ -565,3 +565,220 @@ export function createMemoryFromReviewItem(
     source_days: sourceDay === undefined ? undefined : [sourceDay],
   });
 }
+
+// ---------------------------------------------------------------------------
+// Memory lint: a read-only checkup of the claims the store already holds.
+//
+// Linting never repairs anything. It points at claims worth a second look and
+// leaves the decision to the user: a wrong claim is fixed by superseding it and
+// one that should not exist is fixed by forgetting it, and both are decisions
+// the user makes, not something a scan may do on its own.
+// ---------------------------------------------------------------------------
+
+/** One claim as a lint report shows it: identity, text, and provenance. */
+export interface MemoryClaimSummary {
+  id: number;
+  subject: string;
+  body: string;
+  kind: MemoryClaimKind;
+  observed_on: string;
+  confidence: number;
+  source_review_item?: number;
+  source_days?: string[];
+}
+
+/** Active claims with the same kind and subject whose bodies disagree. */
+export interface MemoryLintGroup {
+  subject: string;
+  kind: MemoryClaimKind;
+  claims: MemoryClaimSummary[];
+}
+
+/** An active claim that a newer active claim with the same key has moved past. */
+export interface MemoryLintPair {
+  older: MemoryClaimSummary;
+  newer: MemoryClaimSummary;
+}
+
+/** A read-only report of claims worth a second look; nothing is changed. */
+export interface MemoryLintReport {
+  /** How many active claims the scan covered, after the subject filter. */
+  scanned: number;
+  /** Same kind and subject, but at least two distinct normalized bodies. */
+  contradictions: MemoryLintGroup[];
+  /** Older claims that a newer active claim with the same kind and subject follows. */
+  supersededByNewer: MemoryLintPair[];
+  /** Active claims with no traceable source (no review item and no evidence days). */
+  unsourced: MemoryClaimSummary[];
+  /** Active claims observed before the aging horizon. */
+  aged: MemoryClaimSummary[];
+  /** One sentence on what the report is and what fixing a finding involves. */
+  hint: string;
+}
+
+/** A claim observed before `now` minus this many days counts as aged. */
+export const MEMORY_LINT_AGE_DAYS = 180;
+/** How many findings each list of a lint report returns when the caller states none. */
+export const MEMORY_LINT_LIMIT = 20;
+
+/** The hint every lint report carries: read-only, and fixing is the user's call. */
+const MEMORY_LINT_HINT =
+  'This lint report is read-only and changed nothing; to fix a claim, supersede or forget it only when the user decides.';
+
+/** Normalize a body for comparison: trimmed, whitespace-collapsed, lowercased. */
+function normalizedClaimBody(body: string): string {
+  return body.trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
+/** Reduce a stored claim to the fields a lint report shows. */
+function memoryClaimSummary(claim: MemoryClaimPayload): MemoryClaimSummary {
+  const summary: MemoryClaimSummary = {
+    id: claim.id,
+    subject: claim.subject,
+    body: claim.body,
+    kind: claim.kind,
+    observed_on: claim.observed_on,
+    confidence: claim.confidence,
+  };
+  if (claim.source_review_item !== undefined) summary.source_review_item = claim.source_review_item;
+  if (claim.source_days !== undefined) summary.source_days = claim.source_days;
+  return summary;
+}
+
+/** Validate a lint limit: the report's default, within 1..MEMORY_MAX_LIMIT. */
+function resolveLintLimit(value: unknown): number {
+  if (value === undefined || value === null) return MEMORY_LINT_LIMIT;
+  if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > MEMORY_MAX_LIMIT) {
+    throw invalid(`Memory lint limit must be an integer between 1 and ${String(MEMORY_MAX_LIMIT)}.`);
+  }
+  return value as number;
+}
+
+/** The first instant of the day `MEMORY_LINT_AGE_DAYS` before `now`. */
+function memoryAgingCutoff(now: Date): Date {
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    throw invalid('Memory lint now must be a valid Date.');
+  }
+  const shifted = new Date(now.getTime());
+  shifted.setDate(shifted.getDate() - MEMORY_LINT_AGE_DAYS);
+  const window = dayWindowForKey(formatDayKey(shifted));
+  if (window === undefined) throw new DayflowError('Could not compute the memory aging cutoff day.', 'database_error');
+  return window.start;
+}
+
+/** Whether a claim's observation day begins before the aging cutoff day begins. */
+function isAgedClaim(claim: MemoryClaimSummary, cutoff: Date): boolean {
+  const window = dayWindowForKey(claim.observed_on);
+  return window !== undefined && window.start < cutoff;
+}
+
+/** Oldest observation first; on the same day, the earlier row first. */
+function compareOldestFirst(left: MemoryClaimSummary, right: MemoryClaimSummary): number {
+  if (left.observed_on !== right.observed_on) return left.observed_on < right.observed_on ? -1 : 1;
+  return left.id - right.id;
+}
+
+/** Newest observation first; on the same day, the later row first. */
+function compareNewestFirst(left: MemoryClaimSummary, right: MemoryClaimSummary): number {
+  if (left.observed_on !== right.observed_on) return left.observed_on < right.observed_on ? 1 : -1;
+  return right.id - left.id;
+}
+
+/** Report groups by subject, then by kind. */
+function compareLintGroups(left: MemoryLintGroup, right: MemoryLintGroup): number {
+  if (left.subject !== right.subject) return left.subject < right.subject ? -1 : 1;
+  if (left.kind !== right.kind) return left.kind < right.kind ? -1 : 1;
+  return 0;
+}
+
+/**
+ * Scan the memory store for claims that may need attention — read-only.
+ *
+ * The scan covers active claims only (superseded rows are history, not current
+ * belief) and can be narrowed to one exact `subject`. `limit` (default
+ * {@link MEMORY_LINT_LIMIT}, 1..{@link MEMORY_MAX_LIMIT}) caps each finding
+ * list, never `scanned`. Those findings are:
+ *
+ * - `contradictions`: active claims sharing `(kind, subject)` whose bodies differ
+ *   after trimming, collapsing whitespace, and lowercasing — i.e. the store holds
+ *   two live versions of the same claim that were never reconciled.
+ * - `supersededByNewer`: for every active claim there is an active claim with the
+ *   same `(kind, subject)` observed later (same day: a higher id), the nearest
+ *   such claim is paired with it. This is the shape a supersede should have had.
+ * - `unsourced`: no `source_review_item` and no evidence days — nothing to trace
+ *   the claim back to.
+ * - `aged`: observed on a day before `now - MEMORY_LINT_AGE_DAYS`; `now` is
+ *   injectable so tests and callers can pin the clock.
+ *
+ * Nothing is written: fixes go through {@link supersedeMemoryClaim} or
+ * {@link forgetMemoryClaim}, and the user decides whether to make them.
+ */
+export function lintMemoryClaims(
+  db: DatabaseSync,
+  options: { subject?: string; limit?: number; now?: Date } = {},
+): MemoryLintReport {
+  const settings = options ?? {};
+  const subject = optionalSubject(settings.subject);
+  const limit = resolveLintLimit(settings.limit);
+  const cutoff = memoryAgingCutoff(settings.now === undefined ? new Date() : settings.now);
+
+  const conditions: string[] = ['superseded_by IS NULL'];
+  const parameters: string[] = [];
+  if (subject !== undefined) {
+    conditions.push('subject = ?');
+    parameters.push(subject);
+  }
+  const sql = `SELECT * FROM memory_claims WHERE ${conditions.join(' AND ')} ORDER BY observed_on ASC, id ASC`;
+  const rows = db.prepare(sql).all(...(parameters as never[])) as Row[];
+  const active = rows.map((row) => memoryClaimSummary(memoryClaimPayload(row)));
+
+  // Group the active claims by the key that defines one claim's history.
+  const groupsByKey = new Map<string, MemoryClaimSummary[]>();
+  for (const claim of active) {
+    const key = JSON.stringify([claim.kind, claim.subject]);
+    const group = groupsByKey.get(key);
+    if (group === undefined) groupsByKey.set(key, [claim]);
+    else group.push(claim);
+  }
+
+  const contradictions: MemoryLintGroup[] = [];
+  const pairs: MemoryLintPair[] = [];
+  for (const group of groupsByKey.values()) {
+    if (group.length > 1) {
+      const distinctBodies = new Set(group.map((claim) => normalizedClaimBody(claim.body)));
+      if (distinctBodies.size > 1) {
+        contradictions.push({
+          subject: group[0].subject,
+          kind: group[0].kind,
+          claims: [...group].sort(compareNewestFirst),
+        });
+      }
+      // In oldest-first order every next claim is exactly the nearest claim that
+      // is newer than the one before it (later day, or a higher id on the same day).
+      const ordered = [...group].sort(compareOldestFirst);
+      for (let index = 0; index < ordered.length - 1; index += 1) {
+        pairs.push({ older: ordered[index], newer: ordered[index + 1] });
+      }
+    }
+  }
+  contradictions.sort(compareLintGroups);
+  pairs.sort((left, right) => compareOldestFirst(left.older, right.older));
+
+  const unsourced = active
+    .filter(
+      (claim) =>
+        claim.source_review_item === undefined &&
+        (claim.source_days === undefined || claim.source_days.length === 0),
+    )
+    .sort(compareOldestFirst);
+  const aged = active.filter((claim) => isAgedClaim(claim, cutoff)).sort(compareOldestFirst);
+
+  return {
+    scanned: active.length,
+    contradictions: contradictions.slice(0, limit),
+    supersededByNewer: pairs.slice(0, limit),
+    unsourced: unsourced.slice(0, limit),
+    aged: aged.slice(0, limit),
+    hint: MEMORY_LINT_HINT,
+  };
+}

@@ -24,7 +24,7 @@ import type {
   WeeklyPayload,
 } from './queries.js';
 import type { ImportReport } from './journal.js';
-import type { MemoryClaimPayload } from './memory.js';
+import type { MemoryClaimPayload, MemoryClaimSummary, MemoryLintReport } from './memory.js';
 import type { ReflectionPayload } from './reflections.js';
 import type { ReviewItemPayload, ReviewToolPayload } from './review.js';
 import type { MemoryToolPayload } from './tools/memory.js';
@@ -327,11 +327,86 @@ function renderMemoryClaim(claim: MemoryClaimPayload): string {
 }
 
 /**
+ * Render one lint finding as `#id on <date> · <body>`, omitting the body when it
+ * is blank. The body is collapsed to one line and capped, so a finding list stays
+ * scannable.
+ * @param claim - one summarised claim from the lint report.
+ * @returns one line.
+ */
+function renderLintClaim(claim: MemoryClaimSummary): string {
+  const body = oneLine(claim.body);
+  const line = `#${claim.id} on ${claim.observed_on}`;
+  return body === '' ? line : `${line} · ${body}`;
+}
+
+/**
+ * Render one unsourced or aged finding as `- #id on <date> · subject`.
+ * @param claim - one summarised claim from the lint report.
+ * @returns one line.
+ */
+function renderLintRow(claim: MemoryClaimSummary): string {
+  return `- #${claim.id} on ${claim.observed_on} · ${claim.subject}`;
+}
+
+/**
+ * Render the read-only lint report: what contradicts what, what a newer claim
+ * already supersedes, what has no traceable source, and what has aged out.
+ *
+ * Empty sections are left out, so a clean store renders as the scanned count and
+ * "No lint findings."; the report's hint always follows, because it explains that
+ * the tool only inspects and that fixing a finding is a user decision.
+ * @param report - the lint report.
+ * @returns model-facing text.
+ */
+function renderMemoryLint(report: MemoryLintReport): string {
+  const sections: string[] = [];
+
+  if (report.contradictions.length > 0) {
+    const rows = [`Contradictions (${report.contradictions.length}):`];
+    for (const group of report.contradictions) {
+      rows.push(`- ${group.subject} · ${group.kind}`);
+      for (const claim of group.claims) rows.push(`  - ${renderLintClaim(claim)}`);
+    }
+    sections.push(rows.join('\n'));
+  }
+
+  if (report.supersededByNewer.length > 0) {
+    const rows = [`Superseded by newer (${report.supersededByNewer.length}):`];
+    for (const pair of report.supersededByNewer) {
+      rows.push(
+        `- #${pair.older.id} on ${pair.older.observed_on} → ` +
+          `#${pair.newer.id} on ${pair.newer.observed_on} · ${pair.older.subject}`,
+      );
+    }
+    sections.push(rows.join('\n'));
+  }
+
+  if (report.unsourced.length > 0) {
+    sections.push(
+      [`Unsourced (${report.unsourced.length}):`, ...report.unsourced.map(renderLintRow)].join('\n'),
+    );
+  }
+
+  if (report.aged.length > 0) {
+    sections.push([`Aged (${report.aged.length}):`, ...report.aged.map(renderLintRow)].join('\n'));
+  }
+
+  if (sections.length === 0) sections.push('No lint findings.');
+
+  const header = `Memory lint · scanned ${report.scanned} ${plural(report.scanned, 'claim')}`;
+  const body = `${header}\n\n${sections.join('\n\n')}`;
+  const hint = report.hint.trim();
+  return hint === '' ? body : `${body}\n\n${hint}`;
+}
+
+/**
  * Render the journal's dated memory and the outcome of a write.
  *
  * A claim is always shown with its `observed_on` date, because the store keeps
  * what was true on a day rather than what is true now; the empty list falls
- * back to the hint, which explains how to search more broadly.
+ * back to the hint, which explains how to search more broadly. A lint reply is a
+ * report rather than a claim, so it renders its own four finding sections and
+ * never throws on an empty one.
  * @param payload - the `journal_memory` value.
  * @returns model-facing text.
  */
@@ -356,6 +431,11 @@ export function renderMemory(payload: MemoryToolPayload): string {
         ? `Memory · ${count} for "${payload.query ?? ''}"`
         : `Memory · ${count}`;
     return `${header}\n\n${claims.map((claim) => renderMemoryClaim(claim)).join('\n')}`;
+  }
+
+  if (payload.action === 'lint') {
+    const report = payload.report;
+    return report === undefined ? payload.hint : renderMemoryLint(report);
   }
 
   if (payload.action === 'supersede') {
