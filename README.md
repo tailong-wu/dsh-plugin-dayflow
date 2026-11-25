@@ -38,7 +38,8 @@ are still being analyzed.
 > and its importer, and Dayflow-socket edits. `main` is the **unreleased `0.7.0`
 > development line** this README describes — 23 tools, 8 skills, the owned
 > journal with its review queue, long tasks, dated memory, reflections, and the
-> Journal insights view (see `CHANGELOG.md` `[Unreleased]` and
+> Journal insights view, plus quick capture: three slash commands and the
+> insights view's inline add rows (see `CHANGELOG.md` `[Unreleased]` and
 > `docs/ROADMAP.md`). A registry install will not carry that surface until
 > `0.7.0` is published; the checkout install below builds the development line.
 
@@ -50,6 +51,11 @@ are still being analyzed.
   cards, week swim lanes, a per-day timeline, and a **Journal insights** view for
   long tasks, the review queue, memory claims, and reflections; opened from one
   conversation-header button and drawn with the harness's own tokens.
+- **Quick capture**: three slash commands (`/dayflow-task`, `/dayflow-remember`,
+  `/dayflow-reflect`) that write to the owned journal without a model turn, and
+  inline add rows in the insights view for a task, a memory claim, or today's
+  reflection. The panel stays a read-only view apart from those three rows, and
+  the plugin still has exactly one UI entry.
 - **A system-prompt section** stating the rules that make the data readable:
   the 4 AM day boundary, `Idle` and `System` handling, analysis lag, and the
   untrusted-content boundary.
@@ -187,12 +193,17 @@ card placed at its time and tinted with its category colour.
   what the agent has learned — active long tasks (with progress and stalled
   marks), the open review queue, recent date-stamped memory claims, and stored
   day/week reflections. It is a view inside the panel, not a second tab or
-  button, so the plugin keeps one entry.
+  button, so the plugin keeps one entry. The task, memory, and reflection blocks
+  also take an inline add (see [Quick capture](#quick-capture)); the review queue
+  does not.
 - The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`,
   `GET /api/dayflow/day`, `GET /api/dayflow/insights`, and
   `GET /api/dayflow/panel` (the enablement probe) through the harness's
-  authenticated `/api` bridge; together with the icon route below, that is the
-  panel's six host Fetch routes. It never touches the database itself.
+  authenticated `/api` bridge. The three inline add rows submit
+  `POST /api/dayflow/tasks`, `POST /api/dayflow/memory`, and
+  `POST /api/dayflow/reflections` on the same bridge. Together with the icon
+  route below, those are the panel's host Fetch routes. It never touches the
+  database itself.
 - Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
   `favicon.ico` per domain on first use and caches it under
   `$DSH_HOME/dayflow-icons`. That is the plugin's only outbound request: it
@@ -409,11 +420,59 @@ read and write the plugin-owned journal.
 | `weekly-review` | Reviewing a week and comparing it with the one before. |
 | `review-queue` | Turning a task outcome or weekly review into distillations, loops, improvements, and task proposals, and asking the user to decide. |
 | `long-task` | Tracking work that outlives a day: stalled tasks, attaching a day's sessions with evidence, and status changes. |
-| `memory` | Keeping a dated history of what the agent learned: search first, append new claims, supersede instead of rewriting, and forget only on request. |
+| `memory` | Keeping a dated history of what the agent learned: search first, append new claims, supersede instead of rewriting, backfill recent days on request, and forget only on request. |
 | `reflection` | Compressing a day or a week into a saved reflection (what happened, what repeated, what stalled) and reading it back instead of re-deriving it. |
 
 Skills are registered at runtime from `skills/`, so installing the plugin is
 enough; no skills root needs configuring.
+
+## Quick capture
+
+There is more than one way to put something into the owned journal. Two
+shortcuts skip the conversation entirely; the third gives the agent the structure
+only a conversation can. None of them adds a second UI entry.
+
+### Slash commands
+
+When the host exposes a command registry, the plugin registers three commands
+that write straight to the owned journal: no model turn, no tool call, and not
+gated by Dayflow's edit switch.
+
+| Command | What it writes |
+| --- | --- |
+| `/dayflow-task <title>` | A long task with that title. |
+| `/dayflow-remember <text>` | A `preference` claim dated today (a Dayflow day, which starts at 04:00). |
+| `/dayflow-reflect <text>` | The text appended to the current day's saved reflection, created when none is saved yet. |
+
+The journal is created on the first write. A host without a command registry
+skips the commands; the same writes are still available through the tools.
+
+### Panel inline add
+
+The **Journal insights** view is a read-only view of the owned journal with one
+exception: the task, memory, and reflection blocks each end with a ToDo-style
+input row. Type into it and press Enter (or click **Add**); the row submits a
+small `POST` request to the panel API and the list refreshes.
+
+The rows only add: a task title, a `preference` claim dated today (the current
+Dayflow day), or a line appended to today's reflection. Nothing in the panel
+edits or deletes an existing entry, and the review queue has no add row at all —
+it is fed by the agent's proposals, and the keep/accept/discard/reject decision
+belongs to the user.
+
+### Conversation
+
+Anything richer than a title goes through the conversation: the agent uses
+`journal_task`, `journal_memory`, and `journal_reflection` with the arguments the
+situation needs (evidence, dates, minutes). When several days of patterns are
+what should be captured, the `memory` skill's **Backfilling memory** workflow
+reads the last 3–7 days of `dayflow_timeline`, proposes a small set of dated
+claims (three to five at most) for the user to confirm, writes only the accepted
+ones, and finishes with `journal_memory lint`.
+
+The plugin keeps exactly one Harness UI entry: one conversation-header button
+and one panel tab. Slash commands are commands, not UI entries, and
+**Journal insights** is a view inside that tab rather than a second one.
 
 ## How it works
 
@@ -438,7 +497,9 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
 - **Owned-journal writes** go straight to the plugin's own SQLite file and never
   through Dayflow: `journal_import`, `journal_review`, `journal_task`,
   `journal_memory`, and `journal_reflection` write through `withJournalWrite`
-  (`src/journal.ts`), so they are not gated by Dayflow's edit switch.
+  (`src/journal.ts`), so they are not gated by Dayflow's edit switch. The
+  quick-capture slash commands and the panel's three inline add routes write the
+  same way.
 - **Categories** live in the app's preferences
   (`teleportlabs.com.Dayflow`, key `colorCategories`), not in SQLite. They are
   read with `defaults export` and parsed from the plist.
@@ -508,7 +569,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 248 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, bundle
+npm test            # 261 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, capture, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps
@@ -542,7 +603,7 @@ src/
   setup.ts        read-only detection of the Dayflow install
   errors.ts       the stable failure codes
   paths.ts        Dayflow's database/socket and the plugin's own paths
-  panel.ts        the six host Fetch routes behind the Web panel
+  panel.ts        the host Fetch routes behind the Web panel (reads and inline-add writes)
   panel-contract.ts  the wire payloads shared by host and browser
   tools/read.ts   the twelve read tools
   tools/import.ts the journal_import tool

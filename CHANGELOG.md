@@ -70,6 +70,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conversation-header button and one panel tab. The server never creates or
   migrates a journal just to render the view, and a missing journal renders as
   empty lists instead of an error.
+- Human slash commands for quick capture: `/dayflow-task`,
+  `/dayflow-remember`, `/dayflow-reflect` write directly to the owned journal
+  through the host command registry (hosts without it skip them).
+- Inline add rows in the Journal insights view for tasks, memory claims, and
+  today's reflection, backed by `POST` routes on the panel API; the review queue
+  stays agent-proposed and user-decided.
 
 ### Fixed
 
