@@ -1212,6 +1212,59 @@ export const PANEL_CSS = `
   font-size: 12px;
   line-height: 17px;
 }
+
+/* The empty journal explains the view instead of showing one bare line. */
+
+.dfp-insights-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 12px 16px;
+}
+
+.dfp-insights-intro-title {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.dfp-insights-intro-body {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dfp-insights-intro-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dfp-insights-intro-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.dfp-insights-intro-text {
+  margin: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.dfp-insights-intro-hint {
+  margin: 4px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 17px;
+}
 `;
 
 /**

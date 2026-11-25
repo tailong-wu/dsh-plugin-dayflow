@@ -179,7 +179,24 @@ export function InsightsPanel({ loadInsights, t, toolbar }: InsightsPanelProps):
             )}
 
             {isBlank(data) ? (
-              <div className="dfp-state">{t('insightsEmpty')}</div>
+              <div className="dfp-insights-intro">
+                <p className="dfp-insights-intro-title">{t('insightsIntroTitle')}</p>
+                <p className="dfp-insights-intro-body">{t('insightsIntro')}</p>
+                <ul className="dfp-insights-intro-list">
+                  {[
+                    { title: t('tasksSection'), body: t('insightsIntroTasks') },
+                    { title: t('reviewSection'), body: t('insightsIntroReview') },
+                    { title: t('memorySection'), body: t('insightsIntroMemory') },
+                    { title: t('reflectionsSection'), body: t('insightsIntroReflections') },
+                  ].map((row) => (
+                    <li key={row.title} className="dfp-insights-intro-item">
+                      <span className="dfp-insights-badge">{row.title}</span>
+                      <p className="dfp-insights-intro-text">{row.body}</p>
+                    </li>
+                  ))}
+                </ul>
+                <p className="dfp-insights-intro-hint">{t('insightsEmpty')}</p>
+              </div>
             ) : (
               <>
                 <Section title={t('tasksSection')} count={data.tasks.length} empty={t('noTasks')}>

@@ -84,6 +84,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   READMEs, LICENSE), trimming the unpacked package from 3.10 MB to 2.83 MB.
 - The panel's insights view keeps the month/week switch in its header, so it is
   no longer a one-way trip: any of the three views can be switched to directly.
+- When the journal has nothing to show yet, the insights view explains what it
+  will contain instead of showing a single bare line.
 
 ## [0.6.0] - 2026-11-11
 
