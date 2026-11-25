@@ -1,8 +1,11 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: Phase 1+2 foundation is implemented in the 0.6.0 development line;
-> later phases remain proposals.
-> Last revised: 2026-10-28 (implementation note added 2026-11-10).
+> Status: the 0.6.0 release (tagged `v0.6.0`) ships the **read path** of Phases
+> 1+2 only — the owned schema, its forward migration, the Dayflow importer, and
+> the owned read backend. The write path is deferred: editing tools still go
+> through Dayflow, and the `dsh dayflow import` CLI is not part of this
+> increment. Phase 3 and everything after it remain proposals.
+> Last revised: 2026-11-25 (status restated for the 0.6.0 release).
 
 ## Where this starts
 
@@ -90,10 +93,11 @@ the owned store — and gets identical payloads.
 
 ### Phase 2 — Import, then cut the cord
 
-- `journal_import` / `dsh dayflow import`: read a Dayflow database and write it
-  into the owned store, losslessly for `timeline_cards`, `observations`,
-  `daily_standup_entries`, `day_goals`, `day_goal_categories`,
-  `timeline_review_ratings`, `journal_entries`, and the category colors.
+- `journal_import` (shipped in 0.6.0) / `dsh dayflow import` (deferred): read a
+  Dayflow database and write it into the owned store, losslessly for
+  `timeline_cards`, `observations`, `daily_standup_entries`, `day_goals`,
+  `day_goal_categories`, `timeline_review_ratings`, `journal_entries`, and the
+  category colors.
 - Report what it imported and what it deliberately skipped (credentials in
   `llm_calls`, chat history containing private text) rather than silently
   dropping it.

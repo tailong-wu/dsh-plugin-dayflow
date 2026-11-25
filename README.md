@@ -32,8 +32,11 @@ was captured* — not necessarily a break, a meeting, or time off. A day with no
 cards can equally be a day of meetings, a day away, or a day whose recordings
 are still being analyzed.
 
-> **Status:** next minor (`0.6.0`, in development). Existing profiles keep using
-> Dayflow by default; the owned journal and importer are the first roadmap cut.
+> **Status:** `0.6.0` is tagged in this repository as `v0.6.0` but is not
+> published to the npm registry yet, so install from a checkout for now (see
+> below). Existing profiles keep reading Dayflow by default; the owned journal
+> and importer are the first roadmap cut, and this increment covers the read path
+> only — editing tools still go through Dayflow.
 
 ## What you get
 
@@ -61,11 +64,12 @@ are still being analyzed.
 ## Install
 
 ```sh
-# Once the package is published to a registry:
+# Once `0.6.0` is published to the registry:
 dsh plugin --profile web add dsh-plugin-dayflow
 ```
 
-Until then, use the checkout install below. The plugin ships a bundle patch, so installing it selects the bundle. With HMR
+`v0.6.0` is tagged but not published, so use the checkout install below for now.
+The plugin ships a bundle patch, so installing it selects the bundle. With HMR
 enabled (the default for base-backed profiles) the running app reloads and the
 tools appear in the next session. Then ask:
 
@@ -395,7 +399,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 110 tests: boundaries, SQL, adapters, import, panel, bundle
+npm test            # 116 tests: boundaries, SQL, adapters, import, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```

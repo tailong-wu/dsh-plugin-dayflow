@@ -26,8 +26,9 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 安静的一段时间记成 `Idle`，含义是**没有采集到屏幕活动**——不等于休息、开会或请假。
 某天没有活动卡片，同样可能是开了一天会、整天不在，或者录屏还在分析。
 
-> **状态：** 下一个小版本（`0.6.0`，开发中）。现有 profile 默认仍读 Dayflow；
-> 这一刀先落地自有日志和导入器。
+> **状态：** `0.6.0` 已在仓库打好 tag（`v0.6.0`），但尚未发布到 npm registry，
+> 目前请按下面的源码方式安装。现有 profile 默认仍读 Dayflow；自有日志和导入器是
+> roadmap 的第一个切片，本版只覆盖读路径——编辑工具仍走 Dayflow。
 
 ## 你会得到什么
 
@@ -53,11 +54,12 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 ## 安装
 
 ```sh
-# 包发布到 registry 之后：
+# `0.6.0` 发布到 registry 之后：
 dsh plugin --profile web add dsh-plugin-dayflow
 ```
 
-在那之前请用下面的源码安装。插件自带 bundle patch，安装即会选中这个 bundle。开启 HMR 的 profile（默认开启）会自动重载，
+`v0.6.0` 已有 tag 但还没发布，在那之前请用下面的源码安装。插件自带 bundle patch，
+安装即会选中这个 bundle。开启 HMR 的 profile（默认开启）会自动重载，
 新会话就能看到工具。然后直接问：
 
 ```text
@@ -332,7 +334,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 110 个测试：边界、SQL、适配器、导入、面板、bundle
+npm test            # 116 个测试：边界、SQL、适配器、导入、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```

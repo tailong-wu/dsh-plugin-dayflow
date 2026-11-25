@@ -6,8 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-11
+
 ### Added
 
+- A plugin-owned SQLite journal at `$DSH_HOME/dayflow/journal.sqlite` with a
+  forward-only `schema_version` migration and compatibility views that preserve
+  the existing tool and panel payloads.
+- `journal_import`, a read-only, additive, idempotent Dayflow importer. It keeps
+  stable source IDs, imports timeline/capture/standup and future journal tables,
+  and reports unchanged rows plus deliberately skipped data.
+- An `owned` backend selected with `source: owned` (or `dayflow: false`), so the
+  panel and read tools can run after Dayflow is removed; Dayflow remains the
+  default backend for existing profiles.
 - Both READMEs open with an 8-second recording of the panel — month calendar,
   week swim lanes with a hover card, and one day in full — captured from this
   project's own week of Dayflow data.
@@ -23,9 +34,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `docs/panel.*.png`, `docs/day.*.png`, and `docs/week.*.png` were re-captured
-  from the same fixture, so the README's stills and its GIF show one consistent
-  week instead of three unrelated ones.
+- The next capability increment is intentionally limited to roadmap Phases 1–2:
+  review queues, privacy redaction, long tasks, and memory injection remain
+  later minor releases.
+- Added the documented `npm run smoke` script and updated the package metadata
+  to the `0.6.0` minor line.
+- `docs/panel.*.png` and `docs/day.*.png` were re-captured from the same
+  fixture, and the separate `docs/week.*.png` stills were dropped in favour of
+  `docs/demo.*.png`, so the README's stills and its GIF show one consistent week
+  instead of three unrelated ones.
 
 ### Fixed
 
@@ -56,27 +73,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   descriptions state that they return recorded screen time rather than the
   user's whole day.
 
-## [0.6.0] - 2026-11-10
+### Notes
 
-### Added
-
-- A plugin-owned SQLite journal at `$DSH_HOME/dayflow/journal.sqlite` with a
-  forward-only `schema_version` migration and compatibility views that preserve
-  the existing tool and panel payloads.
-- `journal_import`, a read-only, additive, idempotent Dayflow importer. It keeps
-  stable source IDs, imports timeline/capture/standup and future journal tables,
-  and reports unchanged rows plus deliberately skipped data.
-- An `owned` backend selected with `source: owned` (or `dayflow: false`), so the
-  panel and read tools can run after Dayflow is removed; Dayflow remains the
-  default backend for existing profiles.
-
-### Changed
-
-- The next capability increment is intentionally limited to roadmap Phases 1–2:
-  review queues, privacy redaction, long tasks, and memory injection remain
-  later minor releases.
-- Added the documented `npm run smoke` script and updated the package metadata
-  to the `0.6.0` minor line.
+- Tagged as `v0.6.0`. The npm registry release has not happened yet, so the
+  checkout install in both READMEs remains the supported path.
 
 ## [0.5.1] - 2026-10-26
 
