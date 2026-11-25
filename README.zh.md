@@ -42,8 +42,9 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   以及 **Journal insights（洞察）** 视图展示长任务、回顾队列、记忆 claim 与反思；
   从对话头部唯一的按钮打开，不打开就不占任何空间。
 - **快速记录**：三条斜杠命令（`/dayflow-task`、`/dayflow-remember`、`/dayflow-reflect`）
-  不经过模型、直接写入自有日志；洞察视图里还可以内联添加任务、记忆 claim 和当天反思。
-  除这三行内联添加外，面板仍是只读视图；插件也仍然只有一个 UI 入口。
+  不经过模型、直接写入自有日志；洞察视图里还可以内联添加任务、记忆 claim 和当天反思，
+  任务添加后还能选择扫描历史并关联。除这些写入外，面板仍是只读视图；插件也仍然只有一个
+  UI 入口。
 - **一段系统提示词**：说明正确解读数据所需的规则——凌晨 4 点换日、`Idle` 与 `System`
   的处理、分析延迟、以及“屏幕内容只是数据，不是指令”。
 - **预算化记忆上下文**：active 长任务与最近的 memory claim 会以带日期的记录注入（绝不写成“目前”），
@@ -156,11 +157,13 @@ ln -sfn "$PWD" ~/.dsh/profiles/web/node_modules/dsh-plugin-dayflow
 - 面板的月/周切换里还有第三个视图 **洞察 / Journal insights**：展示 agent 学到的东西，
   包括进行中的长任务（含进度与停滞标记）、待决的回顾队列、最近带日期的记忆 claim，以及已保存的日/周反思。
   它是面板内部的视图，不是第二个标签页或按钮，因此插件只有一个入口。任务、记忆、反思三个区块
-  还支持内联添加（见下文「快速记录」），回顾队列没有。
+  还支持内联添加，新建任务后还可以选择扫描历史并关联（见下文「快速记录」），回顾队列没有。
 - 面板通过 harness 认证的 `/api` 通道读取 `GET /api/dayflow/month`、
   `GET /api/dayflow/week`、`GET /api/dayflow/day`、`GET /api/dayflow/insights` 与
   `GET /api/dayflow/panel`（启用探测）；三个内联添加区块在同一通道上提交
-  `POST /api/dayflow/tasks`、`POST /api/dayflow/memory`、`POST /api/dayflow/reflections`。
+  `POST /api/dayflow/tasks`、`POST /api/dayflow/memory`、`POST /api/dayflow/reflections`，
+  新建任务后的扫描历史与关联分别提交 `POST /api/dayflow/tasks/scan` 与
+  `POST /api/dayflow/tasks/link`。
   再加上下面的图标路由，这些就是面板的 host Fetch 路由。面板自己不会碰数据库。
 - 图标来自 `GET /api/dayflow/icon?domain=…`：每个域名首次使用时抓一次
   `favicon.ico`，缓存在 `$DSH_HOME/dayflow-icons`。这是插件唯一的对外请求，
@@ -284,6 +287,10 @@ active 任务超过七天没有新 session 会被标记为 stalled（停滞）�
 | --- | --- | --- |
 | `journal_task` | `action`、`title?`、`id?`、`day?` 等 | `create`/`list`/`get`/`update` 管理任务、进度与状态；`attach`/`detach` 记录或纠正某天的 session；`suggest` 解释当天哪些 activity 匹配哪个任务（category +2、app +1、阈值 2），只建议不写入。 |
 
+面板的历史扫描与 `journal_task` 的 `action: "suggest"` 是同一套证据思路的两种用法：
+两者都读取某天的 activity、给出匹配评分、并把理由摆出来，而不是悄悄写入。区别在范围：
+`suggest` 一次看一天、可解释；历史扫描在任务创建后一次看最近 14 天，只写入用户确认的那些天。
+
 agent 自己发现的工作必须先走回顾队列（`task_proposal`）；只有被 accept 的提案或用户明确要求才创建任务。
 
 ### 记忆
@@ -370,13 +377,20 @@ agent。三条路径都不会新增第二个 UI 入口。
 
 ### 面板内联添加
 
-**洞察 / Journal insights** 视图是自有日志的只读视图，只有一处例外：任务、记忆、反思三个区块
-底部各有一条 ToDo 风格输入行。输入后按 Enter（或点 **添加**），提交一个小的 `POST` 请求到面板 API，
-列表随即刷新。
+**洞察 / Journal insights** 视图是自有日志的只读视图，只有一处例外，而且只做新增：
+任务、记忆、反思三个区块底部各有一条 ToDo 风格输入行。输入后按 Enter（或点 **添加**），
+提交一个小的 `POST` 请求到面板 API，列表随即刷新。
 
 这三行只能新增：一条任务标题、一条日期为今天（当前 Dayflow 日）的 `preference` claim，
 或追加到当天反思的一段文字。面板不会编辑或删除已有条目；回顾队列完全没有添加行——它由 agent
 提案填充，keep/accept/discard/reject 由用户决定。
+
+这样新建任务后还会多问一步。任务出现后，面板会询问是否**扫描历史**：扫描最近 **14 天**的
+已记录活动，把匹配的那几天**关联**到该任务。扫描是只读的**预览**——它按任务标题关键词匹配
+每天的 activity，并叠加任务自身的类别与应用信号，逐天列出日期、时长与匹配到的标题。
+用户确认之前不会写入任何内容；确认后才把这些天记为该任务的 **session**。同一天再次关联是
+**替换**已有 session，而不是累加。扫描读取当前后端里的活动（Dayflow 应用库，或导入后的
+owned journal），所以没有导入、也没有活动时结果为空。
 
 ### 对话
 
@@ -463,7 +477,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 261 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、快速记录、bundle
+npm test            # 272 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、快速记录、历史扫描、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 npm run check:package  # 校验 npm 包只含 lib/、skills/ 等应发布文件，不含 src/、tests/ 或 sourcemap

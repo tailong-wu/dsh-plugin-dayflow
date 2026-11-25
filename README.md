@@ -52,10 +52,11 @@ are still being analyzed.
   long tasks, the review queue, memory claims, and reflections; opened from one
   conversation-header button and drawn with the harness's own tokens.
 - **Quick capture**: three slash commands (`/dayflow-task`, `/dayflow-remember`,
-  `/dayflow-reflect`) that write to the owned journal without a model turn, and
+  `/dayflow-reflect`) that write to the owned journal without a model turn,
   inline add rows in the insights view for a task, a memory claim, or today's
-  reflection. The panel stays a read-only view apart from those three rows, and
-  the plugin still has exactly one UI entry.
+  reflection, and a history scan offered after a task is added. The panel stays
+  a read-only view apart from those writes, and the plugin still has exactly one
+  UI entry.
 - **A system-prompt section** stating the rules that make the data readable:
   the 4 AM day boundary, `Idle` and `System` handling, analysis lag, and the
   untrusted-content boundary.
@@ -194,16 +195,17 @@ card placed at its time and tinted with its category colour.
   marks), the open review queue, recent date-stamped memory claims, and stored
   day/week reflections. It is a view inside the panel, not a second tab or
   button, so the plugin keeps one entry. The task, memory, and reflection blocks
-  also take an inline add (see [Quick capture](#quick-capture)); the review queue
-  does not.
+  also take an inline add, and a newly added task can be offered a history scan
+  (see [Quick capture](#quick-capture)); the review queue does not.
 - The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`,
   `GET /api/dayflow/day`, `GET /api/dayflow/insights`, and
   `GET /api/dayflow/panel` (the enablement probe) through the harness's
   authenticated `/api` bridge. The three inline add rows submit
   `POST /api/dayflow/tasks`, `POST /api/dayflow/memory`, and
-  `POST /api/dayflow/reflections` on the same bridge. Together with the icon
-  route below, those are the panel's host Fetch routes. It never touches the
-  database itself.
+  `POST /api/dayflow/reflections` on the same bridge, and the post-add history
+  scan and its link submit `POST /api/dayflow/tasks/scan` and
+  `POST /api/dayflow/tasks/link`. Together with the icon route below, those are
+  the panel's host Fetch routes. It never touches the database itself.
 - Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
   `favicon.ico` per domain on first use and caches it under
   `$DSH_HOME/dayflow-icons`. That is the plugin's only outbound request: it
@@ -346,6 +348,13 @@ seven days is reported as stalled.
 | --- | --- | --- |
 | `journal_task` | `action`, `title?`, `id?`, `day?`, … | `create`/`list`/`get`/`update` manage tasks, progress, and status; `attach`/`detach` record or correct one day's session; `suggest` explains which of a day's activities match which task (category +2, app +1, threshold 2) without writing anything. |
 
+The panel's history scan is the user-facing half of the same evidence idea as
+`journal_task` `action: "suggest"`: both read a day's activities, score the
+match, and show the reason rather than writing silently. The difference is
+scope: `suggest` stays day by day and explainable, while the scan runs once over
+the last 14 days when a task is created and writes only the days the user
+confirms.
+
 Agent-noticed work must go through the review queue first (`task_proposal`);
 only an accepted proposal, or an explicit user request, creates a task.
 
@@ -450,15 +459,27 @@ skips the commands; the same writes are still available through the tools.
 ### Panel inline add
 
 The **Journal insights** view is a read-only view of the owned journal with one
-exception: the task, memory, and reflection blocks each end with a ToDo-style
-input row. Type into it and press Enter (or click **Add**); the row submits a
-small `POST` request to the panel API and the list refreshes.
+exception: it can add. The task, memory, and reflection blocks each end with a
+ToDo-style input row. Type into it and press Enter (or click **Add**); the row
+submits a small `POST` request to the panel API and the list refreshes.
 
 The rows only add: a task title, a `preference` claim dated today (the current
 Dayflow day), or a line appended to today's reflection. Nothing in the panel
 edits or deletes an existing entry, and the review queue has no add row at all —
 it is fed by the agent's proposals, and the keep/accept/discard/reject decision
 belongs to the user.
+
+Adding a task this way raises one follow-up question. After the task appears,
+the panel offers a history **scan** of the last **14 days** of recorded activity,
+and then a **link** of the days that match the task. The scan is a read-only
+**preview** — it matches a day's activities by the task's title keywords,
+together with the task's own category and app signals, and lists one line per
+candidate day with the date, the minutes, and the matched titles. Nothing is
+written until the user confirms; linking then records those days as the task's
+**sessions**. A second link for the same day replaces that day's session instead
+of adding a second one. The scan reads activity from whichever backend is active
+(the Dayflow app database, or an imported owned journal), so a profile with no
+import and no activity simply gets an empty result.
 
 ### Conversation
 
@@ -569,7 +590,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 261 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, capture, bundle
+npm test            # 272 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, capture, history scan, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

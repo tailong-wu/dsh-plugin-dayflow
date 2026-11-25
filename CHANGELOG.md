@@ -76,6 +76,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Inline add rows in the Journal insights view for tasks, memory claims, and
   today's reflection, backed by `POST` routes on the panel API; the review queue
   stays agent-proposed and user-decided.
+- After adding a long task from the Insights view, the panel offers to scan the
+  last 14 days of activity and link the days whose titles, categories, or apps
+  match the task. The scan is a read-only preview; linking writes the task
+  sessions (a second link for the same day replaces, not doubles).
 
 ### Changed
 
