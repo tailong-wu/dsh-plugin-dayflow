@@ -9,16 +9,20 @@
  *
  * Tasks, memory claims, and today's reflection can also be added from the view
  * itself: a ToDo-style row at the bottom of each of those three sections writes
- * the owned journal directly and refreshes the page on success. The review queue
- * stays read-only because its items are agent proposals the user decides on.
+ * the owned journal directly and refreshes the page on success. Adding a task
+ * then offers an optional history scan: the panel previews the recent days whose
+ * activity matches the task and links only the days the user confirms, so the
+ * create flow stays one step while the evidence stays the user's call. The
+ * review queue stays read-only because its items are agent proposals the user
+ * decides on.
  * @module dsh-plugin-dayflow/client/insights
  */
 
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
-import type { PanelInsights } from '../panel-contract.js';
-import { addMemory, addReflection, addTask } from './data.js';
+import type { PanelInsights, PanelTaskScanResponse, PanelTaskSummary } from '../panel-contract.js';
+import { addMemory, addReflection, addTask, linkTaskHistory, scanTaskHistory } from './data.js';
 import { formatDuration, formatShare, shortDate } from './format.js';
 import type { Translate } from './format.js';
 import type { Phase } from './types.js';
@@ -35,6 +39,23 @@ const REFRESH_GLYPH = (
 
 /** Longest reflection line the list shows before shortening it. */
 const REFLECTION_PREVIEW_CHARS = 140;
+
+/** How many recent days the panel offers to scan after a task is added. */
+const SCAN_DAY_COUNT = 14;
+
+/** How many matching days the preview lists before it counts the rest. */
+const SCAN_PREVIEW_ROWS = 5;
+
+/** Where the optional history scan of a just-added task stands. */
+type CaptureStage = 'ask' | 'scanning' | 'result' | 'linking';
+
+/** The just-added task, the scan's preview, and the step the card is on. */
+interface CaptureState {
+  task: PanelTaskSummary;
+  stage: CaptureStage;
+  scan?: PanelTaskScanResponse['scan'];
+  error?: string;
+}
 
 /** Props the panel body passes to the insights view. */
 export interface InsightsPanelProps {
@@ -182,6 +203,123 @@ function Section(props: {
 }
 
 /**
+ * The capture card under a task add: offer to scan the recent history, preview
+ * the days whose activity matches the task, and link the confirmed ones.
+ *
+ * The card owns no state of its own — the view holds the stage, the preview,
+ * and the inline error, so a failed scan or link never disturbs the sections
+ * around it and no hooks are needed inside this purely presentational block.
+ * @param props - the current state, the translator, and the three actions.
+ * @returns the card in its current stage.
+ */
+function ScanPrompt(props: {
+  state: CaptureState;
+  t: Translate;
+  onScan: () => void;
+  onLink: () => void;
+  onDismiss: () => void;
+}): ReactNode {
+  const { state, t, onScan, onLink, onDismiss } = props;
+  const { task, stage, scan, error } = state;
+  const candidates = scan?.days ?? [];
+  const linking = stage === 'linking';
+
+  return (
+    <section className="dfp-insights-capture" aria-live="polite">
+      <p className="dfp-insights-capture-title">{t('captureTaskAdded', { title: task.title })}</p>
+
+      {stage === 'ask' && (
+        <>
+          <p className="dfp-insights-capture-body">{t('captureScanAsk')}</p>
+          <div className="dfp-insights-capture-actions">
+            <button type="button" className="dfp-insights-capture-button is-primary" onClick={onScan}>
+              {t('captureScanAction')}
+            </button>
+            <button type="button" className="dfp-insights-capture-button" onClick={onDismiss}>
+              {t('captureScanLater')}
+            </button>
+          </div>
+        </>
+      )}
+
+      {stage === 'scanning' && (
+        <>
+          <p className="dfp-insights-capture-body">{t('captureScanScanning')}</p>
+          <div className="dfp-insights-capture-actions">
+            <button type="button" className="dfp-insights-capture-button is-primary" disabled>
+              {t('captureScanAction')}
+            </button>
+            <button type="button" className="dfp-insights-capture-button" disabled>
+              {t('captureScanLater')}
+            </button>
+          </div>
+        </>
+      )}
+
+      {(stage === 'result' || stage === 'linking') && (
+        <>
+          {candidates.length === 0 ? (
+            <p className="dfp-insights-capture-body">{t('captureScanEmpty')}</p>
+          ) : (
+            <>
+              <p className="dfp-insights-capture-summary">
+                {t('captureScanFound', {
+                  days: scan?.total_days ?? 0,
+                  minutes: formatDuration(scan?.total_minutes ?? 0),
+                })}
+              </p>
+              <ul className="dfp-insights-capture-list">
+                {candidates.slice(0, SCAN_PREVIEW_ROWS).map((candidate) => (
+                  <li key={candidate.day} className="dfp-insights-capture-row">
+                    <span className="dfp-insights-capture-date">{shortDate(candidate.day, t)}</span>
+                    <Sep />
+                    <span className="dfp-insights-capture-minutes">{formatDuration(candidate.minutes)}</span>
+                    <Sep />
+                    <span className="dfp-insights-capture-text">{candidate.titles[0] ?? t('untitled')}</span>
+                  </li>
+                ))}
+              </ul>
+              {candidates.length > SCAN_PREVIEW_ROWS && (
+                <p className="dfp-insights-capture-more">
+                  {t('captureScanMore', { count: candidates.length - SCAN_PREVIEW_ROWS })}
+                </p>
+              )}
+            </>
+          )}
+          <div className="dfp-insights-capture-actions">
+            {candidates.length === 0 ? (
+              <button type="button" className="dfp-insights-capture-button is-primary" onClick={onDismiss}>
+                {t('captureScanOk')}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="dfp-insights-capture-button is-primary"
+                  onClick={onLink}
+                  disabled={linking}
+                >
+                  {linking ? t('captureScanLinking') : t('captureScanLink', { count: candidates.length })}
+                </button>
+                <button type="button" className="dfp-insights-capture-button" onClick={onDismiss} disabled={linking}>
+                  {t('captureScanCancel')}
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {error !== undefined && error !== '' && (
+        <p className="dfp-insights-capture-error" role="status">
+          {t('captureScanError')} · {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
  * Render the insights view.
  * @param props - the injected reader and translator.
  * @returns the four journal sections, or one of the page states.
@@ -191,6 +329,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
+  const [capture, setCapture] = useState<CaptureState | undefined>(undefined);
 
   useEffect(() => {
     if (typeof loadInsights !== 'function') {
@@ -226,9 +365,43 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   // Each add writes the owned journal directly, then refreshes the whole view so
   // the new row and its section count arrive together with no local merge.
   const submitTask = async (title: string): Promise<void> => {
-    await addTask(title);
+    const { task } = await addTask(title);
+    // The scan is offered, never forced: the card can be dismissed and the task
+    // keeps the zero sessions it was created with.
+    setCapture({ task, stage: 'ask' });
     refresh();
   };
+  // Scan and link are the card's two writes-in-waiting: the scan is read-only,
+  // and only the link attaches the confirmed days as the task's sessions.
+  const runScan = (): void => {
+    if (capture === undefined || capture.stage === 'scanning') return;
+    const task = capture.task;
+    setCapture({ task, stage: 'scanning' });
+    void scanTaskHistory(task.id, SCAN_DAY_COUNT).then(
+      (answer) => setCapture({ task, stage: 'result', scan: answer.scan }),
+      (cause: unknown) => setCapture({ task, stage: 'ask', error: addFailureMessage(cause, t) }),
+    );
+  };
+  const runLink = (): void => {
+    if (capture === undefined || capture.scan === undefined || capture.stage === 'linking') return;
+    const { task, scan } = capture;
+    const days = scan.days.map((candidate) => ({
+      day: candidate.day,
+      minutes: candidate.minutes,
+      activity_ids: candidate.activity_ids,
+    }));
+    setCapture({ task, stage: 'linking', scan });
+    void linkTaskHistory(task.id, days).then(
+      () => {
+        // The linked days are sessions now: drop the card and re-read the page
+        // so the task row shows its new total in the same pass.
+        setCapture(undefined);
+        refresh();
+      },
+      (cause: unknown) => setCapture({ task, stage: 'result', scan, error: addFailureMessage(cause, t) }),
+    );
+  };
+  const dismissCapture = (): void => setCapture(undefined);
   const submitMemory = async (text: string): Promise<void> => {
     await addMemory(text);
     refresh();
@@ -302,6 +475,16 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
               </ul>
               <p className="dfp-insights-intro-hint">{t('insightsEmpty')}</p>
             </div>
+          )}
+
+          {capture !== undefined && (
+            <ScanPrompt
+              state={capture}
+              t={t}
+              onScan={runScan}
+              onLink={runLink}
+              onDismiss={dismissCapture}
+            />
           )}
 
           <Section

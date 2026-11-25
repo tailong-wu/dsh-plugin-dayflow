@@ -22,8 +22,8 @@ import type { MemoryClaimPayload } from './memory.js';
 import { getReflection, listReflections, saveReflection } from './reflections.js';
 import type { ReflectionPayload } from './reflections.js';
 import { listReviewItems } from './review.js';
-import { createLongTask, listLongTasks } from './tasks.js';
-import type { LongTaskPayload } from './tasks.js';
+import { attachTaskSession, createLongTask, getLongTask, listLongTasks, scanTaskHistory } from './tasks.js';
+import type { LongTaskPayload, TaskHistoryDayInput } from './tasks.js';
 import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekWindowContaining } from './day.js';
 import { DayflowError, isDayflowError } from './errors.js';
 import {
@@ -35,6 +35,8 @@ import {
   PANEL_MONTH_PATH,
   PANEL_REFLECTION_ADD_PATH,
   PANEL_TASK_ADD_PATH,
+  PANEL_TASK_LINK_PATH,
+  PANEL_TASK_SCAN_PATH,
   PANEL_WEEK_PATH,
   isMonthKey,
   monthDayKeys,
@@ -58,6 +60,10 @@ import type {
   PanelReviewItem,
   PanelTaskAddRequest,
   PanelTaskAddResponse,
+  PanelTaskLinkRequest,
+  PanelTaskLinkResponse,
+  PanelTaskScanRequest,
+  PanelTaskScanResponse,
   PanelTaskSummary,
   PanelWeek,
 } from './panel-contract.js';
@@ -69,6 +75,7 @@ import {
   dayCaptures,
   dayGoalPayload,
   dayPendingBatches,
+  durationMinutes,
   lastCaptureInWindow,
   pendingBatchesInWindow,
   reviewRatingsForDay,
@@ -122,6 +129,12 @@ const PANEL_TASK_TITLE_MAX_CHARS = 200;
 const PANEL_ADD_TEXT_MAX_CHARS = 4000;
 /** The longest memory subject the panel derives from free text, in characters. */
 const PANEL_MEMORY_SUBJECT_MAX_CHARS = 60;
+/** How many recent days a history scan covers when the caller states none. */
+const PANEL_TASK_SCAN_DEFAULT_DAYS = 14;
+/** The most history days one scan may cover. */
+const PANEL_TASK_SCAN_MAX_DAYS = 90;
+/** The most days one link request may attach. */
+const PANEL_TASK_LINK_MAX_DAYS = 90;
 
 /**
  * Read one JSON object request body.
@@ -457,6 +470,162 @@ export function buildPanelInsights(runtime: ToolRuntime): PanelInsights {
 }
 
 /**
+ * Read one positive task id from an untrusted JSON body.
+ * @param value - the `task_id` field.
+ * @param message - the invalid-input message for a missing or malformed id.
+ * @returns the validated id.
+ */
+function panelTaskId(value: unknown, message: string): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+    throw new DayflowError(message, 'invalid_input');
+  }
+  return value;
+}
+
+/**
+ * Read a scan request's optional day count.
+ * @param value - the untrusted `days` field.
+ * @returns the day count, defaulting to the panel's two-week window.
+ */
+function panelScanDays(value: unknown): number {
+  if (value === undefined) return PANEL_TASK_SCAN_DEFAULT_DAYS;
+  if (
+    typeof value !== 'number' ||
+    !Number.isSafeInteger(value) ||
+    value < 1 ||
+    value > PANEL_TASK_SCAN_MAX_DAYS
+  ) {
+    throw new DayflowError(
+      `A history scan covers 1-${String(PANEL_TASK_SCAN_MAX_DAYS)} days.`,
+      'invalid_input',
+    );
+  }
+  return value;
+}
+
+/** One validated day of a link request. */
+interface PanelTaskLinkDay {
+  day: string;
+  minutes: number;
+  activity_ids: number[];
+}
+
+/**
+ * Validate the link request's day list.
+ *
+ * The panel sends back the days of a scan preview the user confirmed, so this
+ * accepts exactly that shape: a non-empty bounded list of real day keys, whole
+ * non-negative minutes, and non-negative activity ids.
+ * @param value - the untrusted `days` field.
+ * @returns the validated days, in the request's order.
+ */
+function panelLinkDays(value: unknown): PanelTaskLinkDay[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new DayflowError('A history link needs at least one day.', 'invalid_input');
+  }
+  if (value.length > PANEL_TASK_LINK_MAX_DAYS) {
+    throw new DayflowError(
+      `A history link attaches at most ${String(PANEL_TASK_LINK_MAX_DAYS)} days.`,
+      'invalid_input',
+    );
+  }
+  return value.map((entry: unknown, index: number) => {
+    const position = String(index + 1);
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new DayflowError(`Day ${position} of the history link is not an object.`, 'invalid_input');
+    }
+    const record = entry as Record<string, unknown>;
+    const window = typeof record.day === 'string' ? dayWindowForKey(record.day) : undefined;
+    if (window === undefined || window.dayKey !== record.day) {
+      throw new DayflowError(`Day ${position} of the history link needs a real YYYY-MM-DD day.`, 'invalid_input');
+    }
+    if (typeof record.minutes !== 'number' || !Number.isSafeInteger(record.minutes) || record.minutes < 0) {
+      throw new DayflowError(`Day ${position} of the history link needs non-negative whole minutes.`, 'invalid_input');
+    }
+    const activityIds = record.activity_ids;
+    if (
+      !Array.isArray(activityIds) ||
+      activityIds.some((id) => typeof id !== 'number' || !Number.isSafeInteger(id) || id < 0)
+    ) {
+      throw new DayflowError(`Day ${position} of the history link needs non-negative activity ids.`, 'invalid_input');
+    }
+    return { day: window.dayKey, minutes: record.minutes, activity_ids: [...(activityIds as number[])] };
+  });
+}
+
+/**
+ * Collect the last `days` Dayflow days of activity as history-scanner input.
+ *
+ * The active backend supplies the days (Dayflow's app database, or the owned
+ * journal), while the task itself always lives in the owned journal. Days with
+ * no captured activity are left out instead of handed over empty.
+ * @param runtime - the plugin runtime.
+ * @param days - how many recent days to read, newest first.
+ * @returns one input per day that has activity.
+ */
+function taskHistoryDays(runtime: ToolRuntime, days: number): TaskHistoryDayInput[] {
+  const today = dayWindowContaining(new Date()).dayKey;
+  const inputs: TaskHistoryDayInput[] = [];
+  for (let offset = 0; offset < days; offset += 1) {
+    // Step by calendar day so a daylight-saving boundary keeps the 4 AM windows.
+    const day = shiftDayKey(today, -offset);
+    const window = dayWindowForKey(day);
+    if (window === undefined) continue;
+    const activities = runtime.config.dayflow
+      ? readDatabase(runtime, (db) => activitiesForDay(db, window))
+      : withJournal(runtime.config.journalPath, (db) => activitiesForDay(db, window));
+    if (activities.length === 0) continue;
+    inputs.push({
+      day,
+      activities: activities.map((activity) => ({
+        recordId: activity.recordId,
+        category: activity.category,
+        apps: activity.apps,
+        title: activity.title,
+        summary: activity.summary,
+        minutes: durationMinutes(activity),
+      })),
+    });
+  }
+  return inputs;
+}
+
+/**
+ * Scan a task's recent history for matching activity.
+ *
+ * A read-only suggestion pass: the days come from the active backend, the
+ * scoring reads the owned journal, and nothing is attached. The caller links a
+ * preview only when the user confirms it.
+ * @param runtime - the plugin runtime.
+ * @param taskId - the task to scan for.
+ * @param days - how many recent Dayflow days to cover.
+ * @returns the scanner's answer in the panel's wire shape.
+ */
+function panelTaskScan(runtime: ToolRuntime, taskId: number, days: number): PanelTaskScanResponse['scan'] {
+  if (!existsSync(runtime.config.journalPath)) {
+    // Only a journal task can be scanned, so a missing journal means no task.
+    // A read must not create the file just to say that.
+    throw new DayflowError(`No long task with id ${String(taskId)}.`, 'not_found');
+  }
+  const inputs = taskHistoryDays(runtime, days);
+  const result = withJournal(runtime.config.journalPath, (db) => scanTaskHistory(db, taskId, inputs));
+  return {
+    task_id: result.task_id,
+    title: result.title,
+    days: result.days.map((candidate) => ({
+      day: candidate.day,
+      minutes: candidate.minutes,
+      activity_ids: [...candidate.activity_ids],
+      score: candidate.score,
+      reasons: [...candidate.reasons],
+      titles: [...candidate.titles],
+    })),
+    total_minutes: result.total_minutes,
+    total_days: result.total_days,
+  };
+}
+
+/**
  * Register the panel's routes when a web connection exists.
  * @param ctx - the plugin context.
  * @param runtime - the plugin runtime.
@@ -622,6 +791,53 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime): void {
             return saveReflection(db, { kind: 'day', period: today, body: merged, source_days: [today] });
           });
           return jsonResponse({ reflection: reflectionSummary(reflection) } satisfies PanelReflectionAddResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    // A scan reads the active backend's activity and scores it against the task
+    // in the owned journal; it writes nothing. Linking is the explicit second
+    // step: the user confirms the preview, then each confirmed day becomes a
+    // task session (attaching the same day again replaces it, never doubles it).
+    connection.fetch.register({
+      path: PANEL_TASK_SCAN_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = (await readJsonBody(request)) as Partial<PanelTaskScanRequest>;
+          const taskId = panelTaskId(body.task_id, 'A history scan needs a positive task id.');
+          const days = panelScanDays(body.days);
+          return jsonResponse({ scan: panelTaskScan(runtime, taskId, days) } satisfies PanelTaskScanResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    connection.fetch.register({
+      path: PANEL_TASK_LINK_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = (await readJsonBody(request)) as Partial<PanelTaskLinkRequest>;
+          const taskId = panelTaskId(body.task_id, 'A history link needs a positive task id.');
+          const days = panelLinkDays(body.days);
+          const task = withJournalWrite(runtime.config.journalPath, (db) => {
+            for (const item of days) {
+              attachTaskSession(db, taskId, {
+                day: item.day,
+                minutes: item.minutes,
+                activity_ids: item.activity_ids,
+              });
+            }
+            return getLongTask(db, taskId);
+          });
+          return jsonResponse({
+            task: taskSummary(task),
+            linked_days: days.map((item) => item.day),
+          } satisfies PanelTaskLinkResponse);
         } catch (error) {
           return failureResponse(error);
         }

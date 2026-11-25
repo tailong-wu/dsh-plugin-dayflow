@@ -45,6 +45,26 @@ After a working session or a review:
 The suggestion pass writes nothing; it is a reading aid, and the attachment is
 your claim about the data, not the user's.
 
+## Review a history scan's links
+
+A task added in the Insights view can be followed by the panel's own scan of the
+last 14 days, which links the days it matched. The user may ask you to check or
+correct that result; treat the already-linked days as claims to verify rather
+than as work to redo:
+
+1. `journal_task get` first, and read the sessions it lists, one line per day.
+2. For a day you doubt, `journal_task suggest` that day. It scores the day's
+   activities against the active tasks and names the category and app matches,
+   so you can say whether the day really belongs to this task.
+3. If a linked day does not belong, `journal_task detach` it and say which
+   evidence was missing.
+4. Do not attach a batch of days on your own. The scan already showed its case to
+   the user; a fresh mass attach would change the task's progress trail behind
+   the user's back.
+
+A link and an attach both replace the same day's session instead of adding to
+it, so a correction never inflates the minutes.
+
 ## Keep the status honest
 
 Change a task's status with `journal_task update` only when the decision is

@@ -1527,6 +1527,157 @@ export const PANEL_CSS = `
   line-height: 17px;
 }
 
+/* The capture card offered right after a task add: it asks, previews the
+ * matched days, and links them, all in one accent card above the sections. */
+
+.dfp-insights-capture {
+  --dfp-accent: var(--dsw-static-blue-500);
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px;
+  border: 0.5px solid color-mix(in srgb, var(--dfp-accent) 32%, var(--dsw-alias-border-l1));
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--dfp-accent) 10%, transparent),
+      color-mix(in srgb, var(--dfp-accent) 3%, transparent) 60%
+    ),
+    var(--dsw-alias-bg-layer-1);
+  box-shadow: var(--dsw-elevation-soft);
+}
+
+.dfp-insights-capture-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 19px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dfp-insights-capture-body {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dfp-insights-capture-summary {
+  margin: 0;
+  color: color-mix(in srgb, var(--dfp-accent) 78%, var(--dsw-alias-label-primary));
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-insights-capture-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dfp-insights-capture-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 0;
+}
+
+.dfp-insights-capture-date {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-insights-capture-minutes {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-insights-capture-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font-size: 11.5px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dfp-insights-capture-more {
+  margin: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dfp-insights-capture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.dfp-insights-capture-button {
+  height: 26px;
+  padding: 0 12px;
+  border: 0.5px solid color-mix(in srgb, var(--dfp-accent) 30%, var(--dsw-alias-border-l2));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dfp-insights-capture-button.is-primary {
+  background: color-mix(in srgb, var(--dfp-accent) 13%, transparent);
+  color: color-mix(in srgb, var(--dfp-accent) 82%, var(--dsw-alias-label-primary));
+  font-weight: 600;
+}
+
+.dfp-insights-capture-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dfp-accent) 20%, transparent);
+  color: color-mix(in srgb, var(--dfp-accent) 82%, var(--dsw-alias-label-primary));
+}
+
+.dfp-insights-capture-button:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: 1px;
+}
+
+.dfp-insights-capture-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dfp-insights-capture-error {
+  margin: 0;
+  padding-top: 6px;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+  color: var(--dsw-static-amber-600);
+  font-size: 11px;
+  line-height: 16px;
+}
+
 `;
 
 /**

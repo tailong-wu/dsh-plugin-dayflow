@@ -14,6 +14,8 @@ import {
   PANEL_MONTH_PATH,
   PANEL_REFLECTION_ADD_PATH,
   PANEL_TASK_ADD_PATH,
+  PANEL_TASK_LINK_PATH,
+  PANEL_TASK_SCAN_PATH,
   PANEL_WEEK_PATH,
 } from '../panel-contract.js';
 import type {
@@ -25,6 +27,10 @@ import type {
   PanelMonth,
   PanelReflectionAddResponse,
   PanelTaskAddResponse,
+  PanelTaskLinkRequest,
+  PanelTaskLinkResponse,
+  PanelTaskScanRequest,
+  PanelTaskScanResponse,
   PanelWeek,
 } from '../panel-contract.js';
 
@@ -170,4 +176,41 @@ export async function addMemory(text: string, signal?: AbortSignal): Promise<Pan
  */
 export async function addReflection(text: string, signal?: AbortSignal): Promise<PanelReflectionAddResponse> {
   return postJson<PanelReflectionAddResponse>(PANEL_REFLECTION_ADD_PATH, { text }, signal);
+}
+
+/**
+ * Scan the recent history for activity that looks like a task's work.
+ *
+ * The answer is a read-only preview: the host reads the active backend's
+ * activity but attaches nothing until {@link linkTaskHistory} is called.
+ * @param taskId - the task to scan for.
+ * @param days - how many recent Dayflow days to cover; omitted means the host's 14.
+ * @param signal - caller cancellation.
+ * @returns the matching days, newest first.
+ */
+export async function scanTaskHistory(
+  taskId: number,
+  days?: number,
+  signal?: AbortSignal,
+): Promise<PanelTaskScanResponse> {
+  const payload: PanelTaskScanRequest = days === undefined ? { task_id: taskId } : { task_id: taskId, days };
+  return postJson<PanelTaskScanResponse>(PANEL_TASK_SCAN_PATH, payload, signal);
+}
+
+/**
+ * Attach confirmed history days to a task as its sessions.
+ *
+ * Linking the same day again replaces that day's minutes instead of doubling
+ * them, so a retried link is safe.
+ * @param taskId - the task to attach the days to.
+ * @param days - the confirmed days from a scan preview.
+ * @param signal - caller cancellation.
+ * @returns the updated task and the days now attached.
+ */
+export async function linkTaskHistory(
+  taskId: number,
+  days: PanelTaskLinkRequest['days'],
+  signal?: AbortSignal,
+): Promise<PanelTaskLinkResponse> {
+  return postJson<PanelTaskLinkResponse>(PANEL_TASK_LINK_PATH, { task_id: taskId, days }, signal);
 }

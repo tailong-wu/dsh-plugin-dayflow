@@ -20,6 +20,8 @@ import {
   PANEL_MONTH_PATH,
   PANEL_REFLECTION_ADD_PATH,
   PANEL_TASK_ADD_PATH,
+  PANEL_TASK_LINK_PATH,
+  PANEL_TASK_SCAN_PATH,
   PANEL_WEEK_PATH,
   shiftDayKey,
 } from '../src/panel-contract.js';
@@ -249,6 +251,8 @@ test('the day route answers JSON and rejects an impossible date', async () => {
       PANEL_TASK_ADD_PATH,
       PANEL_MEMORY_ADD_PATH,
       PANEL_REFLECTION_ADD_PATH,
+      PANEL_TASK_SCAN_PATH,
+      PANEL_TASK_LINK_PATH,
     ].sort(),
   );
 

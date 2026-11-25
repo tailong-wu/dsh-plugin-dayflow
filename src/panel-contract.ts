@@ -177,6 +177,47 @@ export interface PanelReflectionAddResponse {
   reflection: PanelReflectionSummary;
 }
 
+/** Body the panel sends to scan a task's recent history. */
+export interface PanelTaskScanRequest {
+  task_id: number;
+  /** How many recent Dayflow days to scan; the host defaults to 14 and bounds it to 1-90. */
+  days?: number;
+}
+
+/** One day whose activity matched the task, as the panel previews it. */
+export interface PanelTaskScanDay {
+  day: string;
+  minutes: number;
+  activity_ids: number[];
+  score: number;
+  reasons: string[];
+  /** Up to three matched activity titles, for the preview row. */
+  titles: string[];
+}
+
+/** Answer to a successful history scan; a read-only suggestion, never a write. */
+export interface PanelTaskScanResponse {
+  scan: {
+    task_id: number;
+    title: string;
+    days: PanelTaskScanDay[];
+    total_minutes: number;
+    total_days: number;
+  };
+}
+
+/** Body the panel sends to link scanned days to a task as its sessions. */
+export interface PanelTaskLinkRequest {
+  task_id: number;
+  days: Array<{ day: string; minutes: number; activity_ids: number[] }>;
+}
+
+/** Answer to a successful history link: the updated task and the days attached. */
+export interface PanelTaskLinkResponse {
+  task: PanelTaskSummary;
+  linked_days: string[];
+}
+
 /** Whether the panel's entry points are exposed. */
 export interface PanelConfig {
   enabled: boolean;
@@ -213,6 +254,12 @@ export const PANEL_MEMORY_ADD_PATH = '/api/dayflow/memory';
 
 /** Exact Fetch route that appends a line to today's saved day reflection. */
 export const PANEL_REFLECTION_ADD_PATH = '/api/dayflow/reflections';
+
+/** Exact Fetch route that scans a task's recent history for matching activity. */
+export const PANEL_TASK_SCAN_PATH = '/api/dayflow/tasks/scan';
+
+/** Exact Fetch route that attaches scanned days to a task as its sessions. */
+export const PANEL_TASK_LINK_PATH = '/api/dayflow/tasks/link';
 
 const DAY_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MONTH_KEY_PATTERN = /^(\d{4})-(\d{2})$/;

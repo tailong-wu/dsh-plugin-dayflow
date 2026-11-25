@@ -640,3 +640,265 @@ export function suggestTaskMatches(
   candidates.sort((left, right) => right.score - left.score || left.task_id - right.task_id);
   return candidates.slice(0, limit);
 }
+
+/** One activity handed to the history scanner by the active backend. */
+export interface TaskHistoryActivity {
+  recordId: number;
+  category: string;
+  apps: readonly string[];
+  title: string;
+  summary: string;
+  minutes: number;
+}
+
+/** One day of activities handed to the scanner; days already attached are skipped. */
+export interface TaskHistoryDayInput {
+  day: string;
+  activities: readonly TaskHistoryActivity[];
+}
+
+/** One day whose activities matched the task; a suggestion, never a write. */
+export interface TaskHistoryCandidate {
+  day: string;
+  minutes: number;
+  activity_ids: number[];
+  score: number;
+  reasons: string[];
+  /** Up to three matched activity titles, for an inspectable preview. */
+  titles: string[];
+}
+
+/** The scanner's read-only answer. */
+export interface TaskHistoryScan {
+  task_id: number;
+  title: string;
+  days: TaskHistoryCandidate[];
+  total_minutes: number;
+  total_days: number;
+}
+
+/** Candidate days returned when the caller states none. */
+const DEFAULT_MAX_CANDIDATE_DAYS = 31;
+/** Upper bound for one history scan. */
+const MAX_CANDIDATE_DAYS = 90;
+/** One title keyword appearing in an activity is worth this much. */
+const KEYWORD_SCORE = 2;
+/** At most this many matched activity titles are kept per candidate day. */
+const MAX_CANDIDATE_TITLES = 3;
+
+/**
+ * Words too common to identify work; they are dropped from title keywords.
+ * English stop words plus their Chinese counterparts (a title is often a mix).
+ */
+const KEYWORD_STOP_WORDS: ReadonlySet<string> = new Set([
+  'a', 'an', 'the', 'of', 'to', 'and', 'or', 'for', 'in', 'on', 'with', 'my', 'our', 'this', 'that', 'is', 'are',
+  'was', 'it', 'work',
+  '的', '了', '和', '与', '或', '在', '做', '把', '对', '我', '我们', '这', '那',
+]);
+
+/** One CJK ideograph, for splitting a title into Latin and CJK runs. */
+const CJK_CHAR_PATTERN = /^[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]$/u;
+/** One letter or digit, the characters a keyword is built from. */
+const KEYWORD_CHAR_PATTERN = /^[\p{L}\p{N}]$/u;
+
+/**
+ * Split a task title into the keywords that identify its work.
+ *
+ * The rules are deliberately small and predictable: lowercase the title, split
+ * it into runs of Latin letters/digits and runs of CJK ideographs, keep Latin
+ * tokens of at least two characters, and for a CJK run keep every adjacent
+ * bigram (plus the whole run when it is short). Common stop words are dropped.
+ * A one-character CJK word survives when it is meaningful, which is why the run
+ * is kept whole for short titles. A title made only of stop words yields no
+ * keywords, so it can never match an activity by keyword.
+ */
+function titleKeywords(title: string): string[] {
+  const tokens: string[] = [];
+  const seen = new Set<string>();
+  const add = (raw: string): void => {
+    if (raw === '' || KEYWORD_STOP_WORDS.has(raw) || seen.has(raw)) return;
+    seen.add(raw);
+    tokens.push(raw);
+  };
+  let latin = '';
+  let cjk = '';
+  const flushLatin = (): void => {
+    if (latin.length >= 2) add(latin);
+    latin = '';
+  };
+  const flushCjk = (): void => {
+    if (cjk === '') return;
+    if (cjk.length <= 4) add(cjk);
+    for (let index = 0; index + 1 < cjk.length; index += 1) add(cjk.slice(index, index + 2));
+    cjk = '';
+  };
+  for (const character of title.toLowerCase()) {
+    if (CJK_CHAR_PATTERN.test(character)) {
+      flushLatin();
+      cjk += character;
+    } else if (KEYWORD_CHAR_PATTERN.test(character)) {
+      flushCjk();
+      latin += character;
+    } else {
+      flushLatin();
+      flushCjk();
+    }
+  }
+  flushLatin();
+  flushCjk();
+  return tokens;
+}
+
+/** The signals a task contributes to a history scan: its categories, apps, and keywords. */
+interface HistorySignals {
+  readonly categories: readonly string[];
+  readonly apps: readonly string[];
+  readonly keywords: readonly string[];
+}
+
+/**
+ * Score one activity against a task's signals.
+ *
+ * A title keyword found in the activity's `title`/`summary` is worth
+ * {@link KEYWORD_SCORE} (+2), each occurrence counted once per keyword; a
+ * claimed category is worth {@link CATEGORY_SCORE} (+2) and each claimed app
+ * {@link APP_SCORE} (+1). The returned reasons name every hit, in a stable
+ * order, so the caller can explain the suggestion.
+ */
+function scoreHistoryActivity(
+  signals: HistorySignals,
+  activity: TaskHistoryActivity,
+): { score: number; reasons: string[] } {
+  const text = `${asText(activity.title) ?? ''} ${asText(activity.summary) ?? ''}`.toLowerCase();
+  let score = 0;
+  const reasons: string[] = [];
+  for (const keyword of signals.keywords) {
+    if (text === '' || !text.includes(keyword)) continue;
+    score += KEYWORD_SCORE;
+    reasons.push(`keyword:${keyword}`);
+  }
+  const category = asText(activity.category) ?? '';
+  if (category !== '' && signals.categories.includes(category)) {
+    score += CATEGORY_SCORE;
+    reasons.push(`category:${category}`);
+  }
+  const apps = Array.isArray(activity.apps) ? activity.apps : [];
+  for (const app of apps) {
+    if (typeof app !== 'string' || app === '' || !signals.apps.includes(app)) continue;
+    score += APP_SCORE;
+    reasons.push(`app:${app}`);
+  }
+  return { score, reasons };
+}
+
+/**
+ * Scan the days before a task was created for work on that task.
+ *
+ * The active backend supplies the candidate days (they are read elsewhere: this
+ * store does not know the activity backend); the scanner only decides which of
+ * them look like the task's work. It is a read-only suggestion pass:
+ *
+ * - only an **active** task is scanned — an unknown id is `not_found`, any other
+ *   status is `invalid_input`;
+ * - every day key is validated, and a day the task already has a session for is
+ *   skipped, so a scan never re-suggests attached evidence;
+ * - an activity scores through a title keyword (+{@link KEYWORD_SCORE}), a
+ *   claimed category (+{@link CATEGORY_SCORE}), and claimed apps
+ *   (+{@link APP_SCORE}); only activities scoring above zero contribute their
+ *   minutes, ids, and title preview;
+ * - a day becomes a candidate only when its total score reaches `minScore`
+ *   (default 2) and it contributed minutes; candidates are newest-first and
+ *   capped at `maxCandidateDays` (default 31, at most 90).
+ *
+ * Reasons are de-duplicated across the day (`keyword:<token>`,
+ * `category:<name>`, `app:<name>`), and `titles` keeps up to three matched
+ * activity titles. Nothing is written: attaching a day stays the user's call.
+ */
+export function scanTaskHistory(
+  db: DatabaseSync,
+  taskId: number,
+  days: readonly TaskHistoryDayInput[],
+  options: { minScore?: number; maxCandidateDays?: number } = {},
+): TaskHistoryScan {
+  const settings = options ?? {};
+  const row = requireTaskRow(db, taskId);
+  const status = asStatus(row.status);
+  if (status !== 'active') {
+    throw invalid(`Only an active long task can scan its history; task ${String(taskId)} is ${status ?? 'unknown'}.`);
+  }
+  const minScore = settings.minScore === undefined || settings.minScore === null ? DEFAULT_MIN_SCORE : settings.minScore;
+  if (typeof minScore !== 'number' || !Number.isFinite(minScore) || minScore < 1) {
+    throw invalid('Task history minScore must be a finite number of at least 1.');
+  }
+  const maxCandidateDays =
+    settings.maxCandidateDays === undefined || settings.maxCandidateDays === null
+      ? DEFAULT_MAX_CANDIDATE_DAYS
+      : settings.maxCandidateDays;
+  if (
+    typeof maxCandidateDays !== 'number' ||
+    !Number.isSafeInteger(maxCandidateDays) ||
+    maxCandidateDays < 1 ||
+    maxCandidateDays > MAX_CANDIDATE_DAYS
+  ) {
+    throw invalid(`Task history maxCandidateDays must be an integer between 1 and ${String(MAX_CANDIDATE_DAYS)}.`);
+  }
+
+  const title = asText(row.title) ?? '';
+  const signals: HistorySignals = {
+    categories: parseStringArray(row.categories_json),
+    apps: parseStringArray(row.apps_json),
+    keywords: titleKeywords(title),
+  };
+
+  // A day that already has a session is settled evidence; it is never suggested
+  // again by a scan.
+  const attachedDays = new Set<string>();
+  const sessionRows = db.prepare('SELECT day FROM long_task_sessions WHERE task_id = ?').all(taskId) as TaskRow[];
+  for (const sessionRow of sessionRows) {
+    const day = asText(sessionRow.day);
+    if (day !== undefined) attachedDays.add(day);
+  }
+
+  const candidates: TaskHistoryCandidate[] = [];
+  for (const input of Array.isArray(days) ? days : []) {
+    if (input === undefined || input === null) continue;
+    const day = requireDayKey(input.day);
+    if (attachedDays.has(day)) continue;
+    const activities = Array.isArray(input.activities) ? input.activities : [];
+    let score = 0;
+    let minutes = 0;
+    const activityIds: number[] = [];
+    const seenActivityIds = new Set<number>();
+    const reasons: string[] = [];
+    const seenReasons = new Set<string>();
+    const titles: string[] = [];
+    for (const activity of activities) {
+      if (activity === undefined || activity === null) continue;
+      const result = scoreHistoryActivity(signals, activity);
+      if (result.score <= 0) continue;
+      score += result.score;
+      const activityMinutes = asNumber(activity.minutes);
+      if (activityMinutes !== undefined && activityMinutes > 0) minutes += activityMinutes;
+      const recordId = asInteger(activity.recordId);
+      if (recordId !== undefined && !seenActivityIds.has(recordId)) {
+        seenActivityIds.add(recordId);
+        activityIds.push(recordId);
+      }
+      const activityTitle = asText(activity.title) ?? '';
+      if (activityTitle !== '' && titles.length < MAX_CANDIDATE_TITLES) titles.push(activityTitle);
+      for (const reason of result.reasons) {
+        if (seenReasons.has(reason)) continue;
+        seenReasons.add(reason);
+        reasons.push(reason);
+      }
+    }
+    if (score <= 0 || score < minScore || minutes <= 0) continue;
+    candidates.push({ day, minutes, activity_ids: activityIds, score, reasons, titles });
+  }
+
+  candidates.sort((left, right) => (left.day < right.day ? 1 : left.day > right.day ? -1 : 0));
+  const selected = candidates.slice(0, maxCandidateDays);
+  let totalMinutes = 0;
+  for (const candidate of selected) totalMinutes += candidate.minutes;
+  return { task_id: taskId, title, days: selected, total_minutes: totalMinutes, total_days: selected.length };
+}

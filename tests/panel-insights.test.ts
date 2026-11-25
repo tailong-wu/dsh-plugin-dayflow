@@ -1,6 +1,7 @@
 /**
  * Insights host end-to-end: the payload builder reads the owned journal, and the
- * exact Fetch route `/api/dayflow/insights` serves that payload to the panel.
+ * exact Fetch routes `/api/dayflow/insights` and the write routes behind the
+ * view serve and grow that journal.
  *
  * The builder must be read-only in the strongest sense: a fresh install (no
  * journal file) yields four empty lists without creating the file, and repeated
@@ -25,6 +26,8 @@ import {
   PANEL_MONTH_PATH,
   PANEL_REFLECTION_ADD_PATH,
   PANEL_TASK_ADD_PATH,
+  PANEL_TASK_LINK_PATH,
+  PANEL_TASK_SCAN_PATH,
   PANEL_WEEK_PATH,
 } from '../src/panel-contract.js';
 import type {
@@ -32,6 +35,8 @@ import type {
   PanelMemoryAddResponse,
   PanelReflectionAddResponse,
   PanelTaskAddResponse,
+  PanelTaskLinkResponse,
+  PanelTaskScanResponse,
 } from '../src/panel-contract.js';
 import { buildPanelInsights, registerPanelRoutes } from '../src/panel.js';
 import { dayWindowContaining } from '../src/day.js';
@@ -120,6 +125,17 @@ async function postRoute(
 /** The Dayflow day containing now, which the write routes date their rows to. */
 function todayKey(): string {
   return dayWindowContaining(new Date()).dayKey;
+}
+
+/**
+ * A runtime whose activity reads and task reads both come from the owned
+ * journal: the scan route reads activity from the active backend and the task
+ * from the owned store, so this shape exercises the owned branch end to end.
+ * @param journalPath - the disposable owned journal.
+ * @returns the runtime.
+ */
+function ownedRuntime(journalPath: string): ReturnType<typeof makeRuntime> {
+  return makeRuntime('/nonexistent/dayflow/chunks.sqlite', { source: 'owned', dayflow: false, journalPath });
 }
 
 /** SHA-256 of one file's bytes, used to prove a read changed nothing. */
@@ -346,8 +362,9 @@ test('the insights route coexists with the other panel routes and answers JSON',
   const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
   const routes = fakeHost(runtime);
 
-  // The nine exact Fetch routes share the registry without replacing each
-  // other: six reads plus the three writes that back the inline add rows.
+  // The eleven exact Fetch routes share the registry without replacing each
+  // other: six reads plus the five writes that back the inline add rows and the
+  // post-add history scan/link pair.
   const readPaths = [
     PANEL_DAY_PATH,
     PANEL_MONTH_PATH,
@@ -356,7 +373,13 @@ test('the insights route coexists with the other panel routes and answers JSON',
     PANEL_CONFIG_PATH,
     PANEL_INSIGHTS_PATH,
   ];
-  const writePaths = [PANEL_TASK_ADD_PATH, PANEL_MEMORY_ADD_PATH, PANEL_REFLECTION_ADD_PATH];
+  const writePaths = [
+    PANEL_TASK_ADD_PATH,
+    PANEL_MEMORY_ADD_PATH,
+    PANEL_REFLECTION_ADD_PATH,
+    PANEL_TASK_SCAN_PATH,
+    PANEL_TASK_LINK_PATH,
+  ];
   assert.deepEqual([...routes.keys()].sort(), [...readPaths, ...writePaths].sort());
   for (const path of readPaths) {
     const route = routes.get(path);
@@ -549,4 +572,170 @@ test('the add routes reject blank, missing, overlong, and malformed input with a
   }
 
   assert.equal(existsSync(journalPath), false, 'a rejected add never creates nor writes the journal');
+});
+
+test('the task scan route previews matching owned-journal activity for a new task', async () => {
+  const journalPath = journalFile('scan');
+  const window = dayWindowContaining(new Date());
+  const start = new Date(window.start.getTime() + 9 * 3_600_000);
+  const end = new Date(start.getTime() + 45 * 60_000);
+  const db = openJournal(journalPath);
+  let taskId = 0;
+  let unrelatedTaskId = 0;
+  let activityId = 0;
+  try {
+    taskId = createLongTask(db, { title: 'Ship the release checklist' }).id;
+    unrelatedTaskId = createLongTask(db, { title: 'Water the plants' }).id;
+    const inserted = db
+      .prepare(
+        `INSERT INTO activities
+           (source_id, source_key, start_ts, end_ts, day, title, summary, category, metadata, is_deleted)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      )
+      .run(
+        'manual',
+        'scan-hit',
+        Math.floor(start.getTime() / 1000),
+        Math.floor(end.getTime() / 1000),
+        window.dayKey,
+        'Release checklist review',
+        'Went over the release checklist before shipping.',
+        'Work',
+        JSON.stringify({ appSites: { primary: 'github.com' } }),
+      );
+    activityId = Number(inserted.lastInsertRowid);
+  } finally {
+    db.close();
+  }
+
+  const runtime = ownedRuntime(journalPath);
+  const routes = fakeHost(runtime);
+  const response = await postRoute(routes, PANEL_TASK_SCAN_PATH, { task_id: taskId, days: 7 });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const payload = (await response.json()) as PanelTaskScanResponse;
+  assert.equal(payload.scan.task_id, taskId);
+  assert.equal(payload.scan.title, 'Ship the release checklist');
+  assert.equal(payload.scan.total_days, 1);
+  assert.equal(payload.scan.total_minutes, 45);
+  assert.equal(payload.scan.days.length, 1);
+  const hit = payload.scan.days[0];
+  assert.ok(hit);
+  assert.equal(hit.day, window.dayKey);
+  assert.equal(hit.minutes, 45);
+  assert.deepEqual(hit.activity_ids, [activityId]);
+  assert.ok(hit.score >= 2, 'a title keyword match reaches the minimum score');
+  assert.ok(
+    hit.reasons.some((reason) => reason.startsWith('keyword:')),
+    'the match carries an explainable reason',
+  );
+  assert.deepEqual(hit.titles, ['Release checklist review']);
+
+  // A task whose title matches nothing still answers, with an empty preview: a
+  // scan never fails just because the history holds no evidence.
+  const emptyResponse = await postRoute(routes, PANEL_TASK_SCAN_PATH, { task_id: unrelatedTaskId, days: 7 });
+  assert.equal(emptyResponse.status, 200);
+  const empty = (await emptyResponse.json()) as PanelTaskScanResponse;
+  assert.deepEqual(empty.scan.days, []);
+  assert.equal(empty.scan.total_days, 0);
+  assert.equal(empty.scan.total_minutes, 0);
+
+  // The scan is a preview: it must not attach anything to the task.
+  const insights = buildPanelInsights(runtime);
+  assert.equal(insights.tasks.find((task) => task.id === taskId)?.session_days, 0);
+  assert.equal(insights.tasks.find((task) => task.id === taskId)?.total_minutes, 0);
+
+  // An unknown task is a 404, not a silent empty scan.
+  const missing = await postRoute(routes, PANEL_TASK_SCAN_PATH, { task_id: 999_999, days: 7 });
+  assert.equal(missing.status, 404);
+
+  const invalid: { body: unknown; label: string }[] = [
+    { body: {}, label: 'a missing task id' },
+    { body: { task_id: 0 }, label: 'a non-positive task id' },
+    { body: { task_id: taskId, days: 0 }, label: 'a zero-day scan' },
+    { body: { task_id: taskId, days: 91 }, label: 'an over-long scan' },
+  ];
+  for (const entry of invalid) {
+    const bad = await postRoute(routes, PANEL_TASK_SCAN_PATH, entry.body);
+    assert.equal(bad.status, 400, `${entry.label} is rejected as invalid input`);
+    const error = (await bad.json()) as { error: string };
+    assert.equal(typeof error.error, 'string');
+  }
+});
+
+test('the task link route attaches confirmed days and replaces a repeated day', async () => {
+  const journalPath = journalFile('link');
+  const db = openJournal(journalPath);
+  let taskId = 0;
+  try {
+    taskId = createLongTask(db, { title: 'Ship the release' }).id;
+  } finally {
+    db.close();
+  }
+  const runtime = ownedRuntime(journalPath);
+  const routes = fakeHost(runtime);
+  const day = todayKey();
+
+  const first = await postRoute(routes, PANEL_TASK_LINK_PATH, {
+    task_id: taskId,
+    days: [{ day, minutes: 45, activity_ids: [1, 2] }],
+  });
+  assert.equal(first.status, 200);
+  assert.equal(first.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(first.headers.get('cache-control'), 'no-store');
+  const created = (await first.json()) as PanelTaskLinkResponse;
+  assert.equal(created.task.id, taskId);
+  assert.equal(created.task.title, 'Ship the release');
+  assert.equal(created.task.total_minutes, 45);
+  assert.equal(created.task.session_days, 1);
+  assert.equal(created.task.last_session_day, day);
+  assert.deepEqual(created.linked_days, [day]);
+
+  // Linking the same day again replaces that day's session instead of adding a
+  // second one, so a retried or re-confirmed link cannot inflate the task.
+  const second = await postRoute(routes, PANEL_TASK_LINK_PATH, {
+    task_id: taskId,
+    days: [{ day, minutes: 30, activity_ids: [3] }],
+  });
+  assert.equal(second.status, 200);
+  const replaced = (await second.json()) as PanelTaskLinkResponse;
+  assert.equal(replaced.task.total_minutes, 30);
+  assert.equal(replaced.task.session_days, 1);
+  assert.deepEqual(replaced.linked_days, [day]);
+  const insights = buildPanelInsights(runtime);
+  assert.equal(insights.tasks[0]?.total_minutes, 30);
+
+  // The store keeps exactly one row for the day, with the replaced evidence.
+  const stored = openJournal(journalPath);
+  try {
+    const row = stored
+      .prepare('SELECT minutes, activity_ids_json FROM long_task_sessions WHERE task_id = ? AND day = ?')
+      .get(taskId, day) as { minutes: number; activity_ids_json: string };
+    assert.equal(row.minutes, 30);
+    assert.deepEqual(JSON.parse(row.activity_ids_json) as number[], [3]);
+  } finally {
+    stored.close();
+  }
+
+  const missing = await postRoute(routes, PANEL_TASK_LINK_PATH, {
+    task_id: 999_999,
+    days: [{ day, minutes: 5, activity_ids: [] }],
+  });
+  assert.equal(missing.status, 404);
+
+  const invalid: { body: unknown; label: string }[] = [
+    { body: {}, label: 'a missing task id' },
+    { body: { task_id: taskId, days: [] }, label: 'an empty day list' },
+    { body: { task_id: taskId, days: [{ day, minutes: -5, activity_ids: [] }] }, label: 'negative minutes' },
+    { body: { task_id: taskId, days: [{ day: '2026-02-30', minutes: 5, activity_ids: [] }] }, label: 'an impossible day' },
+    { body: { task_id: taskId, days: [{ day, minutes: 5, activity_ids: [-1] }] }, label: 'a negative activity id' },
+    { body: { task_id: taskId, days: [{ day, minutes: 5 }] }, label: 'missing activity ids' },
+  ];
+  for (const entry of invalid) {
+    const bad = await postRoute(routes, PANEL_TASK_LINK_PATH, entry.body);
+    assert.equal(bad.status, 400, `${entry.label} is rejected as invalid input`);
+    const error = (await bad.json()) as { error: string };
+    assert.equal(typeof error.error, 'string');
+  }
 });

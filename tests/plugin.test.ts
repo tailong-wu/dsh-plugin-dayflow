@@ -173,6 +173,8 @@ test('apply registers twenty-three tools, eight skills, and one prompt section',
     '/api/dayflow/panel',
     '/api/dayflow/reflections',
     '/api/dayflow/tasks',
+    '/api/dayflow/tasks/link',
+    '/api/dayflow/tasks/scan',
     '/api/dayflow/week',
   ]);
   assert.equal(capture.sections.length, 1);
