@@ -256,6 +256,7 @@ test('the insights copy exists in both dictionaries', () => {
     'insightsRefresh',
     'insightsLoading',
     'insightsError',
+    'insightsUnavailable',
     'insightsEmpty',
     'insightsIntroTitle',
     'insightsIntro',

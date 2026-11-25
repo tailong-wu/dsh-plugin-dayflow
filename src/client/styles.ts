@@ -110,6 +110,7 @@ export const PANEL_CSS = `
 
 .dfp-month-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   padding: 6px 6px 6px 8px;
@@ -374,6 +375,28 @@ export const PANEL_CSS = `
   display: inline-flex;
   flex: none;
   margin-right: 4px;
+}
+
+/* The switch gets its own row, so the three views stay reachable at any
+ * sidebar width; the track can scroll if a language's labels still overflow. */
+.dfp-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.dfp-subhead .dfp-view-switch {
+  margin-right: 0;
+}
+
+.dfp-view-switch .tab {
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 /* ── Week swim lanes ─────────────────────────────────────────────────── */
@@ -1064,6 +1087,7 @@ export const PANEL_CSS = `
 
 .dfp-insights-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   padding: 6px 6px 6px 12px;

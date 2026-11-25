@@ -92,6 +92,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no longer a one-way trip: any of the three views can be switched to directly.
 - When the journal has nothing to show yet, the insights view explains what it
   will contain instead of showing a single bare line.
+- The panel's view switch moved to its own row above the content, so Month,
+  Week, and Insights stay visible and clickable at any sidebar width instead of
+  the third option being clipped out of the header. A host that does not inject
+  the insights reader now shows an explanation instead of a blank pane.
 
 ## [0.6.0] - 2026-11-11
 

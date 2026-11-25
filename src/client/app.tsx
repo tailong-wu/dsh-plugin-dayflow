@@ -219,10 +219,15 @@ export function DayflowPanel({ loadDay, loadMonth, loadWeek, loadInsights, t }: 
     </div>
   );
 
+  // The view switch lives on its own row so the panel keeps exactly one
+  // entry while the three views stay reachable at any sidebar width.
+  const switchBar = <div className="dfp-subhead">{toolbar}</div>;
+
   if (view === 'insights') {
     return (
       <div className="dfp-root">
-        <InsightsPanel loadInsights={loadInsights} t={t} toolbar={toolbar} />
+        {switchBar}
+        <InsightsPanel loadInsights={loadInsights} t={t} />
       </div>
     );
   }
@@ -250,6 +255,7 @@ export function DayflowPanel({ loadDay, loadMonth, loadWeek, loadInsights, t }: 
 
   return (
     <div className="dfp-root">
+      {switchBar}
       {view === 'week' ? (
         <WeekView
           {...panelProps}
@@ -259,7 +265,6 @@ export function DayflowPanel({ loadDay, loadMonth, loadWeek, loadInsights, t }: 
           t={t}
           today={weekData?.today ?? todayKey()}
           selected={selected}
-          toolbar={toolbar}
           onPrevWeek={() => setWeekAnchor((current) => shiftWeekKey(current ?? weekData?.week_start ?? todayKey(), -1))}
           onNextWeek={() => setWeekAnchor((current) => shiftWeekKey(current ?? weekData?.week_start ?? todayKey(), 1))}
           onThisWeek={goThisWeek}
@@ -277,7 +282,6 @@ export function DayflowPanel({ loadDay, loadMonth, loadWeek, loadInsights, t }: 
           month={monthData?.month ?? month}
           today={monthData?.today ?? todayKey()}
           selected={selected}
-          toolbar={toolbar}
           onPrevMonth={() => {
             setDayOpen(false);
             setSelected(undefined);

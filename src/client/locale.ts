@@ -66,6 +66,7 @@ export const ZH: Record<string, string> = {
   insightsRefresh: '刷新洞察',
   insightsLoading: '正在加载洞察…',
   insightsError: '无法加载洞察',
+  insightsUnavailable: '这个宿主没有提供洞察数据，请更新或重新加载插件。',
   insightsEmpty: '还没有记录。用下面的输入行直接添加任务、记忆或今天的反思，或让 agent 跟踪一个任务，这里就会开始填充。',
   insightsIntroTitle: '这里展示什么',
   insightsIntro: '这是 agent 正在跟踪的任务，以及它从日志里学到的内容。任务、记忆、反思三个区块也可以直接添加一行；回顾队列仍由 agent 提案、你来决定。',
@@ -156,6 +157,7 @@ export const EN: Record<string, string> = {
   insightsRefresh: 'Refresh the insights',
   insightsLoading: 'Loading insights…',
   insightsError: 'Could not load the insights',
+  insightsUnavailable: 'This host does not provide insights data; update or reload the plugin.',
   insightsEmpty: 'Nothing recorded yet. Add a task, a memory, or a line of today’s reflection with the rows below, or ask the agent to track a task and this view starts to fill in.',
   insightsIntroTitle: 'What this view shows',
   insightsIntro:

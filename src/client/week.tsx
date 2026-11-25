@@ -42,8 +42,6 @@ export interface WeekViewProps {
   onPick: (date: string) => void;
   onRefresh: () => void;
   onRetry: () => void;
-  /** The month/week switch, rendered beside the navigation. */
-  toolbar?: ReactNode;
   /** Identity the view-switch tabs point at. */
   id?: string;
   role?: 'tabpanel';
@@ -112,7 +110,7 @@ function ColumnHead({ day, today, t }: { day: PanelDay; today: string; t: Transl
  * @returns the swim-lane view.
  */
 export function WeekView(props: WeekViewProps): ReactNode {
-  const { data, phase, error, t, today, selected, onPrevWeek, onNextWeek, onThisWeek, onPick, onRefresh, onRetry, toolbar } =
+  const { data, phase, error, t, today, selected, onPrevWeek, onNextWeek, onThisWeek, onPick, onRefresh, onRetry } =
     props;
   const [zoom, setZoom] = useState(1);
   const [hover, setHover] = useState<{ card: PanelDay['cards'][number]; day: PanelDay; rect: DOMRect } | undefined>(
@@ -175,7 +173,6 @@ export function WeekView(props: WeekViewProps): ReactNode {
         </div>
         {iconButton(CHEVRON_RIGHT, t('nextWeek'), onNextWeek)}
         <span className="dfp-spacer" />
-        {toolbar}
         <button type="button" className="dfp-today-button" onClick={onThisWeek}>
           {t('thisWeek')}
         </button>
