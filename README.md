@@ -167,6 +167,10 @@ card placed at its time and tinted with its category colour.
 
 - In the day view, `‹`/`›` step days, `⟳` refreshes, and the back arrow (or
   Escape) returns to the calendar with that day still marked as selected.
+- The day view also shows the user's own records for that day: the focus goal
+  with its focus and distraction categories, or a quiet "no goal" line, and the
+  review marks they made on the timeline. The month and week payloads are
+  unchanged, so only opening a day pays for those reads.
 - On touch devices hover is replaced by tap: a tap opens the day, and the back
   control sits in the day header.
 - The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`, and
@@ -403,7 +407,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 124 tests: boundaries, SQL, adapters, import, panel, bundle
+npm test            # 129 tests: boundaries, SQL, adapters, import, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```

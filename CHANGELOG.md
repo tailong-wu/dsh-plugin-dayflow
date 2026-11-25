@@ -15,6 +15,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one activity), and `dayflow_review_ratings` (the user's own focused/distracted
   marks). Observations and ratings are matched to activities by time overlap,
   because Dayflow does not store a card foreign key for those rows.
+- The panel's day view now shows the user's own records: the day's focus goal
+  with its focus and distraction categories, and the review marks they made on
+  the timeline. Both are read only by `GET /api/dayflow/day`; the month and week
+  payloads are unchanged, so no extra work happens while browsing the calendar.
 
 ### Fixed
 

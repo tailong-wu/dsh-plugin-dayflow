@@ -139,6 +139,8 @@ ln -sfn "$PWD" ~/.dsh/profiles/web/node_modules/dsh-plugin-dayflow
 ![面板中展开的一天](docs/day.zh.png)
 
 - 详情里 `‹`/`›` 切换前后一天，`⟳` 刷新，返回箭头（或 Esc）回到日历，并保留该天的选中状态。
+- 日详情还会显示用户自己的记录：当天的专注目标及其 focus/distraction 分类（没有目标时只显示一行弱化提示），
+  以及用户给时间线做的回顾标记。月/周 payload 不变，只有打开某一天时才读取这两项。
 - 触屏设备没有悬停，用点击代替：点一下进入当天，返回入口就在详情头部。
 - 面板通过 harness 认证的 `/api` 通道读取 `GET /api/dayflow/month`、
   `GET /api/dayflow/week` 和 `GET /api/dayflow/day`，自己不会碰数据库。
@@ -338,7 +340,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 124 个测试：边界、SQL、适配器、导入、面板、bundle
+npm test            # 129 个测试：边界、SQL、适配器、导入、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```

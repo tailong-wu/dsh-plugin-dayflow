@@ -4,10 +4,11 @@
 > 1+2 only — the owned schema, its forward migration, the Dayflow importer, and
 > the owned read backend. The next development increment on `main` (unreleased)
 > closes the Phase 3 read gap with `dayflow_journal`, `dayflow_goals`,
-> `dayflow_observations`, and `dayflow_review_ratings`. The panel's goal and
-> review surfaces, the write path (editing tools still go through Dayflow), and
-> the `dsh dayflow import` CLI remain later work; Phase 3.5 and everything after
-> it remain proposals.
+> `dayflow_observations`, and `dayflow_review_ratings`, and surfaces the goal and
+> review marks in the panel's day view. The write path (editing tools still go
+> through Dayflow), the `dsh dayflow import` CLI, and the month/week panel
+> surfaces remain later work; Phase 3.5 and everything after it remain
+> proposals.
 > Last revised: 2026-11-25 (status restated for the 0.6.0 release and the Phase 3
 > read-gap increment).
 
@@ -137,7 +138,9 @@ read-only tool plus a renderer; each is independently shippable.
 `journal_entry` → `dayflow_journal`, `observations` → `dayflow_observations`,
 `review_ratings` → `dayflow_review_ratings`, `goal_categories` →
 `dayflow_goals`. All four are read-only and answer on both the Dayflow backend
-and the owned journal; the panel's goal and review surfaces remain open.
+and the owned journal. The panel's day view shows the goal and the review marks;
+the month and week payloads stay unchanged so browsing them does not pay for
+those reads.
 
 **Exit criteria:** each tool has a fixture case and a failure case; the panel
 gains the goal and review surfaces it already has data for.
