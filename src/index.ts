@@ -2,10 +2,11 @@
  * dsh-plugin-dayflow: the Dayflow work journal as DSH tools and skills.
  *
  * The Dayflow Mac app records the user's screen and turns it into a timeline of
- * activities. This plugin exposes that timeline natively: twenty-two tools
+ * activities. This plugin exposes that timeline natively: twenty-three tools
  * (twelve reads, one journal importer, one review queue, one long-task tool, one
- * memory tool, and six gated edits), plus Dayflow's seven skills. The read
- * backend can be the app's SQLite database or the plugin-owned journal.
+ * memory tool, one reflection tool, and six gated edits), plus Dayflow's eight
+ * skills. The read backend can be the app's SQLite database or the plugin-owned
+ * journal.
  *
  * It also injects one budgeted system context: the active long tasks and the
  * most recent non-superseded memory claims, so the model starts each session
@@ -34,6 +35,7 @@ import type { ToolRuntime } from './tools/shared.js';
 import { readTools } from './tools/read.js';
 import { journalImportTools } from './tools/import.js';
 import { memoryTools } from './tools/memory.js';
+import { reflectionTools } from './tools/reflection.js';
 import { reviewTools } from './tools/review.js';
 import { setupTools } from './tools/setup.js';
 import { taskTools } from './tools/task.js';
@@ -82,6 +84,7 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
   for (const tool of reviewTools(runtime)) ctx.tools.register(tool);
   for (const tool of taskTools(runtime)) ctx.tools.register(tool);
   for (const tool of memoryTools(runtime)) ctx.tools.register(tool);
+  for (const tool of reflectionTools(runtime)) ctx.tools.register(tool);
   if (resolved.edits) {
     for (const tool of writeTools(runtime)) ctx.tools.register(tool);
   }

@@ -25,8 +25,10 @@ import type {
 } from './queries.js';
 import type { ImportReport } from './journal.js';
 import type { MemoryClaimPayload } from './memory.js';
+import type { ReflectionPayload } from './reflections.js';
 import type { ReviewItemPayload, ReviewToolPayload } from './review.js';
 import type { MemoryToolPayload } from './tools/memory.js';
+import type { ReflectionToolPayload } from './tools/reflection.js';
 import type { TaskToolPayload } from './tools/task.js';
 
 function categoryPercent(share: number): string {
@@ -370,6 +372,96 @@ export function renderMemory(payload: MemoryToolPayload): string {
 
   if (payload.action === 'forget') {
     return payload.forgotten === undefined ? payload.hint : `Forgot claim #${payload.forgotten}`;
+  }
+
+  return payload.hint;
+}
+
+/**
+ * Render a reflection's body as a few compact lines, so a save reply stays
+ * scannable even when the stored body is a paragraph.
+ * @param body - the reflection body.
+ * @param maxLines - the longest number of lines kept before a trailing ellipsis.
+ * @returns one line per kept body line, or '' for a blank body.
+ */
+function reflectionPreview(body: string, maxLines = 4): string {
+  const lines = body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  const kept = lines.slice(0, maxLines).map((line) => oneLine(line, 120));
+  if (lines.length > maxLines) kept.push('…');
+  return kept.join('\n');
+}
+
+/**
+ * Render a reflection's headline: its first non-blank body line, capped so a
+ * list row stays one line.
+ * @param body - the reflection body.
+ * @returns one line of text, or '' for a blank body.
+ */
+function reflectionHeadline(body: string): string {
+  const line = body.split(/\r?\n/).find((candidate) => candidate.trim() !== '') ?? '';
+  return oneLine(line, 80);
+}
+
+/**
+ * Render a reflection's highlights as an indented list, when it has any.
+ * @param reflection - the reflection payload.
+ * @returns the highlight lines, or an empty array.
+ */
+function reflectionHighlights(reflection: ReflectionPayload): string[] {
+  if (reflection.highlights.length === 0) return [];
+  return ['highlights:', ...reflection.highlights.map((highlight) => `- ${highlight}`)];
+}
+
+/**
+ * Render a reflection save, read, list, or delete.
+ *
+ * A reflection is the compressed summary of one period, so the save and get
+ * renderers show the body itself (the save one truncated) and the list stays
+ * one line per period; a get that found nothing falls back to the hint, which
+ * says to write a reflection instead of inventing one.
+ * @param payload - the `journal_reflection` value.
+ * @returns model-facing text.
+ */
+export function renderReflection(payload: ReflectionToolPayload): string {
+  if (payload.action === 'save') {
+    const reflection = payload.reflection;
+    if (reflection === undefined) return payload.hint;
+    const lines = [`Reflection saved · ${reflection.kind} ${reflection.period_key}`];
+    const body = reflectionPreview(reflection.body);
+    if (body !== '') lines.push(body);
+    lines.push(...reflectionHighlights(reflection));
+    return lines.join('\n');
+  }
+
+  if (payload.action === 'get') {
+    const reflection = payload.reflection;
+    if (payload.found !== true || reflection === undefined) return payload.hint;
+    const lines = [`Reflection · ${reflection.kind} ${reflection.period_key}`, '', reflection.body];
+    lines.push(...reflectionHighlights(reflection));
+    if (reflection.source_days.length > 0) {
+      lines.push(`source days: ${reflection.source_days.join(', ')}`);
+    }
+    return lines.join('\n');
+  }
+
+  if (payload.action === 'list') {
+    const reflections = payload.reflections ?? [];
+    if (reflections.length === 0) return payload.hint;
+    const rows = reflections.map((reflection) => {
+      const headline = reflectionHeadline(reflection.body);
+      return `- ${reflection.kind} ${reflection.period_key}${headline === '' ? '' : ` · ${headline}`}`;
+    });
+    return `Reflections · ${reflections.length}\n\n${rows.join('\n')}`;
+  }
+
+  if (payload.action === 'delete') {
+    const period = payload.period_key;
+    if (period === undefined) return payload.hint;
+    const periodLabel = payload.kind === undefined ? period : `${payload.kind} ${period}`;
+    return `Reflection deleted · ${periodLabel}`;
   }
 
   return payload.hint;

@@ -20,7 +20,7 @@ import type { ResolvedConfig } from './config.js';
 import { defaultJournalPath } from './paths.js';
 
 /** Current owned-store schema version. Migrations are forward-only. */
-export const JOURNAL_SCHEMA_VERSION = 5;
+export const JOURNAL_SCHEMA_VERSION = 6;
 /** Default source id used by an import from a Dayflow database. */
 export const DAYFLOW_SOURCE_ID = 'dayflow';
 
@@ -410,6 +410,35 @@ const MIGRATION_5_FTS_CLEANUP = `
   DROP TRIGGER IF EXISTS memory_claims_ad;
   DROP TRIGGER IF EXISTS memory_claims_au;
   DROP TABLE IF EXISTS memory_claims_fts;
+`;
+
+/**
+ * Migration 6 adds reflections: the user's own written summaries of a day
+ * (`kind = 'day'`) or of a Monday-to-Monday week (`kind = 'week'`).
+ *
+ * `period_key` is the normalized period: the day key itself for a day
+ * reflection, and the Monday of the week for a week reflection, so any day
+ * inside the same week addresses the same row. `(kind, period_key)` is unique:
+ * saving the same period again rewrites the summary instead of appending a
+ * duplicate, which is what "save" means for something the user authored.
+ *
+ * The three `_json` columns carry the optional evidence lists; a reader must
+ * treat missing or corrupt JSON as "no entries".
+ */
+const MIGRATION_6 = `
+  CREATE TABLE IF NOT EXISTS reflections (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('day','week')),
+    period_key TEXT NOT NULL,
+    body TEXT NOT NULL,
+    highlights_json TEXT,
+    source_days_json TEXT,
+    source_activity_ids_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (kind, period_key)
+  );
+  CREATE INDEX IF NOT EXISTS reflections_period_idx ON reflections (kind, period_key);
 `;
 
 /**
@@ -933,6 +962,11 @@ export function migrateJournal(db: DatabaseSync): number {
       db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(5);
       version = 5;
     }
+    if (version < 6) {
+      db.exec(MIGRATION_6);
+      db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(6);
+      version = 6;
+    }
     db.exec('COMMIT');
     return version;
   } catch (cause) {
@@ -969,7 +1003,7 @@ function journalReady(path: string): boolean {
       .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'view' AND name = 'timeline_cards'")
       .get() as Row | undefined;
     if (view?.present !== 1) return false;
-    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims']) {
+    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims', 'reflections']) {
       const present = db
         .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?")
         .get(table) as Row | undefined;
