@@ -7,13 +7,19 @@
 > `dayflow_observations`, and `dayflow_review_ratings`, and surfaces the goal and
 > review marks in the panel's day view. It also lands the Phase 3.5 **storage and
 > tool** slice: the `review_items` identity/decision queue (owned schema version
-> 3), the `journal_review` tool, and the `review-queue` skill. The write path
-> (editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
-> month/week panel surfaces, the review-queue panel UI, and the `review.cards`
-> switch (the plugin never had a card stack, so that switch has no surface here
-> yet) remain later work. Phase 3.6 and everything after it remain proposals.
+> 3), the `journal_review` tool, and the `review-queue` skill. The same
+> development line adds the Phase 3.7 **storage and tool** slice: long tasks and
+> their per-day sessions (owned schema version 4), the `journal_task` tool, the
+> `long-task` skill, and automatic task creation when a `task_proposal` is
+> accepted. The write path (editing tools still go through Dayflow), the
+> `dsh dayflow import` CLI, the month/week panel surfaces, the review-queue panel
+> UI, the `review.cards` switch (the plugin never had a card stack, so that
+> switch has no surface here yet), task tagging from the summarization prompt,
+> and automatic activity attribution (matching is an inspectable `suggest` step
+> the agent calls) remain later work. Phase 3.6 and everything after it remain
+> proposals.
 > Last revised: 2026-11-25 (status restated for the 0.6.0 release and the Phase 3
-> read-gap plus review-queue increments).
+> read-gap, review-queue, and long-task increments).
 
 ## Where this starts
 
@@ -387,6 +393,14 @@ attached to it without manual tagging; a task with no activity for N days
 surfaces as "stalled"; an agent-proposed task appears in the review queue and
 does not exist as a task until accepted; every suggestion lands in the review
 queue rather than being applied.
+
+**Shipped in the 0.7.0 development line (unreleased, on `main`):** the
+`long_tasks`/`long_task_sessions` schema (version 4), `journal_task`
+(create/list/get/update/attach/detach/suggest), stalled detection after seven
+days, explainable category/app matching as a `suggest` step, and review-queue
+`task_proposal` acceptance creating the task in the same transaction. Sessions
+are attached by the agent from an inspectable `suggest` result rather than
+tagged silently; summarization-prompt tagging and the panel surface remain open.
 
 ### Phase 4 — The memory layer (the actual product)
 

@@ -27,6 +27,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the evidence is materially new; `forever: true` hard-suppresses it by
   fingerprint, and `unsuppress` clears that. Confidence below 0.5 is dropped, and
   at most five proposals are kept open per source day.
+- Long-task tracking in the owned journal (schema version 4, `long_tasks` and
+  `long_task_sessions`) with the `journal_task` tool and a `long-task` skill. A
+  task keeps a progress trail of per-day sessions (minutes plus the activity
+  records behind them) and reports stalled when an active task has had no new
+  session for more than seven days. `suggest` matches a day's activities to
+  active tasks by category (+2) and app (+1) overlap, states the reason for each
+  match, and never writes; `attach` and `detach` record or correct a session.
+  Accepting a `task_proposal` in the review queue now creates the task in the
+  same transaction, so a proposal becomes tracked work without a second step.
 
 ### Fixed
 

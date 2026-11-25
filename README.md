@@ -40,8 +40,8 @@ are still being analyzed.
 
 ## What you get
 
-- **20 tools**: 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, and 6 editing tools.
-- **5 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, and `review-queue`.
+- **21 tools**: 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, 1 `journal_task` tool, and 6 editing tools.
+- **6 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, and `long-task`.
 - **An optional Web panel**: a month calendar of segmented rings, with hover
   cards and a per-day timeline, opened from a conversation-header button and
   drawn with the harness's own tokens.
@@ -304,6 +304,21 @@ occurrences). Only `forever: true`, with the user's agreement, hard-suppresses
 an item by its fingerprint. `decide` and `unsuppress` refuse to run without
 `confirm: true`.
 
+### Long tasks
+
+A **long task** is a goal that outlives a day. Accepting a `task_proposal` in the
+review queue creates one automatically; the user can also create one directly.
+Every task keeps a progress trail of **sessions** — the minutes and activity
+records a day contributed — and an active task with no session for more than
+seven days is reported as stalled.
+
+| Tool | Arguments | Effect |
+| --- | --- | --- |
+| `journal_task` | `action`, `title?`, `id?`, `day?`, … | `create`/`list`/`get`/`update` manage tasks, progress, and status; `attach`/`detach` record or correct one day's session; `suggest` explains which of a day's activities match which task (category +2, app +1, threshold 2) without writing anything. |
+
+Agent-noticed work must go through the review queue first (`task_proposal`);
+only an accepted proposal, or an explicit user request, creates a task.
+
 ### Mapping from Dayflow's own MCP server
 
 If you used Dayflow's `dayflow mcp` server, the tools are the same operations
@@ -335,6 +350,7 @@ under a `dayflow_` prefix:
 | `standup` | Drafting a standup or daily update from the timeline. |
 | `weekly-review` | Reviewing a week and comparing it with the one before. |
 | `review-queue` | Turning a task outcome or weekly review into distillations, loops, improvements, and task proposals, and asking the user to decide. |
+| `long-task` | Tracking work that outlives a day: stalled tasks, attaching a day's sessions with evidence, and status changes. |
 
 Skills are registered at runtime from `skills/`, so installing the plugin is
 enough; no skills root needs configuring.
@@ -399,7 +415,7 @@ defaults in `cordis.patch.yml`:
     journalPath: ''    # default: $DSH_HOME/dayflow/journal.sqlite
     agentSocket: ''    # default: agent.sock beside the database
     edits: true        # register the six editing tools
-    skills: true       # register the five bundled skills
+    skills: true       # register the six bundled skills
     panel: true        # the optional Web panel and its header button
     icons: true        # site favicons on the panel cards (its only outbound request)
     allowInstall: false  # register dayflow_install_dayflow (it changes this Mac)
@@ -427,7 +443,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 153 tests: boundaries, SQL, adapters, import, review queue, panel, bundle
+npm test            # 167 tests: boundaries, SQL, adapters, import, review queue, long tasks, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```
