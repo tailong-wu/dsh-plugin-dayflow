@@ -44,6 +44,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   review queue become memory automatically; `forget` hard-deletes a claim only
   with `confirm: true`. Search uses FTS5 when the runtime has it and falls back
   to `LIKE` when it does not.
+- A budgeted memory context injected as dynamic system context: active long
+  tasks and recent, non-superseded memory claims are rendered as dated records
+  (never as the present) with a hard 1000-byte cap, a 60-second cache, and
+  nothing at all when the journal has nothing worth saying. `memoryContext: false`
+  switches it off; an unreadable or missing journal degrades to no injection
+  rather than a prompt-assembly error.
 
 ### Fixed
 

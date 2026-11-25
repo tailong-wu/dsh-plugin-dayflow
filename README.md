@@ -48,6 +48,9 @@ are still being analyzed.
 - **A system-prompt section** stating the rules that make the data readable:
   the 4 AM day boundary, `Idle` and `System` handling, analysis lag, and the
   untrusted-content boundary.
+- **A budgeted memory context**: active long tasks and recent memory claims are
+  injected as dated records (never as the present) with a hard 1000-byte cap, a
+  60-second cache, and nothing injected when there is nothing worth saying.
 - **Zero runtime dependencies** beyond `dsh` itself: SQLite comes from
   `node:sqlite`, and the write channel is a Unix socket.
 
@@ -435,6 +438,7 @@ defaults in `cordis.patch.yml`:
     skills: true       # register the seven bundled skills
     panel: true        # the optional Web panel and its header button
     icons: true        # site favicons on the panel cards (its only outbound request)
+    memoryContext: true  # inject a budgeted snapshot of active tasks and recent memory
     allowInstall: false  # register dayflow_install_dayflow (it changes this Mac)
     searchLimit: 50    # maximum matches per dayflow_search call (1-200)
 ```
@@ -460,7 +464,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 185 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, panel, bundle
+npm test            # 207 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, context injection, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```
