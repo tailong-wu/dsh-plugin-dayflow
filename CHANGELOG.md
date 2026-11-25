@@ -77,6 +77,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   today's reflection, backed by `POST` routes on the panel API; the review queue
   stays agent-proposed and user-decided.
 
+### Changed
+
+- The Journal insights view has its own visual language: one tinted accent card
+  per source (blue tasks, amber review queue, violet memory, green reflections),
+  colored kind badges, dated chips, a small minutes bar per task, inline add rows
+  that pick up the section accent, and a gradient introduction card when the
+  journal is empty. It follows the harness light and dark themes.
+
 ### Fixed
 
 - The importer now maps Dayflow's real `day_goals.focus_target_minutes` column

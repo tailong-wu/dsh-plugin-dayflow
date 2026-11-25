@@ -19,7 +19,7 @@ import type { FormEvent, ReactNode } from 'react';
 
 import type { PanelInsights } from '../panel-contract.js';
 import { addMemory, addReflection, addTask } from './data.js';
-import { formatDuration, formatShare } from './format.js';
+import { formatDuration, formatShare, shortDate } from './format.js';
 import type { Translate } from './format.js';
 import type { Phase } from './types.js';
 
@@ -160,16 +160,18 @@ function AddRow(props: {
  * @returns the section.
  */
 function Section(props: {
+  tone: 'tasks' | 'review' | 'memory' | 'reflections';
   title: string;
   count: number;
   empty: string;
   add?: ReactNode;
   children: ReactNode;
 }): ReactNode {
-  const { title, count, empty, add, children } = props;
+  const { tone, title, count, empty, add, children } = props;
   return (
-    <section className="dfp-insights-section">
+    <section className={`dfp-insights-section is-${tone}`}>
       <div className="dfp-insights-section-head">
+        <span className="dfp-insights-dot" aria-hidden="true" />
         <span className="dfp-insights-section-title">{title}</span>
         <span className="dfp-insights-count">{count}</span>
       </div>
@@ -218,6 +220,8 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
 
   const refresh = (): void => setNonce((value) => value + 1);
   const retry = (): void => setNonce((value) => value + 1);
+  // Tasks share one scale so the bars compare within the visible list.
+  const maxTaskMinutes = Math.max(1, ...(data?.tasks.map((task) => task.total_minutes) ?? []));
 
   // Each add writes the owned journal directly, then refreshes the whole view so
   // the new row and its section count arrive together with no local merge.
@@ -301,6 +305,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
           )}
 
           <Section
+            tone="tasks"
             title={t('tasksSection')}
             count={data.tasks.length}
             empty={t('noTasks')}
@@ -335,17 +340,20 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
                       </>
                     )}
                   </div>
+                  <span className="dfp-insights-progress" aria-hidden="true">
+                    <span style={{ width: `${Math.max(6, Math.round((task.total_minutes / maxTaskMinutes) * 100))}%` }} />
+                  </span>
                 </li>
               ))}
             </ul>
           </Section>
 
-          <Section title={t('reviewSection')} count={data.review.length} empty={t('noReviewItems')}>
+          <Section tone="review" title={t('reviewSection')} count={data.review.length} empty={t('noReviewItems')}>
             <ul className="dfp-insights-list">
               {data.review.map((item) => (
                 <li key={item.id} className="dfp-insights-row">
                   <div className="dfp-insights-row-head">
-                    <span className="dfp-insights-badge">{item.kind}</span>
+                    <span className={`dfp-insights-badge is-${item.kind}`}>{item.kind}</span>
                     <span className="dfp-insights-row-title">{item.title}</span>
                   </div>
                   <div className="dfp-insights-meta">
@@ -355,7 +363,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
                     {item.source_day !== undefined && item.source_day !== '' && (
                       <>
                         <Sep />
-                        <span className="dfp-insights-num">{item.source_day}</span>
+                        <span className="dfp-insights-date">{shortDate(item.source_day, t)}</span>
                       </>
                     )}
                   </div>
@@ -365,6 +373,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
           </Section>
 
           <Section
+            tone="memory"
             title={t('memorySection')}
             count={data.memory.length}
             empty={t('noMemoryClaims')}
@@ -381,12 +390,14 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
               {data.memory.map((claim) => (
                 <li key={claim.id} className="dfp-insights-row">
                   <div className="dfp-insights-row-head">
-                    <span className="dfp-insights-badge">{claim.kind}</span>
+                    <span className={`dfp-insights-badge is-${claim.kind}`}>{claim.kind}</span>
                     <span className="dfp-insights-row-title">{claim.subject}</span>
                   </div>
                   <div className="dfp-insights-meta">
+                    <span className="dfp-insights-date">{shortDate(claim.observed_on, t)}</span>
+                    <Sep />
                     <span>
-                      {t('observedLabel')} <span className="dfp-insights-num">{claim.observed_on}</span>
+                      {t('confidenceLabel')} {formatShare(claim.confidence)}
                     </span>
                   </div>
                 </li>
@@ -395,6 +406,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
           </Section>
 
           <Section
+            tone="reflections"
             title={t('reflectionsSection')}
             count={data.reflections.length}
             empty={t('noReflections')}
@@ -413,8 +425,8 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
                 return (
                   <li key={reflection.id} className="dfp-insights-row">
                     <div className="dfp-insights-row-head">
-                      <span className="dfp-insights-badge">{reflection.kind}</span>
-                      <span className="dfp-insights-row-title dfp-insights-period">{reflection.period_key}</span>
+                      <span className={`dfp-insights-badge is-${reflection.kind}`}>{reflection.kind}</span>
+                      <span className="dfp-insights-row-title dfp-insights-period">{shortDate(reflection.period_key, t)}</span>
                     </div>
                     <p className="dfp-insights-body">{preview === '' ? t('untitled') : preview}</p>
                   </li>
