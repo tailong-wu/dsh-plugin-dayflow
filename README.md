@@ -333,10 +333,15 @@ distillations and loops from the review queue become memory automatically.
 
 | Tool | Arguments | Effect |
 | --- | --- | --- |
-| `journal_memory` | `action`, `query?`, `kind?`, `id?`, … | `add` writes a dated claim; `search` and `list` read claims (superseded ones hidden by default); `supersede` appends the new version and marks the old one; `forget` deletes a claim and needs `confirm: true`. |
+| `journal_memory` | `action`, `query?`, `kind?`, `id?`, … | `add` writes a dated claim; `search` and `list` read claims (superseded ones hidden by default); `supersede` appends the new version and marks the old one; `forget` deletes a claim and needs `confirm: true`; `lint` reports contradictions, claims overtaken by newer evidence, unsourced claims, and aged claims without changing anything. |
 
 Search uses SQLite FTS5 when the runtime has it and falls back to `LIKE` when it
 does not, so the tool works on the older Node builds the plugin still supports.
+
+`journal_memory` with `action: "lint"` is a read-only health check for the
+store: it reports claims that contradict each other, older claims that a newer
+claim has overtaken, claims with no source to trace, and claims older than 180
+days. Nothing is repaired automatically — a finding is a decision for the user.
 
 ### Reflections
 
@@ -477,7 +482,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 224 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, bundle
+npm test            # 238 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 ```

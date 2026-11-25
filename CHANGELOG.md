@@ -57,6 +57,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   re-deriving it. Saving the same period edits the existing row, a week is
   normalized to its Monday from any day inside it, and deleting one needs
   `confirm: true`.
+- A read-only memory lint exposed as `journal_memory` `action: "lint"`: it
+  reports contradicting claims on the same subject, older claims overtaken by a
+  newer dated claim, claims with no source to trace, and active claims aged past
+  180 days. Nothing is repaired automatically; acting on a finding stays a
+  supersede/forget decision for the user.
 
 ### Fixed
 

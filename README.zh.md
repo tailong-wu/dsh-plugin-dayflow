@@ -277,7 +277,7 @@ agent 自己发现的工作必须先走回顾队列（`task_proposal`）；只�
 
 | 工具 | 参数 | 作用 |
 | --- | --- | --- |
-| `journal_memory` | `action`、`query?`、`kind?`、`id?` 等 | `add` 写入带日期的 claim；`search`/`list` 读取（默认隐藏被取代的）；`supersede` 追加新版本并标记旧版本；`forget` 删除且需要 `confirm: true`。 |
+| `journal_memory` | `action`、`query?`、`kind?`、`id?` 等 | `add` 写入带日期的 claim；`search`/`list` 读取（默认隐藏被取代的）；`supersede` 追加新版本并标记旧版本；`forget` 删除且需要 `confirm: true`；`lint` 只读巡检矛盾、被更新、无来源与老化的 claim。 |
 
 检索优先用 SQLite FTS5，运行时没有 FTS5 时回退到 `LIKE`，因此在插件仍支持的旧 Node 上也能用。
 
@@ -397,7 +397,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 224 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、bundle
+npm test            # 238 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 ```
