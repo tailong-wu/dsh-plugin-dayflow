@@ -80,6 +80,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   last 14 days of activity and link the days whose titles, categories, or apps
   match the task. The scan is a read-only preview; linking writes the task
   sessions (a second link for the same day replaces, not doubles).
+- Phase 0 of the native capture port, all off by default and with no analysis
+  yet: a `screencapture` capture provider with an optional Swift helper for the
+  frontmost app and idle time plus a local smoke script; the `capture`,
+  `analysis`, and `automation` configuration blocks (validated, capture
+  disabled); schema version 7 with a `capture_state` table; and the panel's
+  native capture status — `GET /api/dayflow/capture/status` and
+  `POST /api/dayflow/capture/pause`, surfaced as one compact capture line
+  (off / on / paused / permission needed, with Pause and Resume) above the
+  Journal insights sections. Capture is off by default and no activity can be
+  recorded or analysed from it yet.
 
 ### Changed
 

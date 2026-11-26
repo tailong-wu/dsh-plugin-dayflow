@@ -163,7 +163,8 @@ ln -sfn "$PWD" ~/.dsh/profiles/web/node_modules/dsh-plugin-dayflow
   `GET /api/dayflow/panel`（启用探测）；三个内联添加区块在同一通道上提交
   `POST /api/dayflow/tasks`、`POST /api/dayflow/memory`、`POST /api/dayflow/reflections`，
   新建任务后的扫描历史与关联分别提交 `POST /api/dayflow/tasks/scan` 与
-  `POST /api/dayflow/tasks/link`。
+  `POST /api/dayflow/tasks/link`；原生采集状态行还会读取 `GET /api/dayflow/capture/status`
+  并提交 `POST /api/dayflow/capture/pause`（见 [原生采集（Phase 0）](#原生采集phase-0)）。
   再加上下面的图标路由，这些就是面板的 host Fetch 路由。面板自己不会碰数据库。
 - 图标来自 `GET /api/dayflow/icon?domain=…`：每个域名首次使用时抓一次
   `favicon.ico`，缓存在 `$DSH_HOME/dayflow-icons`。这是插件唯一的对外请求，
@@ -403,6 +404,28 @@ owned journal），所以没有导入、也没有活动时结果为空。
 插件始终只有一个 Harness UI 入口：对话头部一个按钮、面板一个标签页。斜杠命令是命令而不是 UI 入口，
 **洞察** 是该标签页里的一个视图，不是第二个入口。
 
+## 原生采集（Phase 0）
+
+插件最终可以自己录屏、不再只读 Dayflow App 的采集结果，但 **Phase 0 只是打地基，还不是可用的录制器**：
+下面的一切默认关闭，也还没有任何分析。
+
+- **采集默认关闭。** `capture` 配置块出厂即关闭；`capture`、`analysis`、`automation` 三块配置已经存在并
+  经过校验（采集间隔、空闲门限、每日帧数上限、保留天数、分析授权与预算、日/周收口时间），但还没有采集循环。
+- **采集 provider 已经能抓单帧。** 它调用 macOS 的 `screencapture`；本机有 `swiftc` 时还会按需编译一个
+  小型 Swift helper 读取前台应用与空闲时间。它已在真实屏幕上验证，但还没有接进循环。
+- **状态与暂停已经打通。** `GET /api/dayflow/capture/status` 返回采集/分析开关、macOS 屏幕录制权限、
+  今天已采集的原始帧数与持久化的暂停标记；`POST /api/dayflow/capture/pause` 把该标记写入自有日志的
+  `capture_state`（schema 版本 7）。**洞察 / Journal insights** 视图顶部用一条紧凑的状态行展示
+  （未启用 / 已开启 / 已暂停 / 需要权限），配置开启时带「暂停/继续」按钮。
+- **还没有发生的事：** 没有持续采集引擎、没有帧分析、没有活动卡片、没有简报、没有自动化。状态行会
+  如实说明这一点，而不是暗示正在写入帧；未来引擎的运行状态也会出现在这一行。
+- **读状态不会写库。** 没有 journal 时状态路由返回全零且不创建文件；只有暂停写入才会打开它。
+
+provider 的本地 smoke 脚本是 `scripts/native-smoke.mjs`；用 `npm run native:smoke`
+（或构建后 `node scripts/native-smoke.mjs`）运行。它会请求屏幕录制权限、打印每一帧的
+尺寸/前台应用/空闲秒数，且不写入任何数据。完整方案——授权模型、schema、阶段与验收标准——见
+[`docs/NATIVE_PORT.md`](docs/NATIVE_PORT.md)。
+
 ## 工作原理
 
 ```text
@@ -477,7 +500,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 272 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、快速记录、历史扫描、bundle
+npm test            # 300 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、快速记录、历史扫描、原生采集、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 npm run check:package  # 校验 npm 包只含 lib/、skills/ 等应发布文件，不含 src/、tests/ 或 sourcemap

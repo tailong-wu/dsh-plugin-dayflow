@@ -204,8 +204,11 @@ card placed at its time and tinted with its category colour.
   `POST /api/dayflow/tasks`, `POST /api/dayflow/memory`, and
   `POST /api/dayflow/reflections` on the same bridge, and the post-add history
   scan and its link submit `POST /api/dayflow/tasks/scan` and
-  `POST /api/dayflow/tasks/link`. Together with the icon route below, those are
-  the panel's host Fetch routes. It never touches the database itself.
+  `POST /api/dayflow/tasks/link`. The native capture line adds
+  `GET /api/dayflow/capture/status` and `POST /api/dayflow/capture/pause`
+  (see [Native capture](#native-capture-phase-0)). Together with the icon route
+  below, those are the panel's host Fetch routes. It never touches the database
+  itself.
 - Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
   `favicon.ico` per domain on first use and caches it under
   `$DSH_HOME/dayflow-icons`. That is the plugin's only outbound request: it
@@ -495,6 +498,40 @@ The plugin keeps exactly one Harness UI entry: one conversation-header button
 and one panel tab. Slash commands are commands, not UI entries, and
 **Journal insights** is a view inside that tab rather than a second one.
 
+## Native capture (Phase 0)
+
+The plugin can eventually record its own screen activity instead of only reading
+what the Dayflow app captured, but **Phase 0 is groundwork, not a working
+recorder**: everything below is off by default and nothing is analysed yet.
+
+- **Capture is off by default.** The `capture` block ships disabled; the
+  `capture`, `analysis`, and `automation` configuration blocks already exist and
+  are validated (interval, idle gate, frame caps, retention, analysis consent and
+  budgets, day/week close times), but no capture loop runs yet.
+- **A capture provider can grab a frame.** It drives macOS `screencapture` and,
+  when `swiftc` is available, compiles a small Swift helper for the frontmost app
+  and idle time. It is proven against the real screen, not wired into a loop.
+- **Status and pause are wired.** `GET /api/dayflow/capture/status` reports the
+  capture and analysis switches, the macOS Screen Recording permission, today's
+  native frame count, and the persisted pause flag.
+  `POST /api/dayflow/capture/pause` writes that flag into `capture_state` in the
+  owned journal (schema version 7). The Journal insights view shows it as one
+  compact capture line — off, on, paused, or permission needed — with a
+  Pause/Resume button when capture is configured on.
+- **What does not happen yet:** no continuous capture engine, no frame analysis,
+  no activity cards, no briefs, and no automation. The capture line says so
+  instead of implying frames are being written; it is also where the future
+  engine's state will appear.
+- **Nothing is written by a status read.** With no journal, the status route
+  answers zeros and does not create the file; only the pause write opens it.
+
+The provider's local smoke script is `scripts/native-smoke.mjs`; run
+`npm run native:smoke` (or `node scripts/native-smoke.mjs` after a build). It
+asks for Screen Recording permission, prints the captured frames' dimensions,
+app, and idle seconds, and writes nothing. The full plan — consent model, schema,
+phases, and acceptance criteria — is in
+[`docs/NATIVE_PORT.md`](docs/NATIVE_PORT.md).
+
 ## How it works
 
 ```text
@@ -590,7 +627,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 272 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, capture, history scan, bundle
+npm test            # 300 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

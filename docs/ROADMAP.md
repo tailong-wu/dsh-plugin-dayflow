@@ -513,10 +513,13 @@ The owner selected the full port (option C): move Dayflow's own capture →
 analysis → cards → briefs pipeline into `dsh-plugin-dayflow`, so the owned journal
 can be the source of truth and the Dayflow app becomes optional. The plan,
 including the privacy/consent design, schema migrations, phases, acceptance
-criteria, and cost caps, lives in [`NATIVE_PORT.md`](NATIVE_PORT.md). It is not
-implemented yet: Phase 0 is the feasibility spike and needs the owner's consent
-decisions before it starts. The phasing above (Phase 5 and later) is untouched by
-this line until the native path lands.
+criteria, and cost caps, lives in [`NATIVE_PORT.md`](NATIVE_PORT.md). Phase 0
+(the feasibility spike) has landed in the 0.7.0 development line: the capture
+provider and its local smoke script, schema v7 `capture_state`, the
+`capture`/`analysis`/`automation` config skeleton (capture off by default), and
+the insights capture status/pause line. The capture engine, analyse worker,
+briefs, and automation scheduling are still ahead; the phasing above (Phase 5 and
+later) is untouched by this line until the native path lands.
 
 ### Phase 5 — Personalization that acts
 
@@ -532,8 +535,10 @@ Only after 4 is trustworthy.
 
 ## What this deliberately does not do
 
-- **No screen recording.** Not now, not later. If capture is wanted, it is a
-  separate tool that imports into this store — which is also why privacy has to
+- **No screen recording by default.** The owner-selected native port is the one
+  deliberate exception (see Native port above): capture stays off unless the
+  profile opts in and cloud analysis needs its own consent. Until that port
+  finishes, nothing here records the screen, which is also why privacy has to
   work at the summarization boundary (3.6) rather than at the capture boundary
   the way Dayflow does it.
 - **No reimplementation of Dayflow's AI pipeline.** The plugin does not need to

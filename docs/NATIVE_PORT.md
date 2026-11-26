@@ -1,6 +1,8 @@
 # Native port plan: capture, analyse, and brief inside the harness
 
-**Status:** proposed, owner-selected direction (option C). Not implemented yet.
+**Status:** proposed, owner-selected direction (option C). Phase 0 (the
+feasibility spike) has landed in the 0.7.0 development line; everything from the
+capture engine onward is not implemented yet.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -17,29 +19,39 @@ phases below.
 
 Already reusable:
 
-- The owned journal (schema v6) with `days`, `activities`, `observations`,
-  `analysis_batches`, `screenshots`, `categories`, `daily_standup_entries`
-  and the `timeline_cards` compatibility view. Every `source_id` column already
-  exists, so native rows can live beside imported rows.
+- The owned journal (schema v7) with `days`, `activities`, `observations`,
+  `analysis_batches`, `screenshots`, `categories`, `daily_standup_entries`,
+  `capture_state`, and the `timeline_cards` compatibility view. Every
+  `source_id` column already exists, so native rows can live beside imported
+  rows.
 - An importer with `sources` bookkeeping (idempotent re-runs).
 - Both read backends (`source: dayflow | owned`) and the panel, which already
   renders month/week/day from whichever backend is active.
 - The insight journal: long tasks, review queue, dated memory, reflections, the
   budgeted memory context, and the Journal insights panel view.
+- Phase 0 capture groundwork: a `screencapture` provider with a lazily compiled
+  Swift metadata helper (frontmost app, window title, idle seconds) and a local
+  smoke script; the `capture` / `analysis` / `automation` config skeleton with
+  capture off by default; `capture_state` plus the `screenshots`-row helper; and
+  the panel's capture status line with pause/resume (`GET
+  /api/dayflow/capture/status`, `POST /api/dayflow/capture/pause`).
 - The host services this plan needs: `llm` (`ctx.llm.stream`, adapters are
   registered per provider), `attachments` (`saveImage` → `ImageAttachmentRef`),
   `systemPrompt`, `tools`, `skills`, `timer`, `connection`, `agentDefaultModel`.
 
 Missing (the whole port):
 
-- Screen capture and a permission surface.
+- A continuous capture engine: the Phase 0 provider grabs a single frame on
+  demand, but nothing schedules captures, gates on idle, dedupes, or sweeps
+  retention.
 - Frame preprocessing, dedupe, and retention.
 - An analysis pipeline that turns frames into activity cards through `ctx.llm`.
 - Sessionisation, category assignment, and card persistence.
 - Daily standup / weekly brief generation written back into the store.
 - A scheduler that runs capture analysis and the day/week close jobs inside the
   host process, with catch-up after sleep or restart.
-- Consent, pause, budget, and privacy controls for all of the above.
+- The consent, budget, and privacy controls that gate the above (the settings
+  exist, but no capture or analysis path consumes them yet).
 
 ---
 
@@ -266,6 +278,10 @@ This is the part that has to be right before anything captures pixels.
 
 ### Phase 0 — Feasibility spike (2–3 days)
 
+**Status: in progress / landed scope.** The spike's code is in the 0.7.0
+development line behind default-off configuration; nothing captures on its own
+and nothing is analysed yet.
+
 **Scope.** Prove capture and metadata on this Mac from inside a host plugin.
 
 - `capture/provider.ts` with a `screencapture -x -t jpg` provider and a Swift
@@ -277,9 +293,39 @@ This is the part that has to be right before anything captures pixels.
 - Permission status route (`GET /api/dayflow/capture/status`).
 - Document which metadata path works without Accessibility permission.
 
+**Landed scope:**
+
+- `src/capture/provider.ts`: the `screencapture` provider with the optional
+  Swift helper (permission preflight, frontmost app, window title, idle
+  seconds), injectable command runner and clock for tests, and JPEG SOF size
+  parsing.
+- `scripts/native-smoke.mjs`: the local-only real-capture smoke script (prints
+  the permission state and three captured frames; writes nothing).
+- `src/capture/state.ts` and schema v7: the `capture_state` key/value table
+  (pause, last frame, last sweep) and the idempotent `screenshots`-row helper
+  (`source_id = 'native'`, `countScreenshotsForDay`).
+- `src/config.ts`: the `capture` (off by default), `analysis` (conservative,
+  consent `none`), and `automation` blocks, validated at load time.
+- `src/panel.ts` / `src/panel-contract.ts`: `GET
+  /api/dayflow/capture/status` (switches, permission, today's native frame
+  count, pause flag; a missing journal answers zeros without creating the file)
+  and `POST /api/dayflow/capture/pause` (writes `capture_state`). The permission
+  probe is injected by the composition, and a broken probe degrades to
+  `unknown` instead of failing the route.
+- The Journal insights view's compact capture line (off / on / paused /
+  permission needed, with Pause/Resume and today's frame count) and its
+  EN/ZH copy.
+
+**Still not implemented:** the capture engine (timer, idle gate, dedupe,
+retention sweep, `maxFramesPerDay`, `pauseApps`), the analyse worker and its
+prompt/JSON pipeline, activity-card persistence, daily/weekly briefs, and the
+automation scheduler. `capture_state` currently holds the pause flag the panel
+writes; the engine that consumes it is Phase 1.
+
 **Acceptance.** From the plugin process: permission state reported, three frames
 captured with frontmost app for at least one path, no Dayflow app running
-required. No writes to the journal yet.
+required. No screenshots or activities may be written yet; the only journal
+write in Phase 0 is the user's pause flag in `capture_state`.
 
 ### Phase 1 — Capture engine (about 1 week)
 
