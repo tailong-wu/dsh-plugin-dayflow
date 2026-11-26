@@ -90,6 +90,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (off / on / paused / permission needed, with Pause and Resume) above the
   Journal insights sections. Capture is off by default and no activity can be
   recorded or analysed from it yet.
+- Phase 1 of the native capture port: the capture engine. With
+  `capture.enabled: true` it starts with the plugin (with or without the panel),
+  captures one frame every `capture.intervalSeconds`, and skips paused, locked,
+  display-asleep, idle, and `capture.pauseApps` ticks without writing anything.
+  Near-identical frames are deduped by a 64-bit dHash distance
+  (`capture.dedupeDistance`, with a SHA-256 fallback when the helper is
+  unavailable); a stored frame lands under `$DSH_HOME/dayflow/frames/<day>/`
+  with one `screenshots` row (`source_id = 'native'`) and `capture_state` resume
+  data, capped by `capture.maxFramesPerDay`. A retention sweep runs every
+  `capture.retentionCheckMinutes` and keeps at least one day of frames while
+  analysis does not exist. Capture stays off by default and nothing is analysed
+  yet: no activity cards, no timeline, no briefs, and no insights.
+  `npm run native:engine-smoke` drives the real engine against a temporary
+  journal and never touches the live one.
 
 ### Changed
 

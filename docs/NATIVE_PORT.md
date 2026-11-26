@@ -1,8 +1,9 @@
 # Native port plan: capture, analyse, and brief inside the harness
 
 **Status:** proposed, owner-selected direction (option C). Phase 0 (the
-feasibility spike) has landed in the 0.7.0 development line; everything from the
-capture engine onward is not implemented yet.
+feasibility spike) and Phase 1 (the capture engine) have landed in the 0.7.0
+development line, both behind default-off configuration; everything from the
+analysis pipeline onward is not implemented yet.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -35,23 +36,27 @@ Already reusable:
   capture off by default; `capture_state` plus the `screenshots`-row helper; and
   the panel's capture status line with pause/resume (`GET
   /api/dayflow/capture/status`, `POST /api/dayflow/capture/pause`).
+- Phase 1 capture engine: `capture/engine.ts` starts on the plugin lifecycle
+  only when `capture.enabled` is true, with an interval timer, idle / screen-lock
+  / display-sleep / `pauseApps` gates, dHash dedupe (SHA-256 fallback), a frame
+  store under `$DSH_HOME/dayflow/frames/`, `screenshots` rows with
+  `source_id = 'native'`, `maxFramesPerDay`, persistent resume state in
+  `capture_state`, and a retention sweep.
 - The host services this plan needs: `llm` (`ctx.llm.stream`, adapters are
   registered per provider), `attachments` (`saveImage` → `ImageAttachmentRef`),
   `systemPrompt`, `tools`, `skills`, `timer`, `connection`, `agentDefaultModel`.
 
 Missing (the whole port):
 
-- A continuous capture engine: the Phase 0 provider grabs a single frame on
-  demand, but nothing schedules captures, gates on idle, dedupes, or sweeps
-  retention.
-- Frame preprocessing, dedupe, and retention.
+- Frame preprocessing (downscale) for analysis; dedupe and retention already run
+  in the capture engine.
 - An analysis pipeline that turns frames into activity cards through `ctx.llm`.
 - Sessionisation, category assignment, and card persistence.
 - Daily standup / weekly brief generation written back into the store.
 - A scheduler that runs capture analysis and the day/week close jobs inside the
   host process, with catch-up after sleep or restart.
-- The consent, budget, and privacy controls that gate the above (the settings
-  exist, but no capture or analysis path consumes them yet).
+- The consent, budget, and privacy controls that gate the above (the analysis
+  settings exist, but no capture or analysis path consumes them yet).
 
 ---
 
@@ -278,9 +283,8 @@ This is the part that has to be right before anything captures pixels.
 
 ### Phase 0 — Feasibility spike (2–3 days)
 
-**Status: in progress / landed scope.** The spike's code is in the 0.7.0
-development line behind default-off configuration; nothing captures on its own
-and nothing is analysed yet.
+**Status: landed (0.7.0 development line).** The spike's scope below is
+complete; capture is still off by default and nothing is analysed yet.
 
 **Scope.** Prove capture and metadata on this Mac from inside a host plugin.
 
@@ -316,11 +320,11 @@ and nothing is analysed yet.
   permission needed, with Pause/Resume and today's frame count) and its
   EN/ZH copy.
 
-**Still not implemented:** the capture engine (timer, idle gate, dedupe,
-retention sweep, `maxFramesPerDay`, `pauseApps`), the analyse worker and its
-prompt/JSON pipeline, activity-card persistence, daily/weekly briefs, and the
-automation scheduler. `capture_state` currently holds the pause flag the panel
-writes; the engine that consumes it is Phase 1.
+**What Phase 0 did not include:** the capture engine (timer, idle gate, dedupe,
+retention sweep, `maxFramesPerDay`, `pauseApps`) — landed as Phase 1 below —
+plus the analyse worker and its prompt/JSON pipeline, activity-card persistence,
+daily/weekly briefs, and the automation scheduler. `capture_state` started with
+only the pause flag the panel writes; Phase 1 made the engine consume it.
 
 **Acceptance.** From the plugin process: permission state reported, three frames
 captured with frontmost app for at least one path, no Dayflow app running
@@ -328,6 +332,9 @@ required. No screenshots or activities may be written yet; the only journal
 write in Phase 0 is the user's pause flag in `capture_state`.
 
 ### Phase 1 — Capture engine (about 1 week)
+
+**Status: in progress / landed scope (0.7.0 development line).** Capture runs
+only when the profile sets `capture.enabled: true`; nothing is analysed yet.
 
 **Scope.** Continuous capture into the owned store with pause, dedupe, retention,
 and status.
@@ -338,6 +345,47 @@ and status.
 - `POST /api/dayflow/capture/pause`, `POST /api/dayflow/capture/resume`.
 - Insights view gains a compact capture line (idle / recording / paused /
   permission needed) and a pause button.
+
+**Landed scope:**
+
+- `src/capture/provider.ts`: the helper now captures the frame itself and
+  returns the JPEG plus a 64-bit dHash; a new `state()` probe reports screen
+  lock, display sleep, idle seconds, and the frontmost app. `screencapture`
+  stays as the fallback, and a frame captured without the helper simply has no
+  hash or lock state.
+- `src/capture/engine.ts`: `CaptureEngine` with `start`, `stop`, `status`, and
+  `captureOnce()`. Each tick reads the persisted pause flag, the provider's
+  state (locked or display asleep → skip), and the day's stored-frame count
+  (`maxFramesPerDay` → skip), then captures. An idle frame (`idleSeconds` gate)
+  or a `pauseApps` match is skipped without touching disk or the journal. A
+  capture failure records an `error` outcome and the timer keeps going; nothing
+  escapes the plugin.
+- Dedupe: a frame within `capture.dedupeDistance` (Hamming distance of the
+  dHash) of the last stored frame is dropped. The last hash and SHA-256 live in
+  the engine and in `capture_state`, so a restart resumes dedupe; frames
+  without a hash fall back to SHA-256 equality.
+- Frame store: `$DSH_HOME/dayflow/frames/<day>/<capturedAt>-….jpg` (directory
+  `0700`, file `0600`), one `screenshots` row per stored frame
+  (`source_id = 'native'`, idempotent `source_key`), and `capture_state`
+  timestamps (`last_frame_at`, `last_sweep_at`) plus the pause flag.
+- Retention: a sweep every `capture.retentionCheckMinutes` deletes files older
+  than the retention window and removes empty day directories. Because no
+  analysis path exists yet, `keepFramesDays: 0` (the default) still keeps at
+  least one day of frames.
+- `src/index.ts`: the engine is created inside a host `ctx.effect` and started
+  when `capture.enabled` is true — independent of the panel — and stopped on
+  unload. The panel's permission probe reuses the same lazily created provider,
+  so the Swift helper is compiled at most once.
+- `src/config.ts`: `capture.dedupeDistance` (0–16, default 4) and
+  `capture.retentionCheckMinutes` (5–1440, default 60).
+- `scripts/native-engine-smoke.mjs` with `npm run native:engine-smoke`: a
+  local-only run against a temporary journal and frames directory; the live
+  `$DSH_HOME/dayflow` is never touched.
+
+**Still not implemented:** the analyse worker and its prompt/JSON pipeline,
+activity-card persistence, daily/weekly briefs, and the automation scheduler.
+The pause/resume route and the insights capture line already landed in Phase 0
+and are unchanged.
 
 **Acceptance.** With `capture.enabled: true`, a 30-minute session writes frames
 and `screenshots` rows, dedupes near-identical frames, pauses instantly, deletes
@@ -465,12 +513,13 @@ reflection, and review queue are populated without a single agent turn.
 
 ## 12. First slice once approved
 
-Phase 0 lands as a self-contained PR: capture provider + permission/status route
-+ smoke script + docs, with `capture.enabled` still `false` by default. It proves
+Phase 0 landed as a self-contained PR: capture provider + permission/status route
++ smoke script + docs, with `capture.enabled` still `false` by default. It proved
 the only unknown (can the host process capture the screen and read the frontmost
-app?) without touching the journal or the analysis pipeline. Phases 1–3 then
-parallelise across capture, analysis, and briefs/automation with fake adapters
-in CI; Phase 4 is the cutover.
+app?) without touching the analysis pipeline. Phase 1 then added the capture
+engine behind the same default-off switch, writing frames and `screenshots`
+rows but still no analysis. Phases 2–3 parallelise across analysis and
+briefs/automation with fake adapters in CI; Phase 4 is the cutover.
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three
 parallel workstreams, plus one real week of dogfooding before `1.0.0`.

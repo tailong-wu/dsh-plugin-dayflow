@@ -39,9 +39,11 @@ are still being analyzed.
 > development line** this README describes — 23 tools, 8 skills, the owned
 > journal with its review queue, long tasks, dated memory, reflections, and the
 > Journal insights view, plus quick capture: three slash commands and the
-> insights view's inline add rows (see `CHANGELOG.md` `[Unreleased]` and
-> `docs/ROADMAP.md`). A registry install will not carry that surface until
-> `0.7.0` is published; the checkout install below builds the development line.
+> insights view's inline add rows, and Phase 1 of the native capture port behind
+> a default-off `capture.enabled` (it records frames; nothing is analysed) — see
+> `CHANGELOG.md` `[Unreleased]` and `docs/ROADMAP.md`. A registry install will
+> not carry that surface until `0.7.0` is published; the checkout install below
+> builds the development line.
 
 ## What you get
 
@@ -206,7 +208,7 @@ card placed at its time and tinted with its category colour.
   scan and its link submit `POST /api/dayflow/tasks/scan` and
   `POST /api/dayflow/tasks/link`. The native capture line adds
   `GET /api/dayflow/capture/status` and `POST /api/dayflow/capture/pause`
-  (see [Native capture](#native-capture-phase-0)). Together with the icon route
+  (see [Native capture](#native-capture-phase-1)). Together with the icon route
   below, those are the panel's host Fetch routes. It never touches the database
   itself.
 - Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
@@ -498,37 +500,74 @@ The plugin keeps exactly one Harness UI entry: one conversation-header button
 and one panel tab. Slash commands are commands, not UI entries, and
 **Journal insights** is a view inside that tab rather than a second one.
 
-## Native capture (Phase 0)
+## Native capture (Phase 1)
 
-The plugin can eventually record its own screen activity instead of only reading
-what the Dayflow app captured, but **Phase 0 is groundwork, not a working
-recorder**: everything below is off by default and nothing is analysed yet.
+The plugin can record its own screen activity instead of only reading what the
+Dayflow app captured. **Phase 1 is the capture engine**: it records frames into
+the owned journal, but everything below is off by default and nothing is
+analysed yet.
 
-- **Capture is off by default.** The `capture` block ships disabled; the
-  `capture`, `analysis`, and `automation` configuration blocks already exist and
-  are validated (interval, idle gate, frame caps, retention, analysis consent and
-  budgets, day/week close times), but no capture loop runs yet.
-- **A capture provider can grab a frame.** It drives macOS `screencapture` and,
-  when `swiftc` is available, compiles a small Swift helper for the frontmost app
-  and idle time. It is proven against the real screen, not wired into a loop.
+- **Capture is off by default.** Setting `capture.enabled: true` starts the
+  engine with the plugin. The engine does not depend on the panel, so it runs
+  with `panel: false` too. The `capture` block carries the knobs below; the
+  `analysis` and `automation` blocks are validated but still unused.
+- **The engine records on an interval.** Every `capture.intervalSeconds` it
+  checks the persisted pause flag, whether the screen is locked or the display
+  asleep, the idle gate (`capture.idleSeconds`), and `capture.pauseApps`, then
+  captures one frame. A skipped tick (paused, locked, idle, paused app, or the
+  day's cap already reached) writes neither a file nor a row.
+- **Near-identical frames are deduped.** The provider reports a 64-bit dHash; a
+  frame whose Hamming distance to the previously stored frame is within
+  `capture.dedupeDistance` is dropped. When a frame carries no hash (the Swift
+  helper is unavailable), the engine compares the JPEG's SHA-256 instead, so an
+  identical frame is never stored twice.
+- **Frames land on disk and in the journal.** Each stored frame goes to
+  `$DSH_HOME/dayflow/frames/<day>/<capturedAt>-….jpg` (directory `0700`, file
+  `0600`), and one `screenshots` row with `source_id = 'native'` is written to
+  the owned journal. `capture_state` records the pause flag, the last frame
+  time, and the last retention sweep, so a restarted process resumes without
+  duplicating work. `capture.maxFramesPerDay` caps one Dayflow day.
+- **Retention is enforced.** Roughly every `capture.retentionCheckMinutes` the
+  engine deletes frame files older than the retention window and removes empty
+  day directories. Until the analysis phase exists nothing consumes frames, so
+  `keepFramesDays: 0` (the default) still keeps at least one day of frames.
 - **Status and pause are wired.** `GET /api/dayflow/capture/status` reports the
   capture and analysis switches, the macOS Screen Recording permission, today's
-  native frame count, and the persisted pause flag.
-  `POST /api/dayflow/capture/pause` writes that flag into `capture_state` in the
-  owned journal (schema version 7). The Journal insights view shows it as one
-  compact capture line — off, on, paused, or permission needed — with a
-  Pause/Resume button when capture is configured on.
-- **What does not happen yet:** no continuous capture engine, no frame analysis,
-  no activity cards, no briefs, and no automation. The capture line says so
-  instead of implying frames are being written; it is also where the future
-  engine's state will appear.
+  native frame count, and the persisted pause flag; `POST
+  /api/dayflow/capture/pause` writes that flag into `capture_state` (schema
+  version 7). The Journal insights view shows it as one compact capture line —
+  off, on, paused, or permission needed — with a Pause/Resume button when
+  capture is configured on.
+- **What does not happen yet:** no frame analysis, no activity cards, no
+  timeline, no briefs, and no automation. A stored frame is not turned into an
+  insight; the capture line reports the engine's state without claiming
+  otherwise.
 - **Nothing is written by a status read.** With no journal, the status route
-  answers zeros and does not create the file; only the pause write opens it.
+  answers zeros and does not create the file; only the pause write and the
+  engine open it.
 
-The provider's local smoke script is `scripts/native-smoke.mjs`; run
-`npm run native:smoke` (or `node scripts/native-smoke.mjs` after a build). It
-asks for Screen Recording permission, prints the captured frames' dimensions,
-app, and idle seconds, and writes nothing. The full plan — consent model, schema,
+The capture block, shown with the Phase 1 additions:
+
+```yaml
+    capture:
+      enabled: true             # off by default
+      intervalSeconds: 45       # 5-600
+      idleSeconds: 120          # skip after this much input idle; 0 disables
+      maxFramesPerDay: 1200     # hard cap on frames per Dayflow day
+      keepFramesDays: 0         # at least one day is kept while analysis does not exist
+      pauseApps: []             # bundle ids or app-name substrings never captured
+      displays: main            # 'main' or 'all'
+      dedupeDistance: 4         # dHash Hamming distance treated as a duplicate (0-16)
+      retentionCheckMinutes: 60 # how often the retention sweep runs (5-1440)
+```
+
+The engine's local smoke script is `scripts/native-engine-smoke.mjs`; run
+`npm run native:engine-smoke` (or `node scripts/native-engine-smoke.mjs` after a
+build). It creates a temporary journal and frames directory, drives the engine
+against the real screen provider a few times, prints each capture outcome, then
+removes everything — it never touches `$DSH_HOME/dayflow`. The provider-only
+smoke stays available as `npm run native:smoke` (permission, three frames,
+dimensions/app/idle; writes nothing). The full plan — consent model, schema,
 phases, and acceptance criteria — is in
 [`docs/NATIVE_PORT.md`](docs/NATIVE_PORT.md).
 
@@ -627,7 +666,7 @@ when a profile needs to share or back up the imported journal.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 300 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
+npm test            # 319 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

@@ -31,7 +31,8 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 > 自有日志与导入器，以及经 Dayflow socket 的编辑。当前 `main` 是**尚未发布的 `0.7.0`
 > 开发线**，也就是本 README 描述的内容——23 个工具、8 个技能、自有日志及其回顾队列、
 > 长任务、带日期的记忆、反思、Journal insights（洞察）视图，以及快速记录：三条斜杠命令
-> 与洞察视图里的内联添加行（见 `CHANGELOG.md` 的 `[Unreleased]` 与 `docs/ROADMAP.md`）。
+> 与洞察视图里的内联添加行，还有默认关闭的 Phase 1 原生采集引擎（只落盘帧、不分析）
+> （见 `CHANGELOG.md` 的 `[Unreleased]` 与 `docs/ROADMAP.md`）。
 > 在 `0.7.0` 发布之前，registry 安装拿不到这些内容；下面从源码安装装到的就是这条开发线。
 
 ## 你会得到什么
@@ -164,7 +165,7 @@ ln -sfn "$PWD" ~/.dsh/profiles/web/node_modules/dsh-plugin-dayflow
   `POST /api/dayflow/tasks`、`POST /api/dayflow/memory`、`POST /api/dayflow/reflections`，
   新建任务后的扫描历史与关联分别提交 `POST /api/dayflow/tasks/scan` 与
   `POST /api/dayflow/tasks/link`；原生采集状态行还会读取 `GET /api/dayflow/capture/status`
-  并提交 `POST /api/dayflow/capture/pause`（见 [原生采集（Phase 0）](#原生采集phase-0)）。
+  并提交 `POST /api/dayflow/capture/pause`（见 [原生采集（Phase 1）](#原生采集phase-1)）。
   再加上下面的图标路由，这些就是面板的 host Fetch 路由。面板自己不会碰数据库。
 - 图标来自 `GET /api/dayflow/icon?domain=…`：每个域名首次使用时抓一次
   `favicon.ico`，缓存在 `$DSH_HOME/dayflow-icons`。这是插件唯一的对外请求，
@@ -404,26 +405,55 @@ owned journal），所以没有导入、也没有活动时结果为空。
 插件始终只有一个 Harness UI 入口：对话头部一个按钮、面板一个标签页。斜杠命令是命令而不是 UI 入口，
 **洞察** 是该标签页里的一个视图，不是第二个入口。
 
-## 原生采集（Phase 0）
+## 原生采集（Phase 1）
 
-插件最终可以自己录屏、不再只读 Dayflow App 的采集结果，但 **Phase 0 只是打地基，还不是可用的录制器**：
-下面的一切默认关闭，也还没有任何分析。
+插件可以自己录屏、不再只读 Dayflow App 的采集结果。**Phase 1 是采集引擎**：它把帧记录进自有日志，
+但下面的一切默认关闭，也还没有任何分析。
 
-- **采集默认关闭。** `capture` 配置块出厂即关闭；`capture`、`analysis`、`automation` 三块配置已经存在并
-  经过校验（采集间隔、空闲门限、每日帧数上限、保留天数、分析授权与预算、日/周收口时间），但还没有采集循环。
-- **采集 provider 已经能抓单帧。** 它调用 macOS 的 `screencapture`；本机有 `swiftc` 时还会按需编译一个
-  小型 Swift helper 读取前台应用与空闲时间。它已在真实屏幕上验证，但还没有接进循环。
+- **采集默认关闭。** 设 `capture.enabled: true` 后，引擎随插件启动；引擎不依赖面板，`panel: false`
+  时也会运行。`capture` 配置块提供下面的参数；`analysis` 与 `automation` 两块已经存在并经过校验，
+  但还没有被任何路径使用。
+- **引擎按间隔抓帧。** 每隔 `capture.intervalSeconds`（默认 45 秒），它依次检查持久化的暂停标记、
+  屏幕是否锁定/显示器是否休眠、空闲门限（`capture.idleSeconds`）与 `capture.pauseApps`，然后抓一帧。
+  被跳过的一轮（暂停、锁屏、空闲、命中暂停应用、或当日帧数已达上限）既不写文件也不写库。
+- **近似重复帧会被去重。** provider 返回 64 位 dHash；与上一个已存帧的汉明距离不超过
+  `capture.dedupeDistance` 的帧会被丢弃。帧上没有 hash 时（Swift helper 不可用），引擎改比 JPEG 的
+  SHA-256，因此完全相同的帧绝不会存两次。
+- **帧落盘并写入日志。** 每个存储的帧写到 `$DSH_HOME/dayflow/frames/<day>/<capturedAt>-….jpg`
+  （目录 `0700`、文件 `0600`），并在自有日志里写一行 `source_id = 'native'` 的 `screenshots` 记录。
+  `capture_state` 记录暂停标记、上一帧时间与上次清理扫描时间，重启后可以继续而不会重复采集。
+  `capture.maxFramesPerDay` 限制一个 Dayflow 日内的帧数。
+- **保留期清理会执行。** 大约每 `capture.retentionCheckMinutes` 分钟，引擎删除超出保留窗口的帧文件，
+  再删除空的日期目录。分析阶段还不存在、没有东西消费帧，所以 `keepFramesDays: 0`（默认）也至少保留
+  一天。
 - **状态与暂停已经打通。** `GET /api/dayflow/capture/status` 返回采集/分析开关、macOS 屏幕录制权限、
   今天已采集的原始帧数与持久化的暂停标记；`POST /api/dayflow/capture/pause` 把该标记写入自有日志的
   `capture_state`（schema 版本 7）。**洞察 / Journal insights** 视图顶部用一条紧凑的状态行展示
   （未启用 / 已开启 / 已暂停 / 需要权限），配置开启时带「暂停/继续」按钮。
-- **还没有发生的事：** 没有持续采集引擎、没有帧分析、没有活动卡片、没有简报、没有自动化。状态行会
-  如实说明这一点，而不是暗示正在写入帧；未来引擎的运行状态也会出现在这一行。
-- **读状态不会写库。** 没有 journal 时状态路由返回全零且不创建文件；只有暂停写入才会打开它。
+- **还没有发生的事：** 没有帧分析、没有活动卡片、没有时间线、没有简报、没有自动化。已存的帧不会
+  变成任何洞察；状态行只报告引擎状态，不会暗示别的。
+- **读状态不会写库。** 没有 journal 时状态路由返回全零且不创建文件；只有暂停写入与引擎才会打开它。
 
-provider 的本地 smoke 脚本是 `scripts/native-smoke.mjs`；用 `npm run native:smoke`
-（或构建后 `node scripts/native-smoke.mjs`）运行。它会请求屏幕录制权限、打印每一帧的
-尺寸/前台应用/空闲秒数，且不写入任何数据。完整方案——授权模型、schema、阶段与验收标准——见
+Phase 1 新增的采集配置（完整示例）：
+
+```yaml
+    capture:
+      enabled: true             # 默认关闭
+      intervalSeconds: 45       # 5-600
+      idleSeconds: 120          # 空闲超过该秒数跳过；0 关闭空闲门限
+      maxFramesPerDay: 1200     # 每个 Dayflow 日的硬上限
+      keepFramesDays: 0         # 分析尚未存在时至少保留一天
+      pauseApps: []             # 永不采集的 bundle id 或应用名子串
+      displays: main            # 'main' 或 'all'
+      dedupeDistance: 4         # 视为重复的 dHash 汉明距离（0-16）
+      retentionCheckMinutes: 60 # 清理扫描间隔（5-1440）
+```
+
+引擎的本地 smoke 脚本是 `scripts/native-engine-smoke.mjs`；用
+`npm run native:engine-smoke`（或构建后 `node scripts/native-engine-smoke.mjs`）运行。它会建一个
+临时 journal 与帧目录，用真实屏幕 provider 驱动引擎若干次，打印每次采集结果，最后全部删除——
+不会碰 `$DSH_HOME/dayflow`。只测 provider 的 smoke 仍可用 `npm run native:smoke`（权限、三帧、
+尺寸/前台应用/空闲秒数，且不写入任何数据）。完整方案——授权模型、schema、阶段与验收标准——见
 [`docs/NATIVE_PORT.md`](docs/NATIVE_PORT.md)。
 
 ## 工作原理
@@ -500,7 +530,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──读取──▶  chunks.sql
 ```sh
 npm install
 npm run build       # TypeScript → lib/，含 .d.ts
-npm test            # 300 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、快速记录、历史扫描、原生采集、bundle
+npm test            # 319 个测试：边界、SQL、适配器、导入、回顾队列、长任务、记忆、反思、上下文注入、面板、快速记录、历史扫描、原生采集、bundle
 npm run typecheck   # 同时类型检查源码与测试
 npm run smoke       # 读取本机真实 Dayflow 数据库（需已有数据）
 npm run check:package  # 校验 npm 包只含 lib/、skills/ 等应发布文件，不含 src/、tests/ 或 sourcemap

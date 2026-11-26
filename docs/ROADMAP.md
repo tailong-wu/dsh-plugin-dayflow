@@ -514,12 +514,18 @@ analysis → cards → briefs pipeline into `dsh-plugin-dayflow`, so the owned j
 can be the source of truth and the Dayflow app becomes optional. The plan,
 including the privacy/consent design, schema migrations, phases, acceptance
 criteria, and cost caps, lives in [`NATIVE_PORT.md`](NATIVE_PORT.md). Phase 0
-(the feasibility spike) has landed in the 0.7.0 development line: the capture
-provider and its local smoke script, schema v7 `capture_state`, the
-`capture`/`analysis`/`automation` config skeleton (capture off by default), and
-the insights capture status/pause line. The capture engine, analyse worker,
-briefs, and automation scheduling are still ahead; the phasing above (Phase 5 and
-later) is untouched by this line until the native path lands.
+(the feasibility spike) and Phase 1 (the capture engine) have landed in the 0.7.0
+development line: the capture provider (now including a lazily compiled Swift
+helper that captures frames with a 64-bit dHash and screen-lock/display-sleep
+state) and its local smoke script, schema v7 `capture_state`, the
+`capture`/`analysis`/`automation` config skeleton (capture off by default), the
+insights capture status/pause line, and the engine itself — an interval timer
+wired into the plugin lifecycle only when `capture.enabled` is true, which skips
+paused, locked, idle, and `pauseApps` ticks, dedupes with dHash, writes frames
+under `$DSH_HOME/dayflow/frames/` plus `screenshots` rows, caps the day, and
+sweeps retention. The analyse worker, activity cards, briefs, and automation
+scheduling are still ahead; the phasing above (Phase 5 and later) is untouched by
+this line until the native path lands.
 
 ### Phase 5 — Personalization that acts
 
