@@ -507,6 +507,17 @@ read-only lint is implemented as `journal_memory` `action: "lint"`; the panel's
 in-panel insights view renders review items, tasks, claims, and reflections. The
 scheduled lint job remains open.
 
+### Native port — capture and analysis inside the harness
+
+The owner selected the full port (option C): move Dayflow's own capture →
+analysis → cards → briefs pipeline into `dsh-plugin-dayflow`, so the owned journal
+can be the source of truth and the Dayflow app becomes optional. The plan,
+including the privacy/consent design, schema migrations, phases, acceptance
+criteria, and cost caps, lives in [`NATIVE_PORT.md`](NATIVE_PORT.md). It is not
+implemented yet: Phase 0 is the feasibility spike and needs the owner's consent
+decisions before it starts. The phasing above (Phase 5 and later) is untouched by
+this line until the native path lands.
+
 ### Phase 5 — Personalization that acts
 
 Only after 4 is trustworthy.
