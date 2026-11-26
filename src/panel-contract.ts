@@ -218,6 +218,46 @@ export interface PanelTaskLinkResponse {
   linked_days: string[];
 }
 
+/** Whether the host may read this Mac's screen. */
+export type PanelCapturePermission = 'granted' | 'denied' | 'unknown';
+
+/** Where the native analysis step is allowed to send captured frames. */
+export type PanelCaptureConsent = 'none' | 'cloud' | 'local';
+
+/**
+ * The native capture loop's status, as the Insights view shows it.
+ *
+ * Capture is off by default and the Phase 0 build has no recorder yet, so the
+ * panel shows this line to keep the configured state, the system permission,
+ * and the pause state visible in one place instead of a second settings view.
+ */
+export interface PanelCaptureStatus {
+  /** The profile's `capture.enabled` master switch. */
+  enabled: boolean;
+  /** The user's pause flag from the owned journal (`capture_state`). */
+  paused: boolean;
+  /** The macOS Screen Recording permission, probed on demand. */
+  permission: PanelCapturePermission;
+  /** The profile's `analysis.enabled` switch. */
+  analysis_enabled: boolean;
+  /** Where analysis may send frames; `none` keeps everything local. */
+  analysis_consent: PanelCaptureConsent;
+  /** Native screenshots recorded so far for the current Dayflow day. */
+  frames_today: number;
+  /** Epoch milliseconds of the last captured frame; absent when none yet. */
+  last_frame_at?: number;
+}
+
+/** Answer to a capture status read or a pause write. */
+export interface PanelCaptureStatusResponse {
+  capture: PanelCaptureStatus;
+}
+
+/** Body the panel sends to pause or resume capture. */
+export interface PanelCapturePauseRequest {
+  paused: boolean;
+}
+
 /** Whether the panel's entry points are exposed. */
 export interface PanelConfig {
   enabled: boolean;
@@ -242,6 +282,12 @@ export const PANEL_ICON_PATH = '/api/dayflow/icon';
 
 /** Exact Fetch route for the panel's enablement. */
 export const PANEL_CONFIG_PATH = '/api/dayflow/panel';
+
+/** Exact Fetch route for the native capture status line. */
+export const PANEL_CAPTURE_STATUS_PATH = '/api/dayflow/capture/status';
+
+/** Exact Fetch route that pauses or resumes native capture. */
+export const PANEL_CAPTURE_PAUSE_PATH = '/api/dayflow/capture/pause';
 
 /** Exact Fetch route for the journal insights (tasks, review, memory, reflections). */
 export const PANEL_INSIGHTS_PATH = '/api/dayflow/insights';

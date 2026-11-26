@@ -7,6 +7,11 @@
  * fresh. Every section is still optional — an empty journal shows one quiet
  * empty state instead of four.
  *
+ * A compact capture line above the sections shows the native capture switches,
+ * the macOS Screen Recording permission, today's frame count, and the persisted
+ * pause flag. Phase 0 has no recorder yet, so the line reports the configured
+ * state instead of implying that frames are being written.
+ *
  * Tasks, memory claims, and today's reflection can also be added from the view
  * itself: a ToDo-style row at the bottom of each of those three sections writes
  * the owned journal directly and refreshes the page on success. Adding a task
@@ -21,8 +26,16 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
-import type { PanelInsights, PanelTaskScanResponse, PanelTaskSummary } from '../panel-contract.js';
-import { addMemory, addReflection, addTask, linkTaskHistory, scanTaskHistory } from './data.js';
+import type { PanelCaptureStatus, PanelInsights, PanelTaskScanResponse, PanelTaskSummary } from '../panel-contract.js';
+import {
+  addMemory,
+  addReflection,
+  addTask,
+  fetchCaptureStatus,
+  linkTaskHistory,
+  scanTaskHistory,
+  setCapturePaused,
+} from './data.js';
 import { formatDuration, formatShare, shortDate } from './format.js';
 import type { Translate } from './format.js';
 import type { Phase } from './types.js';
@@ -45,6 +58,16 @@ const SCAN_DAY_COUNT = 14;
 
 /** How many matching days the preview lists before it counts the rest. */
 const SCAN_PREVIEW_ROWS = 5;
+
+/** What the capture line shows when the host does not answer: capture off. */
+const OFF_CAPTURE_STATUS: PanelCaptureStatus = {
+  enabled: false,
+  paused: false,
+  permission: 'unknown',
+  analysis_enabled: false,
+  analysis_consent: 'none',
+  frames_today: 0,
+};
 
 /** Where the optional history scan of a just-added task stands. */
 type CaptureStage = 'ask' | 'scanning' | 'result' | 'linking';
@@ -203,6 +226,68 @@ function Section(props: {
 }
 
 /**
+ * The compact capture status line above the journal sections.
+ *
+ * Phase 0 has no recorder yet, so the line is deliberately a status strip, not
+ * a control panel: it shows whether capture is configured on, what macOS says
+ * about Screen Recording, how many frames today already holds, and the pause
+ * flag. Pause/Resume writes that one flag through the host; the line rereads the
+ * answer so the dot and the button can never disagree.
+ * @param props - the status, the busy flag, an inline error, the translator, and the toggle.
+ * @returns the line in its current tone.
+ */
+function CaptureLine(props: {
+  status: PanelCaptureStatus;
+  busy: boolean;
+  error: string;
+  t: Translate;
+  onToggle: () => void;
+}): ReactNode {
+  const { status, busy, error, t, onToggle } = props;
+  const denied = status.permission === 'denied';
+  const tone = !status.enabled ? 'is-off' : denied || status.paused ? 'is-warn' : 'is-on';
+  const headline = !status.enabled
+    ? t('captureOff')
+    : denied
+      ? t('capturePermission')
+      : status.paused
+        ? t('capturePaused')
+        : t('captureRecording');
+
+  return (
+    <div className={`dfp-capture-line ${tone}`} role="status">
+      <span className="dfp-capture-dot" aria-hidden="true" />
+      <span className="dfp-capture-copy">
+        <span className="dfp-capture-state">{headline}</span>
+        {status.enabled && !denied && !status.paused && (
+          <>
+            <Sep />
+            <span className="dfp-capture-hint">{t('capturePending')}</span>
+          </>
+        )}
+      </span>
+      <span className="dfp-capture-side">
+        {status.enabled && !denied ? (
+          <>
+            <span className="dfp-capture-frames">{t('captureToday', { frames: status.frames_today })}</span>
+            <button type="button" className="dfp-capture-button" onClick={onToggle} disabled={busy}>
+              {status.paused ? t('captureResume') : t('capturePause')}
+            </button>
+          </>
+        ) : (
+          <span className="dfp-capture-off-hint">{denied ? t('capturePermissionHint') : t('captureOffHint')}</span>
+        )}
+      </span>
+      {error !== '' && (
+        <span className="dfp-capture-error" role="status">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
  * The capture card under a task add: offer to scan the recent history, preview
  * the days whose activity matches the task, and link the confirmed ones.
  *
@@ -330,6 +415,9 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
   const [capture, setCapture] = useState<CaptureState | undefined>(undefined);
+  const [captureStatus, setCaptureStatus] = useState<PanelCaptureStatus | undefined>(undefined);
+  const [captureBusy, setCaptureBusy] = useState(false);
+  const [captureError, setCaptureError] = useState('');
 
   useEffect(() => {
     if (typeof loadInsights !== 'function') {
@@ -357,8 +445,46 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
     };
   }, [loadInsights, nonce]);
 
+  // The capture line rides the same refresh: one extra read alongside the
+  // insights read. A host without the route (or a failed probe) degrades to the
+  // off state silently, because capture being unavailable is not a load error.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchCaptureStatus(controller.signal).then(
+      (answer) => {
+        if (controller.signal.aborted) return;
+        setCaptureStatus(answer.capture);
+      },
+      () => {
+        if (controller.signal.aborted) return;
+        setCaptureStatus(OFF_CAPTURE_STATUS);
+      },
+    );
+    return () => {
+      controller.abort();
+    };
+  }, [nonce]);
+
   const refresh = (): void => setNonce((value) => value + 1);
   const retry = (): void => setNonce((value) => value + 1);
+  // Pause/Resume is the line's only write; the host answers with the reread
+  // status, so the button never shows a state the journal does not hold.
+  const toggleCapture = (): void => {
+    if (captureStatus === undefined || captureBusy) return;
+    const paused = !captureStatus.paused;
+    setCaptureBusy(true);
+    setCaptureError('');
+    void setCapturePaused(paused).then(
+      (answer) => {
+        setCaptureBusy(false);
+        setCaptureStatus(answer.capture);
+      },
+      (cause: unknown) => {
+        setCaptureBusy(false);
+        setCaptureError(addFailureMessage(cause, t));
+      },
+    );
+  };
   // Tasks share one scale so the bars compare within the visible list.
   const maxTaskMinutes = Math.max(1, ...(data?.tasks.map((task) => task.total_minutes) ?? []));
 
@@ -432,6 +558,16 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
           </svg>
         </button>
       </div>
+
+      {captureStatus !== undefined && (
+        <CaptureLine
+          status={captureStatus}
+          busy={captureBusy}
+          error={captureError}
+          t={t}
+          onToggle={toggleCapture}
+        />
+      )}
 
       {phase === 'loading' && data === undefined && <div className="dfp-state">{t('insightsLoading')}</div>}
 

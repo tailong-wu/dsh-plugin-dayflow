@@ -165,6 +165,8 @@ test('apply registers twenty-three tools, eight skills, and one prompt section',
     ['dayflow', 'long-task', 'memory', 'onboarding', 'reflection', 'review-queue', 'standup', 'weekly-review'],
   );
   assert.deepEqual([...capture.routes].sort(), [
+    '/api/dayflow/capture/pause',
+    '/api/dayflow/capture/status',
     '/api/dayflow/day',
     '/api/dayflow/icon',
     '/api/dayflow/insights',

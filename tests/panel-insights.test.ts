@@ -18,6 +18,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  PANEL_CAPTURE_PAUSE_PATH,
+  PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
   PANEL_DAY_PATH,
   PANEL_ICON_PATH,
@@ -29,8 +31,11 @@ import {
   PANEL_TASK_LINK_PATH,
   PANEL_TASK_SCAN_PATH,
   PANEL_WEEK_PATH,
+  shiftDayKey,
 } from '../src/panel-contract.js';
 import type {
+  PanelCapturePermission,
+  PanelCaptureStatusResponse,
   PanelInsights,
   PanelMemoryAddResponse,
   PanelReflectionAddResponse,
@@ -39,6 +44,8 @@ import type {
   PanelTaskScanResponse,
 } from '../src/panel-contract.js';
 import { buildPanelInsights, registerPanelRoutes } from '../src/panel.js';
+import type { ResolvedConfig } from '../src/config.js';
+import { readCaptureState, recordScreenshotRow, writeCaptureState } from '../src/capture/state.js';
 import { dayWindowContaining } from '../src/day.js';
 import { openJournal } from '../src/journal.js';
 import { addMemoryClaim, supersedeMemoryClaim } from '../src/memory.js';
@@ -65,8 +72,16 @@ interface RegisteredRoute {
   fetch: (request: Request) => Promise<Response>;
 }
 
+/** The options the capture routes accept from the host composition. */
+interface PanelRouteOptions {
+  capturePermission?: () => Promise<PanelCapturePermission>;
+}
+
 /** A cordis-shaped host whose only connection member is the Fetch registry. */
-function fakeHost(runtime: ReturnType<typeof makeRuntime>): Map<string, RegisteredRoute> {
+function fakeHost(
+  runtime: ReturnType<typeof makeRuntime>,
+  options: PanelRouteOptions = {},
+): Map<string, RegisteredRoute> {
   const routes = new Map<string, RegisteredRoute>();
   const ctx = {
     effect: (effect: () => (() => void) | void) => effect(),
@@ -83,7 +98,7 @@ function fakeHost(runtime: ReturnType<typeof makeRuntime>): Map<string, Register
       });
     },
   };
-  registerPanelRoutes(ctx as never, runtime);
+  registerPanelRoutes(ctx as never, runtime, options);
   return routes;
 }
 
@@ -97,6 +112,13 @@ function insightsRoute(routes: Map<string, RegisteredRoute>): RegisteredRoute {
 /** GET the insights route the way the browser would. */
 async function fetchInsights(routes: Map<string, RegisteredRoute>): Promise<Response> {
   return insightsRoute(routes).fetch(new Request(`http://127.0.0.1${PANEL_INSIGHTS_PATH}`));
+}
+
+/** GET the native capture status route the way the browser would. */
+async function fetchCaptureStatus(routes: Map<string, RegisteredRoute>): Promise<Response> {
+  const route = routes.get(PANEL_CAPTURE_STATUS_PATH);
+  assert.ok(route, `route ${PANEL_CAPTURE_STATUS_PATH} is not registered`);
+  return route.fetch(new Request(`http://127.0.0.1${PANEL_CAPTURE_STATUS_PATH}`));
 }
 
 /**
@@ -136,6 +158,24 @@ function todayKey(): string {
  */
 function ownedRuntime(journalPath: string): ReturnType<typeof makeRuntime> {
   return makeRuntime('/nonexistent/dayflow/chunks.sqlite', { source: 'owned', dayflow: false, journalPath });
+}
+
+/**
+ * The profile's capture block with only the master switch varied, so the
+ * status assertions do not depend on the helper's defaults.
+ * @param enabled - the master switch.
+ * @returns the capture configuration.
+ */
+function captureConfig(enabled: boolean): ResolvedConfig['capture'] {
+  return {
+    enabled,
+    intervalSeconds: 45,
+    idleSeconds: 120,
+    maxFramesPerDay: 1200,
+    keepFramesDays: 0,
+    pauseApps: [],
+    displays: 'main',
+  };
 }
 
 /** SHA-256 of one file's bytes, used to prove a read changed nothing. */
@@ -362,9 +402,9 @@ test('the insights route coexists with the other panel routes and answers JSON',
   const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
   const routes = fakeHost(runtime);
 
-  // The eleven exact Fetch routes share the registry without replacing each
-  // other: six reads plus the five writes that back the inline add rows and the
-  // post-add history scan/link pair.
+  // The thirteen exact Fetch routes share the registry without replacing each
+  // other: seven reads plus the six writes that back the inline add rows, the
+  // post-add history scan/link pair, and the native capture pause flag.
   const readPaths = [
     PANEL_DAY_PATH,
     PANEL_MONTH_PATH,
@@ -372,6 +412,7 @@ test('the insights route coexists with the other panel routes and answers JSON',
     PANEL_ICON_PATH,
     PANEL_CONFIG_PATH,
     PANEL_INSIGHTS_PATH,
+    PANEL_CAPTURE_STATUS_PATH,
   ];
   const writePaths = [
     PANEL_TASK_ADD_PATH,
@@ -379,6 +420,7 @@ test('the insights route coexists with the other panel routes and answers JSON',
     PANEL_REFLECTION_ADD_PATH,
     PANEL_TASK_SCAN_PATH,
     PANEL_TASK_LINK_PATH,
+    PANEL_CAPTURE_PAUSE_PATH,
   ];
   assert.deepEqual([...routes.keys()].sort(), [...readPaths, ...writePaths].sort());
   for (const path of readPaths) {
@@ -734,6 +776,134 @@ test('the task link route attaches confirmed days and replaces a repeated day', 
   ];
   for (const entry of invalid) {
     const bad = await postRoute(routes, PANEL_TASK_LINK_PATH, entry.body);
+    assert.equal(bad.status, 400, `${entry.label} is rejected as invalid input`);
+    const error = (await bad.json()) as { error: string };
+    assert.equal(typeof error.error, 'string');
+  }
+});
+
+test('the capture status route reports capture off without creating the journal', async () => {
+  const journalPath = journalFile('capture-off');
+  assert.equal(existsSync(journalPath), false);
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+
+  const response = await fetchCaptureStatus(fakeHost(runtime));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const payload = (await response.json()) as PanelCaptureStatusResponse;
+  assert.deepEqual(payload.capture, {
+    enabled: false,
+    paused: false,
+    permission: 'unknown',
+    analysis_enabled: true,
+    analysis_consent: 'none',
+    frames_today: 0,
+  });
+  assert.equal(existsSync(journalPath), false, 'a status read must not create the journal');
+});
+
+test('the capture status route reads the pause flag, today frame count, and injected permission', async () => {
+  const journalPath = journalFile('capture-on');
+  const today = todayKey();
+  // Counts follow the frame timestamps inside the 04:00-to-04:00 window, so the
+  // rows must carry instants that really fall in today's window.
+  const window = dayWindowContaining(new Date());
+  const todayFrameAt = window.start.getTime() + 60_000;
+  const yesterdayFrameAt = window.start.getTime() - 60_000;
+  const db = openJournal(journalPath);
+  try {
+    writeCaptureState(db, { paused: true, lastFrameAt: todayFrameAt });
+    recordScreenshotRow(db, { sourceKey: `${today}-frame-1`, capturedAt: todayFrameAt, day: today });
+    recordScreenshotRow(db, { sourceKey: `${today}-frame-2`, capturedAt: todayFrameAt + 1_000, day: today });
+    // A frame from an earlier Dayflow day must not count towards today.
+    recordScreenshotRow(db, {
+      sourceKey: 'yesterday-frame',
+      capturedAt: yesterdayFrameAt,
+      day: shiftDayKey(today, -1),
+    });
+  } finally {
+    db.close();
+  }
+
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', {
+    journalPath,
+    capture: captureConfig(true),
+  });
+  const routes = fakeHost(runtime, { capturePermission: async () => 'granted' });
+  const response = await fetchCaptureStatus(routes);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()) as PanelCaptureStatusResponse, {
+    capture: {
+      enabled: true,
+      paused: true,
+      permission: 'granted',
+      analysis_enabled: true,
+      analysis_consent: 'none',
+      frames_today: 2,
+      last_frame_at: todayFrameAt,
+    },
+  });
+});
+
+test('a throwing capture permission probe reads as unknown instead of failing the route', async () => {
+  const journalPath = journalFile('capture-probe-fails');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const routes = fakeHost(runtime, {
+    capturePermission: async () => {
+      throw new Error('the permission probe failed');
+    },
+  });
+
+  const response = await fetchCaptureStatus(routes);
+  assert.equal(response.status, 200, 'a broken probe is not a panel failure');
+  const payload = (await response.json()) as PanelCaptureStatusResponse;
+  assert.equal(payload.capture.permission, 'unknown');
+  assert.equal(payload.capture.enabled, false);
+});
+
+test('the capture pause route persists the pause flag and answers with the reread status', async () => {
+  const journalPath = journalFile('capture-pause');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', {
+    journalPath,
+    capture: captureConfig(true),
+  });
+  const routes = fakeHost(runtime, { capturePermission: async () => 'granted' });
+  assert.equal(existsSync(journalPath), false, 'the first pause write creates the journal');
+
+  const paused = await postRoute(routes, PANEL_CAPTURE_PAUSE_PATH, { paused: true });
+  assert.equal(paused.status, 200);
+  assert.equal(paused.headers.get('content-type'), 'application/json; charset=utf-8');
+  const pausedPayload = (await paused.json()) as PanelCaptureStatusResponse;
+  assert.equal(pausedPayload.capture.paused, true);
+  assert.equal(pausedPayload.capture.permission, 'granted');
+  assert.equal(pausedPayload.capture.enabled, true);
+
+  const pausedDb = openJournal(journalPath);
+  try {
+    assert.equal(readCaptureState(pausedDb).paused, true, 'the pause flag is stored in capture_state');
+  } finally {
+    pausedDb.close();
+  }
+
+  const resumed = await postRoute(routes, PANEL_CAPTURE_PAUSE_PATH, { paused: false });
+  assert.equal(resumed.status, 200);
+  assert.equal(((await resumed.json()) as PanelCaptureStatusResponse).capture.paused, false);
+  const resumedDb = openJournal(journalPath);
+  try {
+    assert.equal(readCaptureState(resumedDb).paused, false, 'resuming clears the stored pause flag');
+  } finally {
+    resumedDb.close();
+  }
+
+  const invalid: { body: unknown; label: string }[] = [
+    { body: {}, label: 'a missing pause flag' },
+    { body: { paused: 'yes' }, label: 'a string pause flag' },
+    { body: { paused: 1 }, label: 'a numeric pause flag' },
+    { body: 'this is not json', label: 'a malformed JSON body' },
+  ];
+  for (const entry of invalid) {
+    const bad = await postRoute(routes, PANEL_CAPTURE_PAUSE_PATH, entry.body);
     assert.equal(bad.status, 400, `${entry.label} is rejected as invalid input`);
     const error = (await bad.json()) as { error: string };
     assert.equal(typeof error.error, 'string');

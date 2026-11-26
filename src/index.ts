@@ -34,6 +34,8 @@ import { registerCommands } from './commands.js';
 import type { CommandRegistration } from './commands.js';
 import { registerMemoryContext } from './context.js';
 import { registerPanelRoutes } from './panel.js';
+import type { PanelCapturePermission } from './panel-contract.js';
+import { createNativeCaptureProvider } from './capture/provider.js';
 import { registerPrompt } from './prompt.js';
 import { detectDayflow } from './setup.js';
 import { registerSkills } from './skills.js';
@@ -103,8 +105,21 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
     registerSkills(ctx, skillsDirectory());
   }
   if (resolved.panel) {
-    // Optional: only mounts where a Web connection service exists.
-    registerPanelRoutes(ctx, runtime);
+    // Optional: only mounts where a Web connection service exists. The capture
+    // permission probe compiles the tiny macOS helper lazily, and only once
+    // capture is switched on; when the helper cannot answer the panel shows
+    // "unknown" rather than failing the route.
+    let provider: ReturnType<typeof createNativeCaptureProvider> | undefined;
+    const capturePermission = async (): Promise<PanelCapturePermission> => {
+      if (!resolved.capture.enabled) return 'unknown';
+      try {
+        provider ??= createNativeCaptureProvider();
+        return await provider.permission();
+      } catch {
+        return 'unknown';
+      }
+    };
+    registerPanelRoutes(ctx, runtime, { capturePermission });
   }
   registerPrompt(ctx);
   // Budgeted, read-only context: active long tasks and recent memory claims.

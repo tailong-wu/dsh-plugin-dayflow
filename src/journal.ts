@@ -20,7 +20,7 @@ import type { ResolvedConfig } from './config.js';
 import { defaultJournalPath } from './paths.js';
 
 /** Current owned-store schema version. Migrations are forward-only. */
-export const JOURNAL_SCHEMA_VERSION = 6;
+export const JOURNAL_SCHEMA_VERSION = 7;
 /** Default source id used by an import from a Dayflow database. */
 export const DAYFLOW_SOURCE_ID = 'dayflow';
 
@@ -439,6 +439,23 @@ const MIGRATION_6 = `
     UNIQUE (kind, period_key)
   );
   CREATE INDEX IF NOT EXISTS reflections_period_idx ON reflections (kind, period_key);
+`;
+
+/**
+ * Migration 7 adds the native capture loop's small key/value state.
+ *
+ * It holds runtime switches that are not configuration: whether the user paused
+ * capture, when the last frame was taken, and when the retention sweep last ran.
+ * Values are text so the table can outlive a change in representation; a reader
+ * treats an unparsable value as absent. Capture is off by default, so the table
+ * starts empty and an empty table means "not paused".
+ */
+const MIGRATION_7 = `
+  CREATE TABLE IF NOT EXISTS capture_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
 `;
 
 /**
@@ -967,6 +984,11 @@ export function migrateJournal(db: DatabaseSync): number {
       db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(6);
       version = 6;
     }
+    if (version < 7) {
+      db.exec(MIGRATION_7);
+      db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(7);
+      version = 7;
+    }
     db.exec('COMMIT');
     return version;
   } catch (cause) {
@@ -1003,7 +1025,7 @@ function journalReady(path: string): boolean {
       .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'view' AND name = 'timeline_cards'")
       .get() as Row | undefined;
     if (view?.present !== 1) return false;
-    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims', 'reflections']) {
+    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims', 'reflections', 'capture_state']) {
       const present = db
         .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?")
         .get(table) as Row | undefined;

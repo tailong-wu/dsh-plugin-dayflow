@@ -59,6 +59,34 @@ export function makeRuntime(
     allowInstall: false,
     iconDirectory: join(tmpdir(), 'dsh-dayflow-icons-test'),
     searchLimit: 50,
+    // The native capture blocks resolved from an empty profile: capture off,
+    // analysis conservative, automation on. Tests that exercise capture pass
+    // their own overrides.
+    capture: {
+      enabled: false,
+      intervalSeconds: 45,
+      idleSeconds: 120,
+      maxFramesPerDay: 1200,
+      keepFramesDays: 0,
+      pauseApps: [],
+      displays: 'main',
+    },
+    analysis: {
+      enabled: true,
+      consent: 'none',
+      provider: '',
+      model: '',
+      windowMinutes: 10,
+      framesPerWindow: 3,
+      maxCallsPerDay: 120,
+      dailyTokenBudget: 200_000,
+    },
+    automation: {
+      enabled: true,
+      dailyAt: '04:00',
+      weeklyOn: 'monday',
+      catchUpOnStart: true,
+    },
     ...configOverrides,
   };
   return {

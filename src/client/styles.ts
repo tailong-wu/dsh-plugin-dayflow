@@ -1678,6 +1678,131 @@ export const PANEL_CSS = `
   line-height: 16px;
 }
 
+/* The native capture status strip above the journal sections: one quiet line
+ * with a tone dot, the state copy, and (when capture is configured) today's
+ * frame count plus Pause/Resume. Off is gray, paused or unpermitted is amber,
+ * recording is green; the strip never replaces the sections below it. */
+
+.dfp-capture-line {
+  --dfp-capture-tone: var(--dsw-alias-label-tertiary);
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--dfp-capture-tone) 4%, var(--dsw-alias-bg-layer-1));
+  box-shadow: var(--dsw-elevation-soft);
+}
+
+.dfp-capture-line.is-on {
+  --dfp-capture-tone: var(--dsw-static-green-500);
+}
+
+.dfp-capture-line.is-warn {
+  --dfp-capture-tone: var(--dsw-static-amber-500);
+}
+
+.dfp-capture-line.is-off {
+  --dfp-capture-tone: var(--dsw-alias-label-tertiary);
+}
+
+.dfp-capture-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--dfp-capture-tone);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dfp-capture-tone) 16%, transparent);
+}
+
+.dfp-capture-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.dfp-capture-state {
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dfp-capture-hint {
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dfp-capture-side {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dfp-capture-frames {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dfp-capture-button {
+  height: 24px;
+  padding: 0 11px;
+  border: 0.5px solid color-mix(in srgb, var(--dfp-capture-tone) 32%, var(--dsw-alias-border-l2));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11.5px;
+  line-height: 17px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dfp-capture-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dfp-capture-tone) 18%, transparent);
+  color: var(--dsw-alias-label-primary);
+}
+
+.dfp-capture-button:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: 1px;
+}
+
+.dfp-capture-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dfp-capture-off-hint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.dfp-capture-error {
+  flex-basis: 100%;
+  color: var(--dsw-static-amber-600);
+  font-size: 11px;
+  line-height: 16px;
+}
+
 `;
 
 /**

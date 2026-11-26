@@ -108,6 +108,16 @@ export const ZH: Record<string, string> = {
   captureScanError: '操作失败',
   captureScanMore: '还有 {count} 天',
   captureScanOk: '好',
+  captureOff: '原生采集未启用',
+  captureOffHint: '默认关闭，可在 profile 里打开',
+  captureRecording: '原生采集已开启',
+  capturePaused: '原生采集已暂停',
+  capturePermission: '需要屏幕录制权限',
+  capturePermissionHint: '在「系统设置 → 隐私与安全性 → 屏幕录制」里授权。',
+  capturePause: '暂停',
+  captureResume: '继续',
+  captureToday: '今天 {frames} 帧',
+  capturePending: '尚未开始录制——采集会在下一阶段落地。',
 };
 
 /** English copy. */
@@ -213,4 +223,14 @@ export const EN: Record<string, string> = {
   captureScanError: 'Something went wrong',
   captureScanMore: '+{count} more',
   captureScanOk: 'OK',
+  captureOff: 'Native capture is off',
+  captureOffHint: 'Off by default — turn it on in the profile',
+  captureRecording: 'Native capture is on',
+  capturePaused: 'Native capture is paused',
+  capturePermission: 'Screen Recording permission is needed',
+  capturePermissionHint: 'Grant it in System Settings → Privacy & Security → Screen Recording.',
+  capturePause: 'Pause',
+  captureResume: 'Resume',
+  captureToday: '{frames} frames today',
+  capturePending: 'Not recording yet — capture lands in the next phase.',
 };

@@ -15,6 +15,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-client-connection';
 
 import { readDatabase } from './tools/shared.js';
+import { countScreenshotsForDay, readCaptureState, writeCaptureState } from './capture/state.js';
 import { journalCategories, withJournal, withJournalWrite } from './journal.js';
 import { IconStore } from './icons.js';
 import { addMemoryClaim, listMemoryClaims } from './memory.js';
@@ -27,6 +28,8 @@ import type { LongTaskPayload, TaskHistoryDayInput } from './tasks.js';
 import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekWindowContaining } from './day.js';
 import { DayflowError, isDayflowError } from './errors.js';
 import {
+  PANEL_CAPTURE_PAUSE_PATH,
+  PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
   PANEL_DAY_PATH,
   PANEL_ICON_PATH,
@@ -43,6 +46,9 @@ import {
   shiftDayKey,
 } from './panel-contract.js';
 import type {
+  PanelCapturePermission,
+  PanelCaptureStatus,
+  PanelCaptureStatusResponse,
   PanelCard,
   PanelCategory,
   PanelClaimSummary,
@@ -625,13 +631,81 @@ function panelTaskScan(runtime: ToolRuntime, taskId: number, days: number): Pane
   };
 }
 
+/** Optional host probes the panel routes can use. */
+export interface PanelRouteOptions {
+  /**
+   * Probes the macOS Screen Recording permission for the capture status line.
+   * Only the composition knows whether a provider is mounted, so this stays
+   * injected; without a probe the panel reports `unknown` instead of guessing.
+   */
+  capturePermission?: () => Promise<PanelCapturePermission>;
+}
+
+/** The permission the status line reports when no probe is injected. */
+const UNPROBED_CAPTURE_PERMISSION: PanelCapturePermission = 'unknown';
+
+/**
+ * Run the injected permission probe, turning a probe failure into `unknown`.
+ *
+ * A missing or broken permission check is not a panel failure: the capture line
+ * still has to render, so the route answers instead of returning a 500.
+ * @param probe - the host's probe.
+ * @returns the probe's answer, or `unknown` when it throws.
+ */
+async function probeCapturePermission(probe: () => Promise<PanelCapturePermission>): Promise<PanelCapturePermission> {
+  try {
+    return await probe();
+  } catch {
+    return UNPROBED_CAPTURE_PERMISSION;
+  }
+}
+
+/**
+ * Build the capture status the Insights view shows.
+ *
+ * A missing journal answers all zeros without creating the file: capture has
+ * recorded nothing yet, and a status read must stay a read. An existing journal
+ * contributes the persisted pause flag, the last frame time, and today's native
+ * screenshot count. The switches themselves always come from the profile.
+ * @param runtime - the plugin runtime.
+ * @param probe - the host's permission probe.
+ * @returns the status payload.
+ */
+async function buildCaptureStatus(
+  runtime: ToolRuntime,
+  probe: () => Promise<PanelCapturePermission>,
+): Promise<PanelCaptureStatus> {
+  const permission = await probeCapturePermission(probe);
+  const status: PanelCaptureStatus = {
+    enabled: runtime.config.capture.enabled,
+    paused: false,
+    permission,
+    analysis_enabled: runtime.config.analysis.enabled,
+    analysis_consent: runtime.config.analysis.consent,
+    frames_today: 0,
+  };
+  if (!existsSync(runtime.config.journalPath)) return status;
+  const today = dayWindowContaining(new Date()).dayKey;
+  return withJournal(runtime.config.journalPath, (db) => {
+    // Dayflow days run 04:00 to 04:00, so "today" is the day containing now.
+    const state = readCaptureState(db);
+    status.paused = state.paused;
+    status.frames_today = countScreenshotsForDay(db, today);
+    if (state.lastFrameAt !== undefined) status.last_frame_at = state.lastFrameAt;
+    return status;
+  });
+}
+
 /**
  * Register the panel's routes when a web connection exists.
  * @param ctx - the plugin context.
  * @param runtime - the plugin runtime.
+ * @param options - optional host probes, such as the capture permission probe.
  */
-export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime): void {
+export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime, options: PanelRouteOptions = {}): void {
   const icons = new IconStore(runtime.config.iconDirectory, runtime.config.icons);
+  const capturePermission =
+    options.capturePermission ?? (async (): Promise<PanelCapturePermission> => UNPROBED_CAPTURE_PERMISSION);
   ctx.inject(['connection'], (connected) => {
     const connection = (connected as unknown as { connection: { fetch: FetchRouteRegistry } }).connection;
     connection.fetch.register({
@@ -711,6 +785,44 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime): void {
       methods: ['GET'],
       requestBody: 'buffered',
       fetch: async () => jsonResponse({ enabled: runtime.config.panel } satisfies PanelConfig),
+    });
+    // The native capture line: Phase 0 has no recorder yet, so the panel shows
+    // the configured state, the system permission, and the persisted pause flag
+    // without pretending to have captured anything. The pause write is the one
+    // thing the user can change from the line; a later engine honours it.
+    connection.fetch.register({
+      path: PANEL_CAPTURE_STATUS_PATH,
+      methods: ['GET'],
+      requestBody: 'buffered',
+      fetch: async () => {
+        try {
+          return jsonResponse({
+            capture: await buildCaptureStatus(runtime, capturePermission),
+          } satisfies PanelCaptureStatusResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    connection.fetch.register({
+      path: PANEL_CAPTURE_PAUSE_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = await readJsonBody(request);
+          const paused = body.paused;
+          if (typeof paused !== 'boolean') {
+            throw new DayflowError('A capture pause needs a boolean "paused" field.', 'invalid_input');
+          }
+          withJournalWrite(runtime.config.journalPath, (db) => writeCaptureState(db, { paused }));
+          return jsonResponse({
+            capture: await buildCaptureStatus(runtime, capturePermission),
+          } satisfies PanelCaptureStatusResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
     });
     // The three write routes below are the panel's only way to grow the journal:
     // the Insights view stays one page of reads with a small ToDo-style add row

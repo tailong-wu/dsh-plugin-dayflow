@@ -7,6 +7,8 @@
  */
 
 import {
+  PANEL_CAPTURE_PAUSE_PATH,
+  PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
   PANEL_DAY_PATH,
   PANEL_INSIGHTS_PATH,
@@ -19,6 +21,7 @@ import {
   PANEL_WEEK_PATH,
 } from '../panel-contract.js';
 import type {
+  PanelCaptureStatusResponse,
   PanelConfig,
   PanelDay,
   PanelError,
@@ -146,6 +149,37 @@ async function postJson<T>(path: string, payload: unknown, signal?: AbortSignal)
   });
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as T;
+}
+
+/**
+ * Read the native capture status line's data.
+ *
+ * The profile switches, the macOS permission, and the persisted pause flag all
+ * come back in one answer, so the line renders from one read instead of three.
+ * @param signal - caller cancellation.
+ * @returns the capture status.
+ */
+export async function fetchCaptureStatus(signal?: AbortSignal): Promise<PanelCaptureStatusResponse> {
+  const response = await fetch(PANEL_CAPTURE_STATUS_PATH, {
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+    ...(signal === undefined ? {} : { signal }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as PanelCaptureStatusResponse;
+}
+
+/**
+ * Pause or resume native capture and read the status that resulted.
+ * @param paused - whether capture should be paused.
+ * @param signal - caller cancellation.
+ * @returns the status after the write.
+ */
+export async function setCapturePaused(
+  paused: boolean,
+  signal?: AbortSignal,
+): Promise<PanelCaptureStatusResponse> {
+  return postJson<PanelCaptureStatusResponse>(PANEL_CAPTURE_PAUSE_PATH, { paused }, signal);
 }
 
 /**
