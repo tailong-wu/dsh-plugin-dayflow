@@ -35,7 +35,9 @@ import type { CommandRegistration } from './commands.js';
 import { registerMemoryContext } from './context.js';
 import { registerPanelRoutes } from './panel.js';
 import type { PanelCapturePermission } from './panel-contract.js';
+import { CaptureEngine } from './capture/engine.js';
 import { createNativeCaptureProvider } from './capture/provider.js';
+import type { NativeCaptureProvider } from './capture/provider.js';
 import { registerPrompt } from './prompt.js';
 import { detectDayflow } from './setup.js';
 import { registerSkills } from './skills.js';
@@ -104,22 +106,46 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
   if (resolved.skills) {
     registerSkills(ctx, skillsDirectory());
   }
+  // One capture provider shared by the engine and the panel's permission probe.
+  // It is created lazily and only when capture is switched on, because the
+  // provider compiles a small macOS helper on first use.
+  let provider: NativeCaptureProvider | undefined;
+  const captureProvider = (): NativeCaptureProvider =>
+    (provider ??= createNativeCaptureProvider());
+
   if (resolved.panel) {
     // Optional: only mounts where a Web connection service exists. The capture
-    // permission probe compiles the tiny macOS helper lazily, and only once
-    // capture is switched on; when the helper cannot answer the panel shows
-    // "unknown" rather than failing the route.
-    let provider: ReturnType<typeof createNativeCaptureProvider> | undefined;
+    // permission probe reuses the engine's provider; when the helper cannot
+    // answer the panel shows "unknown" rather than failing the route.
     const capturePermission = async (): Promise<PanelCapturePermission> => {
       if (!resolved.capture.enabled) return 'unknown';
       try {
-        provider ??= createNativeCaptureProvider();
-        return await provider.permission();
+        return await captureProvider().permission();
       } catch {
         return 'unknown';
       }
     };
     registerPanelRoutes(ctx, runtime, { capturePermission });
+  }
+
+  if (resolved.capture.enabled) {
+    // Native capture is off by default. This effect is the Phase 1 capture
+    // engine: it writes JPEG frames under $DSH_HOME/dayflow/frames/ and one
+    // `screenshots` row per stored frame, with dedupe, idle/lock/pause gates,
+    // and retention cleanup. It does not analyse frames, build activity cards,
+    // write a timeline, or generate insights — that is a later phase. The
+    // engine is independent of the panel: capture keeps running with `panel:
+    // false`, and on a machine without the macOS permission it records an
+    // error outcome instead of crashing the plugin.
+    ctx.effect(() => {
+      const engine = new CaptureEngine({
+        journalPath: runtime.config.journalPath,
+        provider: captureProvider(),
+        config: resolved,
+      });
+      engine.start();
+      return () => engine.stop();
+    }, 'dayflow capture: engine');
   }
   registerPrompt(ctx);
   // Budgeted, read-only context: active long tasks and recent memory claims.

@@ -2,11 +2,13 @@
 /**
  * Catch three real frames from this Mac and print what the native provider saw.
  *
- * This is the Phase 0 feasibility smoke, not part of `npm test`: it needs the
+ * This is the Phase 0/1 feasibility smoke, not part of `npm test`: it needs the
  * real Screen Recording permission and actually reads the screen. It writes no
  * journal and touches no owned store; every frame lives in a temporary
  * directory that the provider removes before `capture()` resolves, so the run
- * ends by confirming nothing was left behind.
+ * ends by confirming nothing was left behind. It also prints the helper's
+ * lock/display state and each frame's dHash, so the two inputs the Phase 1
+ * capture engine skips and dedupes on are visible without reading a journal.
  *
  *   node scripts/native-smoke.mjs
  *
@@ -84,17 +86,32 @@ if (permission !== 'granted') {
   process.exit(2);
 }
 
-let captured = 0;
-for (let index = 1; index <= FRAME_COUNT; index += 1) {
-  if (index > 1) await sleep(FRAME_INTERVAL_MS);
-  const frame = await provider.capture();
-  captured += 1;
-  const app = frame.app ? JSON.stringify(frame.app) : 'unknown';
+const state = await provider.state?.();
+if (state) {
+  const app = state.app ? JSON.stringify(state.app) : 'unknown';
   console.log(
-    `frame ${index}/${FRAME_COUNT}: ${frame.width}x${frame.height}, ` +
-      `${frame.jpeg.byteLength} bytes, capturedAt=${new Date(frame.capturedAt).toISOString()}, ` +
-      `app=${app}, idleSeconds=${frame.idleSeconds ?? 'unknown'}`,
+    `state: locked=${state.locked}, displayAsleep=${state.displayAsleep}, ` +
+      `idleSeconds=${state.idleSeconds ?? 'unknown'}, app=${app}`,
   );
+}
+if (state?.locked === true || state?.displayAsleep === true) {
+  console.log('screen is locked or the display is asleep; skipping frame capture.');
+}
+
+let captured = 0;
+if (!state?.locked && !state?.displayAsleep) {
+  for (let index = 1; index <= FRAME_COUNT; index += 1) {
+    if (index > 1) await sleep(FRAME_INTERVAL_MS);
+    const frame = await provider.capture();
+    captured += 1;
+    const app = frame.app ? JSON.stringify(frame.app) : 'unknown';
+    console.log(
+      `frame ${index}/${FRAME_COUNT}: ${frame.width}x${frame.height}, ` +
+        `${frame.jpeg.byteLength} bytes, capturedAt=${new Date(frame.capturedAt).toISOString()}, ` +
+        `app=${app}, idleSeconds=${frame.idleSeconds ?? 'unknown'}, ` +
+        `hash=${frame.hash ?? 'none (screencapture fallback)'}`,
+    );
+  }
 }
 
 await provider.dispose?.();
@@ -104,4 +121,8 @@ if (leftover.length > 0) {
   console.error(`temporary frame files were left behind: ${leftover.join(', ')}`);
   process.exit(1);
 }
-console.log(`${captured} frames captured; no temporary frame files left behind.`);
+if (captured === 0) {
+  console.log('no frames captured; no temporary frame files left behind.');
+} else {
+  console.log(`${captured} frames captured; no temporary frame files left behind.`);
+}

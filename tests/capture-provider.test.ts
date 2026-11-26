@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import {
   CaptureError,
   createNativeCaptureProvider,
+  dhashFromGray9x8,
   jpegDimensions,
   parseHelperMeta,
 } from '../src/capture/provider.js';
@@ -251,6 +252,7 @@ test('capture returns the JPEG bytes, dimensions, and removes the frame file', a
     assert.equal(frame.capturedAt, capturedAt);
     assert.equal(frame.app, undefined, 'no helper means no app metadata');
     assert.equal(frame.idleSeconds, undefined);
+    assert.equal(frame.hash, undefined, 'screencapture only frames carry no hash');
     assert.equal(frame.jpeg.byteLength, JPEG.byteLength);
     assert.deepEqual(new Uint8Array(frame.jpeg), JPEG);
     assert.deepEqual(readdirSync(frameRoot), [], 'the temporary frame directory is gone');
@@ -304,35 +306,259 @@ test('capture maps a screen-recording denial to permission_denied', async () => 
   });
 });
 
-test('capture adds app and idle metadata from the helper', async () => {
-  const frameRoot = testDirectory('capture-meta-root');
-  const meta = JSON.stringify({
-    app: { bundleId: 'com.apple.Safari', name: 'Safari' },
-    windowTitle: 'Example — Safari',
-    idleSeconds: 12,
-  });
-  const { run } = recordingRunner((call) => {
+test('capture uses the helper frame, hash, and metadata without falling back', async () => {
+  const frameRoot = testDirectory('helper-capture-root');
+  const capturedAt = 1_700_000_000_000;
+  const helperFrame = frameHeader(0xc2, 1440, 900);
+  const { calls, run } = recordingRunner((call) => {
     if (call.command === 'xcrun') return buildsHelper(call);
-    if (call.args[0] === 'meta') return { code: 0, stdout: meta };
-    if (call.args[0] === 'preflight') return { code: 0, stdout: 'granted\n' };
-    writeFileSync(call.args[call.args.length - 1]!, JPEG);
-    return { code: 0 };
+    if (call.args[0] === 'capture') {
+      writeFileSync(call.args[1]!, helperFrame);
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          app: { bundleId: 'com.apple.Safari', name: 'Safari' },
+          windowTitle: 'Example — Safari',
+          idleSeconds: 9,
+          width: 1440,
+          height: 900,
+          hash: '0123456789abcdef',
+          locked: false,
+          displayAsleep: false,
+        }),
+      };
+    }
+    throw new Error(`unexpected helper mode ${call.args[0]}`);
   });
   const provider = createNativeCaptureProvider({
-    helperDirectory: testDirectory('capture-meta-helper'),
+    helperDirectory: testDirectory('helper-capture-helper'),
     run,
+    now: () => capturedAt,
   });
 
   await withTemporaryRoot(frameRoot, async () => {
     const frame = await provider.capture();
+    assert.equal(frame.hash, '0123456789abcdef');
     assert.deepEqual(frame.app, {
       bundleId: 'com.apple.Safari',
       name: 'Safari',
       windowTitle: 'Example — Safari',
     });
-    assert.equal(frame.idleSeconds, 12);
+    assert.equal(frame.idleSeconds, 9);
+    assert.equal(frame.width, 1440);
+    assert.equal(frame.height, 900);
+    assert.equal(frame.capturedAt, capturedAt);
+    assert.deepEqual(new Uint8Array(frame.jpeg), helperFrame);
+    assert.deepEqual(readdirSync(frameRoot), [], 'the temporary frame directory is gone');
+  });
+  assert.ok(
+    calls.some((call) => call.command !== 'xcrun' && call.args[0] === 'capture'),
+    'the helper capture mode ran',
+  );
+  assert.ok(
+    !calls.some((call) => call.command === '/usr/sbin/screencapture'),
+    'the helper frame needs no screencapture fallback',
+  );
+});
+
+test('capture falls back to screencapture and helper meta when the helper cannot capture', async () => {
+  const frameRoot = testDirectory('helper-fallback-root');
+  const capturedAt = 1_700_000_500_000;
+  const { calls, run } = recordingRunner((call) => {
+    if (call.command === 'xcrun') return buildsHelper(call);
+    if (call.args[0] === 'capture') {
+      return { code: 3, stderr: 'CGWindowListCreateImage returned no image' };
+    }
+    if (call.args[0] === 'meta') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          app: { bundleId: 'com.apple.Safari', name: 'Safari' },
+          idleSeconds: 4,
+        }),
+      };
+    }
+    writeFileSync(call.args[call.args.length - 1]!, JPEG);
+    return { code: 0 };
+  });
+  const provider = createNativeCaptureProvider({
+    helperDirectory: testDirectory('helper-fallback-helper'),
+    run,
+    now: () => capturedAt,
+  });
+
+  await withTemporaryRoot(frameRoot, async () => {
+    const frame = await provider.capture();
+    assert.equal(frame.hash, undefined, 'screencapture cannot hash a frame');
+    assert.equal(frame.width, 3);
+    assert.equal(frame.height, 2);
+    assert.equal(frame.capturedAt, capturedAt);
+    assert.deepEqual(frame.app, { bundleId: 'com.apple.Safari', name: 'Safari' });
+    assert.equal(frame.idleSeconds, 4);
+    assert.deepEqual(new Uint8Array(frame.jpeg), JPEG);
     assert.deepEqual(readdirSync(frameRoot), []);
   });
+  assert.ok(
+    calls.some((call) => call.command === '/usr/sbin/screencapture'),
+    'the fallback CLI ran',
+  );
+});
+
+test('capture raises CaptureError and cleans up when helper and screencapture both fail', async () => {
+  const frameRoot = testDirectory('helper-double-failure-root');
+  const { run } = recordingRunner((call) => {
+    if (call.command === 'xcrun') return buildsHelper(call);
+    if (call.args[0] === 'capture') {
+      return { code: 3, stderr: 'CGWindowListCreateImage returned no image' };
+    }
+    if (call.args[0] === 'meta') return { code: 0, stdout: '{"app":null}' };
+    return { code: 1, stderr: 'could not create image from display' };
+  });
+  const provider = createNativeCaptureProvider({
+    helperDirectory: testDirectory('helper-double-failure-helper'),
+    run,
+  });
+
+  await withTemporaryRoot(frameRoot, async () => {
+    await assert.rejects(provider.capture(), (error: unknown) => {
+      assert.ok(error instanceof CaptureError);
+      assert.equal(error.code, 'capture_failed');
+      assert.match(error.message, /could not create image from display/);
+      return true;
+    });
+    assert.deepEqual(readdirSync(frameRoot), []);
+  });
+});
+
+test('state reports the helper lock, display, idle, and app report', async () => {
+  const report = JSON.stringify({
+    app: { bundleId: 'com.apple.Safari', name: 'Safari' },
+    windowTitle: 'Example — Safari',
+    idleSeconds: 21,
+    locked: true,
+    displayAsleep: false,
+  });
+  const { run } = recordingRunner((call) => {
+    if (call.command === 'xcrun') return buildsHelper(call);
+    if (call.args[0] === 'state') return { code: 0, stdout: report };
+    throw new Error(`unexpected helper mode ${call.args[0]}`);
+  });
+  const provider = createNativeCaptureProvider({
+    helperDirectory: testDirectory('state-helper'),
+    run,
+  });
+
+  assert.deepEqual(await provider.state(), {
+    locked: true,
+    displayAsleep: false,
+    idleSeconds: 21,
+    app: {
+      bundleId: 'com.apple.Safari',
+      name: 'Safari',
+      windowTitle: 'Example — Safari',
+    },
+  });
+});
+
+test('state defaults to unlocked and awake without a usable helper report', async () => {
+  const missing = recordingRunner((call) => {
+    if (call.command === 'xcrun') {
+      return { code: 127, stderr: 'xcrun: error: unable to find utility' };
+    }
+    throw new Error('no helper command is expected without a compiled helper');
+  });
+  const missingProvider = createNativeCaptureProvider({
+    helperDirectory: testDirectory('state-missing'),
+    run: missing.run,
+  });
+  assert.deepEqual(await missingProvider.state(), { locked: false, displayAsleep: false });
+
+  const failing = recordingRunner((call) => {
+    if (call.command === 'xcrun') return buildsHelper(call);
+    return { code: 1, stderr: 'state unavailable' };
+  });
+  const failingProvider = createNativeCaptureProvider({
+    helperDirectory: testDirectory('state-failing'),
+    run: failing.run,
+  });
+  assert.deepEqual(await failingProvider.state(), { locked: false, displayAsleep: false });
+
+  const junk = recordingRunner((call) => {
+    if (call.command === 'xcrun') return buildsHelper(call);
+    return { code: 0, stdout: 'not json' };
+  });
+  const junkProvider = createNativeCaptureProvider({
+    helperDirectory: testDirectory('state-junk'),
+    run: junk.run,
+  });
+  assert.deepEqual(await junkProvider.state(), { locked: false, displayAsleep: false });
+});
+
+test('dhashFromGray9x8 pins the comparison order, bit order, and hex format', () => {
+  assert.equal(dhashFromGray9x8(new Uint8Array(72)), '0000000000000000');
+  assert.equal(
+    dhashFromGray9x8(new Uint8Array(72).fill(200)),
+    '0000000000000000',
+    'equal neighbours set no bit',
+  );
+
+  const firstComparison = new Uint8Array(72);
+  firstComparison[0] = 10;
+  assert.equal(
+    dhashFromGray9x8(firstComparison),
+    '8000000000000000',
+    'the first comparison is the most significant bit',
+  );
+
+  const lastComparison = new Uint8Array(72);
+  lastComparison[70] = 10;
+  assert.equal(
+    dhashFromGray9x8(lastComparison),
+    '0000000000000001',
+    'the last comparison of the last row is the least significant bit',
+  );
+
+  const secondRow = new Uint8Array(72);
+  secondRow[9] = 10;
+  assert.equal(
+    dhashFromGray9x8(secondRow),
+    '0080000000000000',
+    'the second row starts at sample 9, not sample 8',
+  );
+
+  const rightBrighter = new Uint8Array(72);
+  rightBrighter[1] = 10;
+  assert.equal(
+    dhashFromGray9x8(rightBrighter),
+    '4000000000000000',
+    'sample 1 is the right side of the first comparison and the left side of the second',
+  );
+
+  const lastSampleOnly = new Uint8Array(72);
+  lastSampleOnly[71] = 10;
+  assert.equal(
+    dhashFromGray9x8(lastSampleOnly),
+    '0000000000000000',
+    'the final sample is only ever a right-hand neighbour',
+  );
+
+  const alternating = new Uint8Array(72);
+  for (let row = 0; row < 8; row += 1) {
+    for (let column = 0; column < 9; column += 1) {
+      alternating[row * 9 + column] = column % 2 === 0 ? 255 : 0;
+    }
+  }
+  assert.equal(dhashFromGray9x8(alternating), 'aaaaaaaaaaaaaaaa');
+  const inverted = new Uint8Array(72);
+  for (let index = 0; index < 72; index += 1) {
+    inverted[index] = alternating[index] === 255 ? 0 : 255;
+  }
+  assert.equal(dhashFromGray9x8(inverted), '5555555555555555');
+  assert.notEqual(dhashFromGray9x8(alternating), dhashFromGray9x8(inverted));
+
+  assert.match(dhashFromGray9x8(new Uint8Array(72).map((_, index) => index)), /^[0-9a-f]{16}$/);
+  assert.throws(() => dhashFromGray9x8(new Uint8Array(71)), RangeError);
+  assert.throws(() => dhashFromGray9x8(new Uint8Array(73)), RangeError);
 });
 
 test('jpegDimensions reads every supported SOF marker and tolerates junk', () => {
@@ -384,7 +610,7 @@ test('parseHelperMeta reads what it can and never throws on bad output', () => {
   assert.deepEqual(parseHelperMeta(''), {});
 });
 
-test('concurrent permission and capture share one helper compilation', async () => {
+test('concurrent permission, capture, and state share one helper compilation', async () => {
   const frameRoot = testDirectory('concurrent-root');
   let compiles = 0;
   const { run } = recordingRunner((call) => {
@@ -393,9 +619,20 @@ test('concurrent permission and capture share one helper compilation', async () 
       return buildsHelper(call);
     }
     if (call.args[0] === 'preflight') return { code: 0, stdout: 'granted\n' };
-    if (call.args[0] === 'meta') return { code: 0, stdout: '{"app":null}' };
-    writeFileSync(call.args[call.args.length - 1]!, JPEG);
-    return { code: 0 };
+    if (call.args[0] === 'state') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({ locked: false, displayAsleep: false, idleSeconds: 3 }),
+      };
+    }
+    if (call.args[0] === 'capture') {
+      writeFileSync(call.args[1]!, JPEG);
+      return {
+        code: 0,
+        stdout: JSON.stringify({ width: 3, height: 2, hash: 'ffffffffffffffff' }),
+      };
+    }
+    throw new Error(`unexpected helper mode ${call.args[0]}`);
   });
   const provider = createNativeCaptureProvider({
     helperDirectory: testDirectory('concurrent-helper'),
@@ -403,10 +640,16 @@ test('concurrent permission and capture share one helper compilation', async () 
   });
 
   await withTemporaryRoot(frameRoot, async () => {
-    const [permission, frame] = await Promise.all([provider.permission(), provider.capture()]);
+    const [permission, frame, state] = await Promise.all([
+      provider.permission(),
+      provider.capture(),
+      provider.state(),
+    ]);
     assert.equal(permission, 'granted');
     assert.equal(frame.width, 3);
     assert.equal(frame.height, 2);
+    assert.equal(frame.hash, 'ffffffffffffffff');
+    assert.deepEqual(state, { locked: false, displayAsleep: false, idleSeconds: 3 });
   });
-  assert.equal(compiles, 1, 'one compilation is shared by both callers');
+  assert.equal(compiles, 1, 'one compilation is shared by all callers');
 });

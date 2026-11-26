@@ -376,6 +376,8 @@ test('capture, analysis, and automation default to safe values', () => {
     idleSeconds: 120,
     maxFramesPerDay: 1200,
     keepFramesDays: 0,
+    dedupeDistance: 4,
+    retentionCheckMinutes: 60,
     pauseApps: [],
     displays: 'main',
   });

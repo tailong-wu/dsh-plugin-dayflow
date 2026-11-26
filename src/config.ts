@@ -50,6 +50,13 @@ export interface CaptureConfig {
   maxFramesPerDay?: number;
   /** Days a frame file is kept; 0 deletes it once its analysis completes. */
   keepFramesDays?: number;
+  /**
+   * dHash Hamming distance at or below which a frame is a duplicate of the last
+   * stored one, 0-16. 0 only dedupes identical hashes; 16 dedupes everything.
+   */
+  dedupeDistance?: number;
+  /** Minutes between frame-retention sweeps (5-1440). */
+  retentionCheckMinutes?: number;
   /** Frontmost-app patterns (bundle id or name) that are never captured. */
   pauseApps?: string[];
   /** `main` records the main display, `all` records every display. */
@@ -95,6 +102,17 @@ export interface ResolvedCaptureConfig {
   readonly idleSeconds: number;
   readonly maxFramesPerDay: number;
   readonly keepFramesDays: number;
+  /**
+   * Hamming distance at or below which two dHashes are the same picture.
+   *
+   * `resolveConfig` always fills this from the profile (default 4); it stays
+   * optional on the interface so a hand-built config literal in a test or an
+   * embedder that predates the field still type-checks. The capture engine
+   * falls back to the same default when it is absent.
+   */
+  readonly dedupeDistance?: number;
+  /** Minutes between retention sweeps; see {@link dedupeDistance} for why optional. */
+  readonly retentionCheckMinutes?: number;
   readonly pauseApps: readonly string[];
   readonly displays: CaptureDisplays;
 }
@@ -208,6 +226,18 @@ const CaptureSchema = z
       .max(30)
       .default(0)
       .description('Days a frame file is kept; 0 deletes it once its analysis completes (0-30).'),
+    dedupeDistance: z
+      .natural()
+      .min(0)
+      .max(16)
+      .default(4)
+      .description('dHash Hamming distance at or below which a frame counts as a duplicate (0-16).'),
+    retentionCheckMinutes: z
+      .natural()
+      .min(5)
+      .max(1440)
+      .default(60)
+      .description('Minutes between frame-retention sweeps (5-1440).'),
     pauseApps: z.array(z.string()).default([]).description('Frontmost-app patterns that are never captured.'),
     displays: z
       .union([z.const('main'), z.const('all')])
@@ -452,6 +482,14 @@ export function resolveConfig(config: DayflowConfig = {}): ResolvedConfig {
     idleSeconds: resolveInteger(captureInput.idleSeconds, 120, 0, 3600, 'capture.idleSeconds'),
     maxFramesPerDay: resolveInteger(captureInput.maxFramesPerDay, 1200, 1, 10_000, 'capture.maxFramesPerDay'),
     keepFramesDays: resolveInteger(captureInput.keepFramesDays, 0, 0, 30, 'capture.keepFramesDays'),
+    dedupeDistance: resolveInteger(captureInput.dedupeDistance, 4, 0, 16, 'capture.dedupeDistance'),
+    retentionCheckMinutes: resolveInteger(
+      captureInput.retentionCheckMinutes,
+      60,
+      5,
+      1440,
+      'capture.retentionCheckMinutes',
+    ),
     pauseApps: resolvePauseApps(captureInput.pauseApps),
     displays: resolveChoice(captureInput.displays, CAPTURE_DISPLAYS, 'main', 'capture.displays'),
   };
