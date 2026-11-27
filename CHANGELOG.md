@@ -6,6 +6,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-27
+
+### Added
+
+- **0.8.1 — briefs reading view.** The journal's most condensed text — the
+  stored week briefs (with their `Memory health: …` digest) and the native daily
+  standups — is readable inside the existing Journal insights view. The change
+  is additive: `GET /api/dayflow/insights` gains one `briefs:
+  PanelBriefSummary[]` field (kind `day`/`week`, `period_key`, `title`, `body`,
+  optional `model` and `memory_health`, `updated_at`), so an older client is
+  unaffected and the panel adds no request — still **18** host Fetch routes,
+  nine `GET` and nine `POST`.
+- New `src/briefs/read.ts` exports `listPanelBriefs`: it reads the journal's
+  `briefs` rows plus the most recent native `daily_standup_entries` (each
+  standup normalised into a `day` entry), de-duplicates per
+  `(kind, period_key)` with the stored brief winning, sorts the newest period
+  first, and caps the list at 10 entries. A missing or unreadable journal
+  answers `[]` without creating the file, a malformed stored payload is skipped
+  rather than thrown, and the read calls no model.
+- The insights view gains a read-only **Briefs** block after its other sections:
+  each entry is a collapsed row with a `day`/`week` badge, the title, and its
+  updated date, and opening it shows the body — the weekly memory-health
+  paragraph is part of that body, not a second surface. There is no add row and
+  no decision row; when nothing is stored the block keeps a quiet empty line, so
+  a default profile shows an empty section and spends nothing.
+- No surface change beyond the additive field and the block: no new route,
+  command, tool, skill, configuration key, schema version, or host peer, and no
+  model call. Tests cover the additive field, the standup normalisation and the
+  de-duplication, the ordering and the cap, the empty journal that writes no
+  file, the unchanged 18-route set and single-entry test, and both locales.
+
 ## [0.8.0] - 2026-11-27
 
 ### Added
@@ -639,7 +670,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.6...v0.8.0
 [0.7.6]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.4...v0.7.5
