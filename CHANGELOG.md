@@ -6,6 +6,56 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-27
+
+### Added
+
+- **0.8.0 — analysis ledger follow-ups.** `analysis.dailyTokenBudget` is now a
+  gate rather than a display: the pipeline reads the day's recorded
+  `input_tokens + output_tokens` (summed over `analysis_jobs`) before a window
+  starts and again right after each completed call. A run that begins with the
+  day already at the cap starts no call, and once a completion puts the day at
+  or above the budget every remaining window in the run is skipped with reason
+  `budget-tokens` while the run reports `outcome: 'budget'` and
+  `budgetKind: 'tokens'`. The call that crossed the budget is paid and stays
+  complete: nothing is rolled back, nothing is recomputed, and the budget resets
+  only because the 04:00 boundary changes the day key. The call cap stays a
+  **pre-call** gate (reason `budget`, `budgetKind: 'calls'`), so the two limits
+  stay distinct in the ledger.
+- Transient-skip catch-up: new `src/analyse/skips.ts` holds the pure, forward-
+  compatible whitelist of configuration-caused skip reasons
+  (`analysis-disabled`, `capture-disabled`, `paused`, `consent:none`,
+  `provider-unset`, `model-unset`, `consent:provider-not-local`,
+  `analyser-unset`), and its bounded `replaySkippedAnalysisWindows` pass requeues
+  those rows `skipped → queued` with a conditional update after a non-blocked
+  worker tick. Replay is bounded to **today and yesterday** (no older sweep, no replay on
+  startup), leaves `attempts` untouched, and keeps the previous reason in
+  `analysis_jobs.payload_json` as `replayed_from` / `replayed_at` — `budget`,
+  `budget-tokens`, `failed`, and unknown reasons are never replayed.
+- The **04:00 day tail**: after that catch-up the worker runs one bounded
+  pipeline run for yesterday, so the frames captured between the last
+  pre-boundary tick and 04:00 are analysed. The checkpoint
+  `analysis_tail_checked_on` in `capture_state` makes it once per Dayflow day; a
+  blocked run leaves the checkpoint unwritten (a later consent/provider/model
+  fix on the same day still catches up), and a tail throw is logged and recorded
+  on the worker's `lastError` without changing today's outcome.
+- `GET /api/dayflow/analysis/status` gains one additive field,
+  `tokenBudgetExhausted`, and the Journal insights analysis line turns amber
+  with **Daily token budget reached** while it is true — still status, not a
+  control, and no new route.
+- Tests cover the post-call token gate, the skip whitelist and replay audit,
+  attempts and budget skips never replayed, the once-per-day tail with its
+  blocked retry and throw isolation, the additive status field, and the inert
+  default profile; the suite stays network-free on the existing fake analyser
+  seam.
+- No surface change either: the owned schema stays **v10**, the panel stays at
+  **18** host Fetch routes, the **5** commands and **8** skills are unchanged,
+  no tool is added, and there is no new configuration key and no changed default
+  (`analysis.maxCallsPerDay` 120 and `analysis.dailyTokenBudget` 200,000 keep
+  their values). A default profile — capture off or `analysis.consent: 'none'` —
+  still makes no model call, and the read-only status route still never creates
+  the journal.
+
 ## [0.7.6] - 2026-11-27
 
 ### Added
@@ -589,7 +639,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.6...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.6...v0.8.0
 [0.7.6]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.3...v0.7.4
