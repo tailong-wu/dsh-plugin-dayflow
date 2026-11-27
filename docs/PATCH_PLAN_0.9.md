@@ -2,29 +2,31 @@
 
 > **Status:** **the 0.9.x line is open, and it is decision-free by construction.**
 > The 0.8.x line closed at its release-close patch: `v0.8.4` is an annotated tag
-> on commit `e298813`, which is `main` HEAD and the commit that closed the line,
-> with a GitHub Release marked **Latest**. That tree is **537** green tests
-> (`npm test` re-run for this revision: 537 pass, 0 fail, 0 skipped, 0 todo),
-> schema **v10**, **18** panel routes (9 `GET` + 9 `POST`), **5** slash commands,
-> **23** tools, **8** skills, and still **no npm publication** (the registry
-> answers 404). The 0.8 line's tags are exactly **`v0.8.0`, `v0.8.1`, `v0.8.4`**,
-> each with a GitHub Release; the owner-gated 0.8.2 (image admission) and 0.8.3
-> (Phase 4 cutover) were **deferred to the next line**, never started, and are
-> not renumbered. Across the repository the trail is now **19 tags / 19
-> Releases**: the `v0.6.0` gap the 0.8.4 close recorded as history was
-> backfilled as a release-only operation after the tag, so every tag has a
+> on commit `e298813`, the commit that closed the line, with a GitHub Release
+> (Latest until `v0.9.0`). That tree is **537** green tests, schema **v10**,
+> **18** panel routes (9 `GET` + 9 `POST`), **5** slash commands, **23** tools,
+> **8** skills, and still **no npm publication** (the registry answers 404). The
+> 0.8 line's tags are exactly **`v0.8.0`, `v0.8.1`, `v0.8.4`**, each with a
+> GitHub Release; the owner-gated 0.8.2 (image admission) and 0.8.3 (Phase 4
+> cutover) were **deferred to the next line**, never started, and are not
+> renumbered. Across the repository the trail is now **20 tags / 20 Releases**,
+> with **`v0.9.0` Latest**: the `v0.6.0` gap the 0.8.4 close recorded as history
+> was backfilled as a release-only operation after that tag, so every tag has a
 > Release today.
 >
 > **This line's one committed patch is 0.9.0 — month/week panel goal and rating
-> surfaces — and it has landed** (`v0.9.0`; measured at 544 green tests). It is decision-free and read-only: the
-> stored goal and the user's own review marks, which the day view already
-> renders, become visible in the month cells and the week columns. **No schema,
-> configuration key, route, command, tool, skill, default, host peer, or model
-> call is added** — the line stays at 18 routes, 5 commands, schema v10, and
-> text-only. **0.9.1 is a candidate, not a promise:** docs/README parity, and
-> only if 0.9.0's own docs pass leaves a real gap; the default recommendation is
-> to end the line at `v0.9.0` (see §0.9.1). The `dsh dayflow import` CLI is
-> **not on this line** (see *The CLI import is not 0.9 material*).
+> surfaces — and it has landed and been released** (`v0.9.0`, annotated tag on
+> `d0f9b5a`, GitHub Release **Latest**, **544** green tests — 537 at `v0.8.4`,
+> so 0.9.0 added 7). It is decision-free and read-only: the stored goal and the
+> user's own review marks, which the day view already rendered, are visible in
+> the month cells and the week columns. **No schema, configuration key, route,
+> command, tool, skill, default, host peer, or model call was added** — the line
+> stayed at 18 routes, 5 commands, schema v10, and text-only. **0.9.1 is a
+> candidate, not a promise:** docs/README parity, and only if 0.9.0's own docs
+> pass had left a real gap; the 0.9.0 docs pass covered README/README.zh, PANEL,
+> ARCHITECTURE, CHANGELOG, ROADMAP, and this file, so the recommendation is to
+> end the line at `v0.9.0` (see §0.9.1). The `dsh dayflow import` CLI is **not on
+> this line** (see *The CLI import is not 0.9 material*).
 >
 > **Owner-gated work does not enter 0.9.** Image admission (D1/D2/D11, the
 > former 0.8.2 scope), the Phase 4 `source: owned` cutover (D10 plus a real
@@ -37,7 +39,9 @@
 > the line it describes is tagged and released. [`PATCH_PLAN.md`](PATCH_PLAN.md)
 > is the 0.7.x record and stays frozen too.
 >
-> **Last revised:** 2026-11-27, against the `v0.8.4` tree (`e298813`).
+> **Last revised:** 2026-11-27, against the `v0.9.0` tree (`d0f9b5a`), the
+> line's released tree; the starting-point table keeps the `v0.8.4` baseline the
+> line was designed from, with both measurements dated.
 >
 > Related documents: [`ROADMAP.md`](ROADMAP.md) carries the phases, the
 > iterations tables, and what remains; [`PANEL.md`](PANEL.md) is the view 0.9.0
@@ -48,22 +52,22 @@
 ## 1. Starting point, measured
 
 Facts checked against the repository, the tag list, the GitHub release list, and
-the npm registry on 2026-11-27, on the `v0.8.4` tree at `e298813`; the suite was
-re-run for this revision (**537 pass, 0 fail, 0 skipped, 0 todo**) and the
-release list was read (`v0.8.4` is `Latest`). They are the baseline this line
-starts from; when an operation in this plan invalidates one, it updates this
-table.
+the npm registry on 2026-11-27. The **design baseline** was measured on the
+`v0.8.4` tree (`e298813`); the **landed measurement** is the `v0.9.0` tree
+(`d0f9b5a`), whose suite was re-run for this revision (**544 pass, 0 fail, 0
+skipped, 0 todo**) with the release list read (`v0.9.0` is `Latest`). Both are
+dated below; when an operation invalidates one, it updates this table.
 
 | Fact | Value | Checked at |
 | --- | --- | --- |
-| Baseline for this line | `0.8.4`, annotated tag `v0.8.4` (commit `e298813`); `main` is the same commit; `package.json` version `0.8.4`. The 0.9.0 patch branches from here | `package.json`, `git tag`, `git log` |
-| Release trail | **19 tags / 19 GitHub Releases** across the repository; `v0.8.4` is `Latest` and its body names 0.8.2/0.8.3 deferred with their blocking decisions. The 0.8 line's tags are exactly `v0.8.0` (`f4191b9`), `v0.8.1` (`af002c3`), `v0.8.4` (`e298813`). The `v0.6.0` gap the tagged 0.8.4 docs record as history was **backfilled** as a release-only operation after the close (release published 2026-11-27 06:26Z), so no tag lacks a Release now | `gh release list --limit 30`, `git tag`, `gh release view v0.8.4` |
-| npm | `npm view dsh-plugin-dayflow version` answers **404** — never published; D7 still unanswered, so the safe default stays "tagged here, not on the registry" | `npm view`, README/README.zh |
-| Tests | 537 cases, green on the tag (`npm test`: 537 pass, 0 fail, 0 skipped, 0 todo; 521 at `v0.8.0`, 494 at `v0.7.6`; 0.8.4 added none). CI runs macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `npm test`, `.github/workflows/ci.yml` |
+| Baseline for this line | **landed at `0.9.0`**, annotated tag `v0.9.0` (commit `d0f9b5a`); `package.json` version `0.9.0`. The line was designed from and branched off `v0.8.4` (`e298813`) | `package.json`, `git tag`, `git log` |
+| Release trail | **20 tags / 20 GitHub Releases** across the repository; **`v0.9.0`** (`d0f9b5a`) is `Latest` and its body is the CHANGELOG `[0.9.0]` section, while `v0.8.4`'s body names 0.8.2/0.8.3 deferred with their blocking decisions. The 0.8 line's tags are exactly `v0.8.0` (`f4191b9`), `v0.8.1` (`af002c3`), `v0.8.4` (`e298813`). The `v0.6.0` gap the tagged 0.8.4 docs record as history was **backfilled** as a release-only operation after that close (release published 2026-11-27 06:26Z), so no tag lacked a Release before this line | `gh release list --limit 30`, `git tag`, `gh release view v0.9.0` |
+| npm | `npm view dsh-plugin-dayflow version` answers **404** — never published; D7 still unanswered, so the safe default stays "tagged here, not on the registry" (checked again on the `v0.9.0` tree) | `npm view`, README/README.zh |
+| Tests | **544** cases, green on the tag (`npm test`: 544 pass, 0 fail, 0 skipped, 0 todo; 537 at `v0.8.4`, 521 at `v0.8.0`, 494 at `v0.7.6`). 0.9.0 added 7 in 2 files: `tests/panel.test.ts` (the three-route agreement and the empty month/week no-journal test) and `tests/client-format.test.ts` (5 cases). CI runs macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `npm test`, `.github/workflows/ci.yml` |
 | Tools / skills / commands | 23 tools registered by default (17 with `edits: false`) plus `dayflow_install_dayflow` behind `allowInstall: false`; 8 skills; 5 slash commands (`dayflow-task`, `dayflow-remember`, `dayflow-reflect`, `dayflow-analyze`, `dayflow-run-close`) — 0.9.0 changes none of these | `src/index.ts`, `src/commands.ts`, `tests/plugin.test.ts` |
 | Panel | 18 exact host Fetch routes (9 GET + 9 POST), one UI entry (one header button, one panel tab), one insights payload. The read views are `/api/dayflow/day`, `/api/dayflow/month`, `/api/dayflow/week`, and all three days share one type (`PanelDay`) — 0.9.0 adds no route | `src/panel-contract.ts`, `src/panel.ts`, `tests/panel.test.ts`, `tests/client-bundle.test.ts` |
-| Owned schema | **v10** (`automation_runs` accepts `'lint'`; `briefs.payload_json`); 0.8.4 changed no migration and no table, and 0.9.0 will not either | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
-| The exact gap 0.9.0 closes | `PanelDay` already declares `goal?: PanelGoal \| null` and `ratings?: PanelRating[]`, and the **day** route fills them from the stored records; `buildPanelMonth` and `buildPanelWeek` build their days through `dayPayload()` and never attach the two fields, so month/week days answer neither key. `tests/panel.test.ts` asserts that absence as the current design (`goal === undefined`, `ratings === undefined`, and `!('goal' in entry)`), and `docs/PANEL.md` states it in prose ("the month and week payloads are unchanged, so only opening a day pays for those reads") | `src/panel.ts` (`buildPanelDay`/`buildPanelMonth`/`buildPanelWeek`), `src/panel-contract.ts`, `tests/panel.test.ts`, `docs/PANEL.md` |
+| Owned schema | **v10** (`automation_runs` accepts `'lint'`; `briefs.payload_json`); 0.8.4 and 0.9.0 changed no migration and no table | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
+| The gap 0.9.0 closed (history) | At the `v0.8.4` baseline `PanelDay` declared `goal?: PanelGoal \| null` and `ratings?: PanelRating[]`, and the **day** route filled them while `buildPanelMonth` and `buildPanelWeek` built their days through `dayPayload()` and never attached either field; `tests/panel.test.ts` asserted that absence and `docs/PANEL.md` described it as intended ("the month and week payloads are unchanged, so only opening a day pays for those reads"). 0.9.0 filled the fields, flipped those tests to the three-route agreement, and corrected the doc prose | `src/panel.ts` (`buildPanelDay`/`buildPanelMonth`/`buildPanelWeek`), `src/panel-contract.ts`, `tests/panel.test.ts`, `docs/PANEL.md` |
 | Host cohort | DSH dev dependencies `0.2.1-rc.2`, peers `^0.2.0-rc.2`. `@deepseek-ai/dsh-llm` is declared and used through a structural seam; `@deepseek-ai/dsh-attachment` is **not** a dependency — the line stays text-only, as 0.8.4 left it | `package.json`, `src/analyse/host.ts` |
 | Owner decisions | D1 (analysis destination) unanswered; D2 settled as explicit configuration; D3 caps enforced; D7 (npm) unanswered; **D10/D11 unanswered**. None of them gates 0.9.0: the patch adds no model call, no egress, no default change, and no privacy surface | `PATCH_PLAN.md` §6, `PATCH_PLAN_0.8.md` §6 |
 
@@ -73,11 +77,14 @@ the budgeted memory context, reflections, the scheduled lint and its digest, the
 interactive insights panel, the native capture engine, the analysis pipeline and
 worker, the automation scheduler, the panel's capture/analysis/close lines, the
 briefs reading view, the 18 routes, the 5 commands, the 23 tools, and the 8
-skills. All of it is tagged, tested, and released. The 0.9.0 patch is the first
-change after that close.
+skills. All of it is tagged, tested, and released before this line. **Landed on
+this line:** 0.9.0 — the month/week goal and rating surfaces — is tagged as
+`v0.9.0` with a GitHub Release and 544 tests, and it is the first change after
+the 0.8.4 close.
 
 **What this line is, in one sentence:** the last stored-data gap in the panel,
-made visible without adding a surface, a decision, or a dependency.
+made visible without adding a surface, a decision, or a dependency — shipped as
+`v0.9.0`.
 
 ## 2. Iteration rules
 
@@ -120,27 +127,31 @@ the five owner questions (§4), not another theme.
 
 | Patch | Theme | Roadmap item | Depends on | Decisions | Risk | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| **0.9.0** | **Month/week goal and rating surfaces:** fill `PanelDay.goal`/`ratings` on the month and week payloads from the same readers the day route uses, and render them read-only in the calendar cells, the week columns, and the day hover card; no schema, config, route, command, tool, skill, or peer change; routes stay 18 and commands 5 | Phase 3 goal/rating read surfaces (the last stored-data panel gap) / 0.8.4 §G2's first candidate | — (branches from `v0.8.4`) | none | Low | **landed** (`v0.9.0`) — shipped as designed; deviations recorded in §0.9.0 |
-| **0.9.1** | **Docs/README parity (candidate):** reconcile README/README.zh, `docs/PANEL.md`, the "what remains" list, and the compatibility statement with the tagged tree; docs and release artefacts only, no behaviour change | Release/closure hygiene | `v0.9.0` | none | Low | **candidate — recommended only if 0.9.0's docs pass leaves a real gap**; by default the line ends at `v0.9.0` (see §0.9.1) |
+| **0.9.0** | **Month/week goal and rating surfaces:** fill `PanelDay.goal`/`ratings` on the month and week payloads from the same readers the day route uses, and render them read-only in the calendar cells, the week columns, and the day hover card; no schema, config, route, command, tool, skill, or peer change; routes stay 18 and commands 5 | Phase 3 goal/rating read surfaces (the last stored-data panel gap) / 0.8.4 §G2's first candidate | — (branched from `v0.8.4`) | none | Low | **landed** — `v0.9.0` (`d0f9b5a`), GitHub Release Latest, 544 tests; shipped shape and deviations in §0.9.0 *Landed shape and deviations* |
+| **0.9.1** | **Docs/README parity (candidate):** reconcile README/README.zh, `docs/PANEL.md`, the "what remains" list, and the compatibility statement with the tagged tree; docs and release artefacts only, no behaviour change | Release/closure hygiene | `v0.9.0` | none | Low | **candidate, not scheduled** — 0.9.0's docs pass covered both languages and every current-tree count, so no drift is known; the line is recommended to close at `v0.9.0` (see §0.9.1) |
 | *CLI import* | `dsh dayflow import` — one command over the existing importer | Phase 2 completion / 1.0.0 runbook | cutover line | none | Medium | **not on 0.9** — recommended for the cutover line; a new entry point (5 → 6 commands) belongs beside the no-Dayflow runbook (see *The CLI import is not 0.9 material*) |
 
-Order rationale: 0.9.0 is first because it is the only remaining item that is
-both decision-free and a real user-visible gap, and it was 0.8.4's first-ranked
-0.9 candidate; 0.9.1 is second-or-never because the docs already travel with
-0.9.0 under R6; the CLI import is deliberately not on the line. Details in §6.
+Order rationale: 0.9.0 went first and landed because it was the only remaining
+item that was both decision-free and a real user-visible gap, and it was 0.8.4's
+first-ranked 0.9 candidate; 0.9.1 is second-or-never because the docs already
+travelled with 0.9.0 under R6; the CLI import is deliberately not on the line.
+Details in §6.
 
 ### 0.9.0 — the stored day at month and week scale (month/week goal and rating surfaces)
 
-**Status: landed in `v0.9.0`, 2026-11-27 — measured at 544 green tests.** One theme (R1): *the user's own day records — the focus goal
+**Status: landed in `v0.9.0`, 2026-11-27 — annotated tag `v0.9.0` on commit
+`d0f9b5a`, GitHub Release Latest, 544 green tests (537 at `v0.8.4`).** One theme
+(R1): *the user's own day records — the focus goal
 and the review marks — are legible wherever a day appears, read-only.* It is
 decision-free: no owner answer, no default change, no model call, and no schema,
 configuration key, route, command, tool, skill, or host peer.
 
-Presentation details (how many dots fit before folding into a title, whether the
-day summary is a shared helper or per-view markup) are decided at implementation
-time; when the implementation differs from this sketch, the difference is
-recorded in a **Landed shape and deviations** subsection here at the cut, and
-only the acceptance bullets in **C** are binding.
+Sections A–G are the finalised design the implementation started from, and they
+are what shipped; where the delivered presentation differs in detail from the
+sketch (dot counts, the hover body, the duplicated colour map), the difference is
+recorded in **Landed shape and deviations** at the end of this section, which is
+authoritative where the two disagree. Only the acceptance bullets in **C** were
+binding.
 
 **Motivation.** The day view has shown the goal and the marks since 0.7.0, but
 the month cell and the week column still show only tracked time and category
@@ -191,50 +202,50 @@ There is no new client surface: no tab, no button, no settings entry, no route.
 The month cell stays a single click target that opens the day; the markers are
 decorative and non-interactive, with text alternatives for screen readers.
 
-**C. Acceptance (the patch is done when all are true — tick at the tag, not
-before).**
+**C. Acceptance (all ticked at the `v0.9.0` cut; the evidence is in *Landed
+shape and deviations* at the end of this section).**
 
-- [ ] On the shared fixture, `GET /api/dayflow/month?month=2026-10` and
+- [x] On the shared fixture, `GET /api/dayflow/month?month=2026-10` and
       `GET /api/dayflow/week?date=2026-10-21` carry, for **2026-10-19**, a
       `goal` `deepEqual` to the same day's `/day` payload (focus 240,
       distraction 60, not skipped, its focus/distraction categories) and
       `ratings` `deepEqual` and in the same order (three marks:
       `focused`, `distracted`, `neutral`); for **2026-10-20**, the skipped goal
       matches the day route and `ratings` is `[]`.
-- [ ] Every other day in those payloads answers `goal: null` and
+- [x] Every other day in those payloads answers `goal: null` and
       `ratings: []` — the keys are present on every day, never `undefined` and
       never absent (`'goal' in day` and `'ratings' in day` for all 31 month days
       and all 7 week days).
-- [ ] The existing "day-route only" assertions in `tests/panel.test.ts` are
+- [x] The existing "day-route only" assertions in `tests/panel.test.ts` are
       replaced by the three-route agreement test; the day payload itself is
       identical to 0.8.4 for the same data (no read-path regression).
-- [ ] Ratings keep the day route's start-ascending order and the payload has
+- [x] Ratings keep the day route's start-ascending order and the payload has
       **no cap**; only rendering caps the dots (a small fixed number, with the
       full count in the marker's `title` and accessible label).
-- [ ] `tests/journal.test.ts`'s owned-vs-Dayflow month/week parity tests stay
+- [x] `tests/journal.test.ts`'s owned-vs-Dayflow month/week parity tests stay
       green unchanged (both backends now fill the fields).
-- [ ] The route set is still exactly **18** (9 GET + 9 POST) — the exact-route
+- [x] The route set is still exactly **18** (9 GET + 9 POST) — the exact-route
       assertion in `tests/panel.test.ts` is unchanged; no new POST; the single
       harness entry (one tab, one header button) is unchanged
       (`tests/client-bundle.test.ts`).
-- [ ] Read-only proof: no write SQL, no POST handler, no model adapter, no
+- [x] Read-only proof: no write SQL, no POST handler, no model adapter, no
       journal write; an empty-data day (no goal, no marks) renders no marker and
       answers `null`/`[]` without throwing; a missing database keeps the current
       503 on the day route and the month/week error path is unchanged.
-- [ ] The diff adds **no** schema migration (`src/journal.ts` untouched), no
+- [x] The diff adds **no** schema migration (`src/journal.ts` untouched), no
       config key (`src/config.ts` untouched), no command (`src/commands.ts`
       untouched), no tool/skill, and no `package.json`/lock dependency or peer
       change (`@deepseek-ai/dsh-attachment` still absent).
-- [ ] `npm test`, `npm run typecheck`, `npm run check:package`, the client
+- [x] `npm test`, `npm run typecheck`, `npm run check:package`, the client
       bundle check, `npm pack --dry-run` (still no `src/`/`tests/` in the
       tarball), and both CI legs are green.
-- [ ] Docs travel with the tag (R6): `docs/PANEL.md`'s "month and week payloads
+- [x] Docs travel with the tag (R6): `docs/PANEL.md`'s "month and week payloads
       are unchanged" sentence and its day-view paragraph are corrected,
       README/README.zh each gain the one-sentence description of the month/week
       markers, `CHANGELOG.md` `[Unreleased]` becomes `[0.9.0]`, and this file's
       §0.9.0 status plus `docs/ROADMAP.md`'s 0.9.x row flip to landed when
       `v0.9.0` is cut.
-- [ ] Release: `npm run release -- patch` cuts `v0.9.0` from the CHANGELOG
+- [x] Release: `npm run release -- patch` cuts `v0.9.0` from the CHANGELOG
       section; the GitHub Release body names the read-only/no-schema/no-route
       shape and states that npm is still 404 (D7); no publish happens.
 
@@ -272,22 +283,75 @@ skipped goal on 2026-10-20 (180/90), three marks on 2026-10-19, and many days
 with neither. `tests/journal.test.ts` needs no edit but is the cross-backend
 gate. No new test file.
 
+**Landed shape and deviations.** The shipped patch is the design above in one
+feature commit (`38178c5`, *feat(panel): show the stored goal and review marks on
+month and week*) plus the release commit (`d0f9b5a`, *chore(release): 0.9.0*),
+tagged `v0.9.0`. The binding acceptance in C is green at the tag: **544/544**
+tests (537 at `v0.8.4`; +7 in two files), `npm run typecheck`, `npm run
+build`/client bundle, `npm run check:package` (142 packed files, no `src/` or
+`tests/` entry), the exact 18-route set and the single-entry assertions, the
+owned-vs-Dayflow month/week parity tests unchanged, a fresh empty month/week
+answering `null`/`[]` without creating the owned journal, and the diff carrying
+no schema, config, command, tool, skill, peer, or dependency change (the release
+commit touches only `CHANGELOG.md`, `package.json`, and the lock file). npm
+answers 404 and no publish happened.
+
+What shipped, file by file: `src/panel.ts` attaches the day route's
+`goal`/`ratings` to every month and week day on the connection it already opens
+(goals keyed by each day argument, marks by each day window; `goal: null` and
+`ratings: []` when the user recorded nothing), and the day route is untouched;
+`src/panel-contract.ts`'s two doc comments now say all three routes fill the
+fields; `src/client/month.tsx` draws a goal marker plus rating dots in each cell
+and adds the goal detail and the marks to `DayHover`; `src/client/week.tsx` puts
+a goal chip and a dot row in a new `ColumnMeta` under the sticky day head;
+`src/client/format.ts` gains `goalDetail`, `compactGoalText`, `goalMarkerText`,
+`ratingColor`, `RATING_DOTS_LIMIT`, `ratingDots`, `ratingsSummary`, and
+`ratingsMarkerText`; `locale.ts` gains the marker/count strings in both
+languages; `styles.ts` gains the marker/dot/week-meta rules; `day.tsx` changes a
+comment only.
+
+Deviations from this section's sketch — all presentation-level, none touching the
+contract, the route set, the schema, or a default:
+
+1. **The dot cap is 3 for both views.** `RATING_DOTS_LIMIT = 3`, with the full
+   count in the marker's `title` and accessible label. The plan left the number
+   to implementation, so this is a recorded choice, not a scope change.
+2. **No shared hover body was extracted.** `src/client/hover-card.tsx` is
+   unchanged; the shared behaviour is the `format.ts` helper set both views call,
+   which the plan's optional `hover-card.tsx` row allowed. The month hover card
+   lists each mark (dot, label, time range) rather than a count summary.
+3. **`ratingColor` is duplicated, not moved.** `src/client/day.tsx` keeps its
+   local map and `src/client/format.ts` exports an identical one (same three
+   tokens), because the day view was deliberately left untouched beyond the
+   comment correction. Harmless today; a later refactor can dedupe it.
+4. **`docs/ARCHITECTURE.md` also changed.** Its current-tree counts moved from
+   537 to 544; it was not in the plan's docs list, and the change is correct.
+5. **The suite grew by 7, not by an estimate.** Two panel tests (the three-route
+   agreement; the empty month/week no-journal case) and five `client-format`
+   cases; the plan named the shape, not the number.
+
+Presentation decisions the sketch left open are therefore closed here; the
+contract, the route set, the schema, and the default behaviour are exactly as
+planned.
+
 ### 0.9.1 — docs/README parity (candidate, not scheduled)
 
-**Status: candidate — recommended only if 0.9.0's docs pass leaves a real gap.**
-One theme (R1): *the docs match the tagged tree.* Docs and release artefacts
-only (the 0.8.4 precedent): README/README.zh parity, the "what remains" list,
-the compatibility statement, and any drift 0.9.0's docs pass uncovers. No code,
-no schema, no route, no default. Dependency: `v0.9.0`.
+**Status: candidate, not scheduled — the line is recommended to close at
+`v0.9.0`.** One theme (R1): *the docs match the tagged tree.* Docs and release
+artefacts only (the 0.8.4 precedent): README/README.zh parity, the "what remains"
+list, the compatibility statement, and any drift 0.9.0's docs pass uncovers. No
+code, no schema, no route, no default. Dependency met: `v0.9.0`.
 
-**Recommendation: by default, do not open 0.9.1.** R6 already makes the 0.9.0
-docs part of its tag, so a separate parity patch is justified only by drift
-found *after* the tag — a zh/en page disagreeing, a count that changed, or a
-"what remains" list that still names the month/week surfaces as future work. The
-line should end at `v0.9.0` unless that drift exists; a docs-only release with
-no user-visible change is release noise, and the 0.8.4 close already did the
-repo-wide reconciliation. If it is done: about half a day, no risk beyond prose,
-`v0.9.1` tagged with a CHANGELOG section and docs + release artefacts only.
+**Recommendation: do not open 0.9.1.** R6 already made the 0.9.0 docs part of its
+tag, and that docs pass updated README/README.zh, `docs/PANEL.md`,
+`docs/ARCHITECTURE.md`, `CHANGELOG.md`, `docs/ROADMAP.md`, and this file in the
+same commit, so no drift is known at the tag. A separate parity patch is
+justified only by drift found *after* the tag — a zh/en page disagreeing, a count
+that changed, or a "what remains" list that still names the month/week surfaces
+as future work — and none of those exists. The line should close at `v0.9.0`; a
+docs-only release with no user-visible change is release noise. If drift is ever
+found: about half a day, no risk beyond prose, `v0.9.1` tagged with a CHANGELOG
+section and docs + release artefacts only.
 
 ### The CLI import is not 0.9 material
 
@@ -327,7 +391,7 @@ self-contained):
    and changes no tag.
 6. The **first-run/rollback runbook** exercised.
 
-0.9.x touches none of these: the holding line changes no default, no capture, no
+0.9.x touched none of these: the holding line changed no default, no capture, no
 analysis, and no import. **The next round's first action is unchanged:** put the
 five questions to the owner as one short list — D10, D1, D2, D11, D7 — each with
 the single question it answers and the patch it unblocks.
@@ -336,40 +400,41 @@ the single question it answers and the patch it unblocks.
 
 The 0.7.x Definition of Done ([PATCH_PLAN.md](PATCH_PLAN.md) §4) and the 0.8.x
 additions ([PATCH_PLAN_0.8.md](PATCH_PLAN_0.8.md) §4) apply unchanged. This line
-adds:
+adds — all six verified for `0.9.0` at its tag, and the boxes are therefore
+ticked:
 
-- [ ] **Frozen contract:** no new field, type, route, command, tool, skill,
+- [x] **Frozen contract:** no new field, type, route, command, tool, skill,
       schema step, config key, dependency, or host peer; the only wire change is
       values in the two optional fields `PanelDay` already declares.
-- [ ] **Three-route agreement:** a `deepEqual` test that a day's goal and
+- [x] **Three-route agreement:** a `deepEqual` test that a day's goal and
       ratings are identical through `/day`, `/month`, and `/week`, on both
       backends, with `null`/`[]` for days that have neither.
-- [ ] **Read-only proof:** no write SQL, no POST handler, no model adapter, no
+- [x] **Read-only proof:** no write SQL, no POST handler, no model adapter, no
       journal creation; an empty-data day renders nothing and answers
       `null`/`[]`.
-- [ ] **No read-path regression:** the day payload is unchanged for the same
+- [x] **No read-path regression:** the day payload is unchanged for the same
       data; the existing cross-backend parity tests stay green unchanged.
-- [ ] **Docs with the tag** (R6) in both languages, and this file corrected in
-      place if the implementation diverges from the design — a **Landed shape
-      and deviations** subsection in §0.9.0, as the 0.8 patches have.
-- [ ] **Release:** one tag and one GitHub Release from the CHANGELOG section;
+- [x] **Docs with the tag** (R6) in both languages, and this file corrected in
+      place where the implementation diverged from the design — the **Landed
+      shape and deviations** subsection in §0.9.0, as the 0.8 patches have.
+- [x] **Release:** one tag and one GitHub Release from the CHANGELOG section;
       npm stays 404 (D7); the version bump is the only `package.json` change.
 
 ## 6. Sequencing rationale and line exit criteria
 
-1. **0.9.0 first because it is the only remaining item that is both
-   decision-free and a real user-visible gap.** 0.8.4's §G2 ranked it first, the
-   roadmap records it as the last stored-data panel gap, and it needs no answer
-   from the owner. It is also cheap to verify: the data and the wire types
-   already exist, so the assertions are equality tests rather than new
-   behaviour.
-2. **It goes before any cutover work, not instead of it.** It touches the
+1. **0.9.0 went first, and landed, because it was the only remaining item that
+   was both decision-free and a real user-visible gap.** 0.8.4's §G2 ranked it
+   first, the roadmap records it as the last stored-data panel gap, and it
+   needed no answer from the owner. It was also cheap to verify: the data and
+   the wire types already existed, so the assertions are equality tests rather
+   than new behaviour.
+2. **It went before any cutover work, not instead of it.** It touches the
    month/week renderers, which the cutover's first-run walkthrough also visits;
    landing it on the closed 0.8 baseline keeps any following cutover patch from
    interleaving a renderer change with a default flip.
-3. **Docs parity is a candidate, not a schedule.** The docs travel with 0.9.0
-   (R6); a separate 0.9.1 exists only for drift found afterwards, and by default
-   the line ends at one tag.
+3. **Docs parity is a candidate, not a schedule.** The docs travelled with
+   0.9.0 (R6); a separate 0.9.1 exists only for drift found afterwards, and no
+   drift is known, so the line ends at one tag.
 4. **The CLI import waits for the cutover line.** A new entry point plus the
    no-Dayflow runbook is exactly the acceptance the cutover line already needs;
    putting it on 0.9 would grow the holding line past its purpose.
@@ -381,32 +446,41 @@ adds:
 
 **Line exit criteria.** The 0.9.x line is done when: `v0.9.0` is tagged with a
 GitHub Release and its §0.9.0 acceptance is green; `v0.9.1` is either done or
-explicitly dropped as unnecessary; `docs/ROADMAP.md`'s 0.9.x row and this file
+explicitly dropped as unnecessary; `docs/ROADMAP.md`'s 0.9.x record and this file
 agree on the final state; no owner-gated work shipped on the line; every tag in
 the repository has a Release; and the 1.0.0 prerequisites in §4 are still listed
-as unmet with the five questions as the next action.
+as unmet with the five questions as the next action. **At this revision every
+item but the formal closure is true:** `v0.9.0` is tagged and green, 0.9.1 is
+recommended to be dropped, the two documents agree, the trail is 20/20, and the
+five questions are the next action — so the line is ready to be declared closed
+at `v0.9.0`, with no `v0.9.1`.
 
-## 7. How to run the patch
+## 7. How the patch ran (and how a later one would)
 
-1. Branch `patch/0.9.0-month-week-surfaces` from `v0.8.4` (the line's baseline).
-2. Write the failing tests first from §0.9.0 C — replace the three "day-route
-   only" negatives in `tests/panel.test.ts` with the three-route agreement test,
-   and add the new format cases — on the existing fake-host/fixture seam; no
-   network, permission, real clock, or model.
-3. Implement server then client (`src/panel.ts` → contract comment → shared
-   day summary if one is extracted → month/week → format/locale/styles); keep the
-   integration point single and the route table untouched.
-4. Update `docs/PANEL.md`, README/README.zh (both), the CHANGELOG
-   `[Unreleased]` → `[0.9.0]`, and this file's status, all in the same round.
-5. Run `npm test`, `npm run typecheck`, `npm run check:package`, the client
-   bundle check, `npm pack --dry-run`, and both CI legs; review the diff
-   invariants in C.
-6. Cut with `npm run release -- patch`; the tool bumps, runs the suite, commits,
-   tags, pushes, and creates the GitHub Release from the CHANGELOG section; it
-   does not publish to npm.
-7. Correct this file in place if reality diverged (a **Landed shape and
-   deviations** subsection), and flip the ROADMAP 0.9.x row to landed.
+1. `0.9.0` branched from `v0.8.4` as `patch/0.9.0-month-week-surfaces`; the tests
+   came first from §0.9.0 C — replacing the three "day-route only" negatives in
+   `tests/panel.test.ts` with the three-route agreement test and adding the
+   format cases — on the existing fake-host/fixture seam, with no network,
+   permission, real clock, or model.
+2. Server then client were implemented (`src/panel.ts` → contract comment →
+   `format.ts` helpers → month/week → locale/styles), keeping the integration
+   point single and the route table untouched.
+3. The docs were updated in the same patch: `docs/PANEL.md`,
+   `docs/ARCHITECTURE.md`, README/README.zh (both), the CHANGELOG
+   `[Unreleased]` → `[0.9.0]`, `docs/ROADMAP.md`, and this file.
+4. The gates ran green on the tagged tree: `npm test` (**544/544**),
+   `npm run typecheck`, `npm run build`/client bundle, `npm run check:package`
+   (142 packed files), and the diff invariants in C.
+5. The tag was cut with `npm run release -- patch` (`d0f9b5a`); the tool bumped,
+   ran the suite, committed, tagged, pushed, and created the GitHub Release from
+   the CHANGELOG section. It does not publish to npm, and the registry still
+   answers 404.
+6. This file was corrected in place where reality diverged — the **Landed shape
+   and deviations** subsection — and `docs/ROADMAP.md`'s 0.9.x record was flipped
+   to landed. A post-tag docs reconciliation commit carries the final status,
+   since the tag's own tree records the patch as it was cut.
 
-If 0.9.0 discovers that it cannot ship without a contract widening or a
-decision, it stops at step 3 and the blocker moves to §4. A 0.9 patch does not
-ship a default change, a model call, an egress, or a new entry.
+**For any patch after this one:** the same rules apply. If a later patch
+discovers that it cannot ship without a contract widening or a decision, it stops
+before implementation and the blocker moves to §4. A 0.9 patch does not ship a
+default change, a model call, an egress, or a new entry.

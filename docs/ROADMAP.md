@@ -11,34 +11,39 @@
 > are not renumbered. The 0.7.x line is closed too: its last tag is `v0.7.6`
 > (commit `007c287`) and all seven tags `v0.7.0`–`v0.7.6` have GitHub Releases;
 > 0.7.0 (`v0.7.0`, `45a7e42`) remains the **phase baseline**. Across the whole
-> repository the trail is now **19 tags / 19 GitHub Releases**: the `v0.6.0` gap
-> the 0.8.4 docs record as history was backfilled as a release-only operation
-> after the close, so no tag lacks a Release. Phase 4 is still **rehearsed
+> repository the trail is now **20 tags / 20 GitHub Releases** and `v0.9.0` is
+> **Latest**: the `v0.6.0` gap the 0.8.4 docs record as history was backfilled as
+> a release-only operation after that close, so no tag lacks a Release. Phase 4
+> is still **rehearsed
 > only** — `docs/CUTOVER_REHEARSAL.md` and `npm run rehearsal` walk the fixture
 > chain (20/20 checks at `v0.7.6`, re-run green on the `v0.8.1` tree) and no
 > `source: owned` default has been flipped. The package is still **not on the
 > npm registry** (D7 unanswered), so every release here is a tag and a GitHub
 > Release only.
 >
-> **Measured on the `v0.8.4` tree:** 537 tests green (521 on `v0.8.0`, 494 on
-> the closed `v0.7.6` tree — 0.8.1 added 16 in 3 files, 0.8.4 added none because
-> it changed no code), schema **v10**, **18** panel routes, **5** slash
-> commands, 23 tools, 8 skills, no new host peer. The 0.7 line's own record is
-> [`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history), the 0.8 line's is
-> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) (frozen history too, now that the
-> line is closed), and the 0.9 line's is
+> **Measured on the `v0.9.0` tree:** **544** tests green (537 on `v0.8.4`, 521 on
+> `v0.8.0`, 494 on the closed `v0.7.6` tree — 0.8.1 added 16 in 3 files, 0.8.4
+> added none because it changed no code, and 0.9.0 added 7 in 2 files: two panel
+> route tests and five `client-format` cases), schema **v10**, **18** panel
+> routes, **5** slash commands, 23 tools, 8 skills, no new host peer. The 0.7
+> line's own record is [`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history), the 0.8
+> line's is [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) (frozen history too, now
+> that the line is closed), and the 0.9 line's is
 > [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md).
 >
 > **0.9.x is open, and it is decision-free only.** Its one committed patch is
-> **0.9.0 — month/week goal and rating surfaces**, **landed**: the stored
-> goal and the user's own review marks, which the day view already renders,
-> become visible in the month cells and the week columns, read-only, with no
+> **0.9.0 — month/week goal and rating surfaces**, **landed** (`v0.9.0` on
+> `d0f9b5a`, GitHub Release Latest, 544 tests): the stored goal and the user's
+> own review marks, which the day view already rendered, are visible in the month
+> cells and the week columns, read-only, with no
 > schema, configuration key, route, command, tool, skill, default, host peer, or
 > model call — the line stays at 18 routes, 5 commands, and schema v10. **0.9.1
 > is a candidate, not a promise** — docs/README parity, only if 0.9.0's own docs
-> pass leaves a real gap; by default the line ends at `v0.9.0`. The `dsh dayflow
-> import` CLI is **not on 0.9**; it is recommended for the cutover line, beside
-> the no-Dayflow runbook. **Owner-gated work does not enter 0.9:** image
+> pass leaves a real gap; by default the line ends at `v0.9.0` (the 0.9.0 docs
+> pass updated README/README.zh, PANEL, ARCHITECTURE, CHANGELOG, this roadmap,
+> and [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md), so no drift is known). The `dsh
+> dayflow import` CLI is **not on 0.9**; it is recommended for the cutover line,
+> beside the no-Dayflow runbook. **Owner-gated work does not enter 0.9:** image
 > admission (D1/D2/D11), the cutover (D10 plus a real week), any npm publish
 > (D7), and the owned-journal write path stay deferred.
 >
@@ -51,12 +56,13 @@
 > owner decisions it needs are in
 > [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, unchanged by 0.9.
 >
-> Last revised: 2026-11-27, against `v0.8.4` (`e298813`): 19 tags and 19 GitHub
-> Releases (`v0.8.4` Latest; the `v0.6.0` gap backfilled after the close);
+> Last revised: 2026-11-27, against `v0.9.0` (`d0f9b5a`): 20 tags and 20 GitHub
+> Releases (`v0.9.0` Latest; the `v0.6.0` gap backfilled after the 0.8.4 close);
 > 0.8.0's three ledger follow-ups, 0.8.1's briefs reading view, and 0.8.4's
 > release close landed; 0.8.2 image admission and 0.8.3 cutover are deferred to
-> the next line; 0.9.0 (month/week goal and rating surfaces) has landed; the
-> analysis contract is still **text-only** until D1/D2/D11 are answered.
+> the next line; 0.9.0 (month/week goal and rating surfaces) landed with a
+> GitHub Release; the analysis contract is still **text-only** until D1/D2/D11
+> are answered.
 
 ## Where this starts
 
@@ -187,8 +193,8 @@ read-only tool plus a renderer; each is independently shippable.
 and the owned journal. The panel's day view shows the goal and the review marks;
 the month and week payloads stayed unchanged on the 0.7.x line so browsing them
 does not pay for those reads. **0.9.0 reverses that for these two fields only**
-(the month and week days now carry the same `goal`/`ratings` the day payload
-does; see *0.9.x iterations*).
+(landed in `v0.9.0`: the month and week days carry the same `goal`/`ratings` the
+day payload does; see *0.9.x iterations*).
 
 **Exit criteria:** each tool has a fixture case and a failure case; the panel
 gains the goal and review surfaces it already has data for.
@@ -803,9 +809,10 @@ new test cases are recorded in
 ## 0.9.x iterations
 
 The 0.8.x line is closed and the 0.9.x line is open. **0.9.0 — month/week goal
-and rating surfaces — has landed** (`v0.9.0`, 544 tests); **0.9.1
-is a candidate, not a promise** (docs/README parity, only if 0.9.0's own docs
-pass leaves a real gap). Its execution plan is
+and rating surfaces — has landed** (`v0.9.0`, 544 tests); **0.9.1 is a candidate,
+not a promise** (docs/README parity, only if 0.9.0's own docs pass left a real
+gap; none is known, so the line is ready to be declared closed at `v0.9.0`). Its
+execution plan is
 [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md): patch-level deliverables, acceptance at
 the assertion level, the frozen-contract rule (only values in `PanelDay`'s
 already-declared optional fields change), the three-route agreement test, and the
@@ -813,24 +820,45 @@ rule that owner-gated work does not enter 0.9. One line each:
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.9.0 | Month/week goal and rating surfaces: the month and week payloads fill `PanelDay.goal`/`ratings` from the same readers the day route uses, and the client renders them read-only — a goal marker and rating dots in the month cell and the week column, the goal summary and review marks in the day hover card; no schema, config key, route, command, tool, skill, default, host peer, or model call; 18 routes and 5 commands unchanged | Phase 3 goal/rating read surfaces (the last stored-data panel gap) | **in progress** — design finalised in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0; not tagged yet |
-| 0.9.1 | Docs/README parity: README/README.zh, the "what remains" list, and the compatibility statement reconciled with the tagged tree; docs and release artefacts only | Release/closure hygiene | **candidate** — recommended only if 0.9.0's docs pass leaves a real gap; by default the line ends at `v0.9.0` |
+| 0.9.0 | Month/week goal and rating surfaces: the month and week payloads fill `PanelDay.goal`/`ratings` from the same readers the day route uses, and the client renders them read-only — a goal marker and rating dots in the month cell and the week column, the goal summary and review marks in the day hover card; no schema, config key, route, command, tool, skill, default, host peer, or model call; 18 routes and 5 commands unchanged | Phase 3 goal/rating read surfaces (the last stored-data panel gap) | **landed** — `v0.9.0` (`d0f9b5a`), GitHub Release Latest, 544 tests (537 → +7); shipped shape and deviations in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 |
+| 0.9.1 | Docs/README parity: README/README.zh, the "what remains" list, and the compatibility statement reconciled with the tagged tree; docs and release artefacts only | Release/closure hygiene | **candidate, not scheduled** — 0.9.0's docs pass updated every current-tree count and both languages in the same commit, so no drift is known; the line is recommended to close at `v0.9.0` |
 
-Order rationale: 0.9.0 is the only remaining decision-free item with a real
-user-visible payoff — the data and the wire types already exist, so it is a
-renderer plus an equality test, not new behaviour — and it closes the last
-stored-data gap the panel has. 0.9.1 exists only to absorb drift found after
-0.9.0's tag. The `dsh dayflow import` CLI is deliberately **not** on this line: it
-is a new entry point (5 → 6 commands) whose acceptance belongs beside the
-cutover's no-Dayflow runbook. The line stops after 0.9.0 — or after 0.9.1 if the
-docs drift is real — because everything further needs the owner or is a new
-write/entry surface; the 0.8.4 close's own advice was "ship the decision-free
-month/week goal and rating surfaces as 0.9.0 and stop there."
+Order rationale: 0.9.0 went first and landed because it was the only remaining
+decision-free item with a real user-visible payoff — the data and the wire types
+already exist, so it is a renderer plus an equality test, not new behaviour — and
+it closed the last stored-data gap the panel had. 0.9.1 exists only to absorb
+drift found after 0.9.0's tag, and none is known. The `dsh dayflow import` CLI is
+deliberately **not** on this line: it is a new entry point (5 → 6 commands) whose
+acceptance belongs beside the cutover's no-Dayflow runbook. The line stops at
+0.9.0 — or after 0.9.1 only if docs drift is later found — because everything
+further needs the owner or is a new write/entry surface; the 0.8.4 close's own
+advice was "ship the decision-free month/week goal and rating surfaces as 0.9.0
+and stop there."
 
-**The line's tags at this revision:** none yet. When 0.9.0 lands, its record is
-[`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 (a *Landed shape and deviations*
-subsection, as the 0.8 patches have) and this table's row flips to landed; no
-claim is made here before the tag exists.
+**The line's tags at this revision:** **`v0.9.0`** (2026-11-27, commit
+`d0f9b5a`, cut by `npm run release -- patch`, GitHub Release **Latest**). No
+`v0.9.1` is scheduled: with the 0.9.0 docs pass complete, the line's exit
+condition is met and it is recommended to close at one tag.
+
+**The 0.9.0 record (kept as landed history).** Tag `v0.9.0` on `d0f9b5a`, GitHub
+Release Latest, 544 green tests (537 at 0.8.4, so +7 in 2 files: two panel route
+tests and five `client-format` cases), schema v10, 18 routes (9 GET + 9 POST),
+5 commands, 23 tools, 8 skills, no new host peer, npm still 404. The patch shipped
+one feature commit (`38178c5`, *feat(panel): show the stored goal and review
+marks on month and week*) plus the release commit: the month and week payloads
+now attach the day route's own `goal`/`ratings` on the connection they already
+open (`goal: null` / `ratings: []` when the user recorded nothing), and the
+client renders them read-only — a goal marker plus up to three rating dots (full
+count in the marker's accessible label) and a goal summary plus the marks in the
+month hover card, and a compact goal chip plus dot row in the week column's meta
+line. No route, command, tool, skill, schema step, configuration key, default,
+dependency, or host peer changed, and no model is called; the panel keeps one
+entry and 18 routes. The docs travelled with the tag (README/README.zh,
+`docs/PANEL.md`, `docs/ARCHITECTURE.md`, CHANGELOG, this roadmap, and
+[`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md)). The presentation deviations from the
+design sketch — the three-dot cap, no extracted hover body, and `ratingColor`
+kept as a duplicate of the day view's local map — are recorded in
+[`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 *Landed shape and deviations*.
 
 **Not on 0.9.x (owner-gated or a new surface):** image admission (D1/D2/D11; the
 former 0.8.2 scope), the Phase 4 `source: owned` cutover (D10 plus a real
@@ -843,10 +871,11 @@ runbook — are unchanged and untouched by this line; they remain in
 
 ## Next line (1.0.0)
 
-The 0.8.x line closed without a functional default change, and the 0.9.x line is
-the decision-free holding line above: it changes no default, no capture, no
-analysis, and no import, so nothing in it touches the 1.0.0 prerequisites. **1.0.0
-starts after the line's last tag and is gated on the owner, not on engineering:**
+The 0.9.x line's one patch landed without a functional default change, and the
+0.9 line is the decision-free holding line above: it changes no default, no
+capture, no analysis, and no import, so nothing in it touches the 1.0.0
+prerequisites. **1.0.0 starts after the 0.9 line is declared closed and is gated
+on the owner, not on engineering:**
 
 1. **1.0.0 prerequisites (all required):** a real captured week on the owned
    default (capture on, `source: owned`, Dayflow closed, zero data loss across
@@ -929,10 +958,10 @@ starts after the line's last tag and is gated on the owner, not on engineering:*
 ## Suggested first cut
 
 *Historical: this was the advice before any of it shipped. Phases 1+2 landed in
-0.6.0 and 3.5 in 0.7.0, so the current order of work is the 0.9.x patch line
-above (0.9.0, the month/week goal and rating surfaces) and the next line's
-prerequisites after it, not this list; it stays because the reasoning still
-explains why the early work was sequenced that way.*
+0.6.0 and 3.5 in 0.7.0, the 0.8 line closed at 0.8.4, and 0.9.0 (the month/week
+goal and rating surfaces) has landed too, so the current order of work is the
+1.0.0 prerequisites and the five owner questions, not this list; it stays because
+the reasoning still explains why the early work was sequenced that way.*
 
 If only one thing is built next, build **phase 1 + phase 2**: the owned schema
 and the importer. They are unglamorous, they do not change a single user-visible
