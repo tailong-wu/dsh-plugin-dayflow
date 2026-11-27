@@ -6,6 +6,53 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-11-27
+
+### Added
+
+- The 0.7.4 text-only automation slice: the day and the week now close
+  themselves. Schema v9 adds two tables — `automation_runs` (one idempotent row
+  per attempted day/week close: period, status, attempts, error, timestamps) and
+  `briefs` for the stored weekly brief bodies (the daily standup keeps its
+  `daily_standup_entries` home; `kind = 'day'` is reserved). The change is
+  additive, so an existing journal migrates forward with no schema
+  compatibility break and the existing tables and panel payloads are unchanged.
+- `src/briefs/`: the daily brief writes the day's standup into
+  `daily_standup_entries` (compatible with the standup skill), and the weekly
+  brief rolls seven days into `briefs`.
+- `src/automation/`: the scheduler closes the Dayflow day at
+  `automation.dailyAt` (04:00) and the Monday-anchored week at
+  `automation.weeklyOn`, through the analysis consent gate and with no image;
+  the new `automation.catchUpDays` (1–30, default 2) bounds how many missed days
+  the next start (or sleep wake) catches up, anything older is recorded
+  `skipped` instead of replayed, a failed close retries up to the two-attempt
+  cap, and `automation_runs` keeps re-running the same day a no-op. The post-close
+  insights pass writes one day reflection, at most three review proposals
+  (distillation/loop/improvement, confidence ≥ 0.6), memory claims only as a
+  kept promotion (never silently active), and the matching long-task sessions
+  through `scanTaskHistory` + `attachTaskSession` (a low-confidence match becomes
+  a review item); the weekly close adds the weekly reflection, the weekly review
+  pass, and the memory lint summary.
+- `/dayflow-run-close`: one manual close through the same idempotent store, for
+  testing and catch-up.
+- `GET /api/dayflow/automation/status` and the panel's **close-state line**: the
+  Journal insights view gains a compact line under the analysis line — `Day
+  closes 04:00`, the last stored day close and its status, `Week close Mon`,
+  and the catch-up window — with a green dot for an enabled schedule (or a close
+  running now), amber when the last day close failed, and grey when automation is
+  off. The route answers `{automation: {enabled, running, dailyAt, weeklyOn,
+  catchUpDays, lastDayClose?, lastWeekClose?, nextDayCloseAt?}}`, derives the
+  schedule from the profile when the composition does not inject the scheduler,
+  and never creates the journal; the panel is now 18 host Fetch routes (9 `GET`,
+  9 `POST`). The line has no button, no new view, and no new header entry, and
+  its copy is in both languages.
+- The automation pass is a native-capture feature in 0.7.4 and inert on a
+  default profile: the scheduler mounts only with the analysis stack
+  (`capture.enabled` and `analysis.enabled` plus the host model service), so a
+  capture-off profile runs no close; once mounted, `analysis.consent: 'none'`,
+  an empty `analysis.provider`, or an empty `analysis.model` records the close
+  `skipped` and calls no model.
+
 ## [0.7.3] - 2026-11-27
 
 ### Added
@@ -478,7 +525,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.0...v0.7.1
