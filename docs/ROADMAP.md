@@ -11,7 +11,7 @@
 > are not renumbered. The 0.7.x line is closed too: its last tag is `v0.7.6`
 > (commit `007c287`) and all seven tags `v0.7.0`–`v0.7.6` have GitHub Releases;
 > 0.7.0 (`v0.7.0`, `45a7e42`) remains the **phase baseline**. Across the whole
-> repository the trail is now **20 tags / 20 GitHub Releases** and `v0.9.0` is
+> repository the trail is now **21 tags / 21 GitHub Releases** and `v0.9.1` is
 > **Latest**: the `v0.6.0` gap the 0.8.4 docs record as history was backfilled as
 > a release-only operation after that close, so no tag lacks a Release. Phase 4
 > is still **rehearsed
@@ -21,28 +21,33 @@
 > npm registry** (D7 unanswered), so every release here is a tag and a GitHub
 > Release only.
 >
-> **Measured on the `v0.9.0` tree:** **544** tests green (537 on `v0.8.4`, 521 on
-> `v0.8.0`, 494 on the closed `v0.7.6` tree — 0.8.1 added 16 in 3 files, 0.8.4
-> added none because it changed no code, and 0.9.0 added 7 in 2 files: two panel
-> route tests and five `client-format` cases), schema **v10**, **18** panel
-> routes, **5** slash commands, 23 tools, 8 skills, no new host peer. The 0.7
+> **Measured on the `v0.9.1` tree:** **557** tests green (544 on `v0.9.0`, 537 on
+> `v0.8.4`, 521 on `v0.8.0`, 494 on the closed `v0.7.6` tree — 0.8.1 added 16 in
+> 3 files, 0.8.4 added none because it changed no code, 0.9.0 added 7 in 2 files:
+> two panel route tests and five `client-format` cases, and 0.9.1 added 13 in 3
+> files: eleven reader cases in a new `tests/automation-read.test.ts`, one
+> `panel-insights` payload case, and one `client-format` copy case), schema
+> **v10**, **18** panel routes, **5** slash commands, 23 tools, 8 skills, no new
+> host peer. The 0.7
 > line's own record is [`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history), the 0.8
 > line's is [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) (frozen history too, now
 > that the line is closed), and the 0.9 line's is
 > [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md).
 >
-> **0.9.x is open, and it is decision-free only.** Its one committed patch is
-> **0.9.0 — month/week goal and rating surfaces**, **landed** (`v0.9.0` on
-> `d0f9b5a`, GitHub Release Latest, 544 tests): the stored goal and the user's
-> own review marks, which the day view already rendered, are visible in the month
-> cells and the week columns, read-only, with no
-> schema, configuration key, route, command, tool, skill, default, host peer, or
-> model call — the line stays at 18 routes, 5 commands, and schema v10. **0.9.1
-> has landed** with the close-history surface: one additive `closes` list on the
-> insights payload (the last stored history the native port recorded as missing)
-> and one read-only Close history block in the existing view, with no new route,
-> schema, command, or model call. The earlier docs-parity 0.9.1 candidate was
-> withdrawn because the 0.9.0 docs pass left no drift. The `dsh
+> **0.9.x is closed at `v0.9.1`, and it was decision-free only.** It shipped two
+> patches. **0.9.0 — month/week goal and rating surfaces**, **landed** (`v0.9.0`
+> on `d0f9b5a`, GitHub Release Latest at the time, 544 tests): the stored goal
+> and the user's own review marks, which the day view already rendered, are
+> visible in the month cells and the week columns, read-only, with no schema,
+> configuration key, route, command, tool, skill, default, host peer, or model
+> call — the line stays at 18 routes, 5 commands, and schema v10. **0.9.1 — the
+> close-history surface — has landed** (`v0.9.1` on `ce0827e`, GitHub Release
+> **Latest**, 557 tests): the automation ledger's recorded day, week, and lint
+> closes become one additive `closes` list on the insights payload and one
+> read-only **Close history** block in the existing Journal insights view — the
+> last stored history the native port recorded as missing — with no new route,
+> schema, config key, command, or model call. The earlier docs-parity 0.9.1
+> candidate was withdrawn because the 0.9.0 docs pass left no drift. The `dsh
 > dayflow import` CLI is **not on 0.9**; it is recommended for the cutover line,
 > beside the no-Dayflow runbook. **Owner-gated work does not enter 0.9:** image
 > admission (D1/D2/D11), the cutover (D10 plus a real week), any npm publish
@@ -53,17 +58,20 @@
 > the `review.cards` switch (the plugin never had a card stack, so the switch
 > has no surface), task tagging from the summarization prompt, automatic
 > activity attribution, goal analytics beyond stored-data rendering, embeddings,
-> and Phase 5. 1.0.0 follows the deferred cutover and a real captured week; the
-> owner decisions it needs are in
+> and Phase 5. The native port's stored-data read gaps are all closed now: its
+> last *Missing* read, the close history, landed in 0.9.1, leaving image
+> admission and the cutover there — both owner-gated. 1.0.0 follows the deferred
+> cutover and a real captured week; the owner decisions it needs are in
 > [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, unchanged by 0.9.
 >
-> Last revised: 2026-11-27, against `v0.9.0` (`d0f9b5a`): 20 tags and 20 GitHub
-> Releases (`v0.9.0` Latest; the `v0.6.0` gap backfilled after the 0.8.4 close);
-> 0.8.0's three ledger follow-ups, 0.8.1's briefs reading view, and 0.8.4's
-> release close landed; 0.8.2 image admission and 0.8.3 cutover are deferred to
-> the next line; 0.9.0 (month/week goal and rating surfaces) landed with a
-> GitHub Release; the analysis contract is still **text-only** until D1/D2/D11
-> are answered.
+> Last revised: 2026-11-27, against the `v0.9.1` tag (`ce0827e`): **21 tags and
+> 21 GitHub Releases** (`v0.9.1` **Latest**; the `v0.6.0` gap backfilled after
+> the 0.8.4 close); 0.8.0's three ledger follow-ups, 0.8.1's briefs reading view,
+> and 0.8.4's release close landed; 0.8.2 image admission and 0.8.3 cutover are
+> deferred to the next line; 0.9.0 (month/week goal and rating surfaces) and
+> 0.9.1 (close-history surface) landed with GitHub Releases, closing the 0.9.x
+> line at `v0.9.1`; the analysis contract is still **text-only** until
+> D1/D2/D11 are answered.
 
 ## Where this starts
 
@@ -656,10 +664,12 @@ and the 04:00 boundary runs one bounded yesterday tail behind the
 (**landed**, `v0.8.1`, 537 tests), **0.8.2** would have admitted images and
 **0.8.3** would have been the cutover itself (both are now **deferred to the next
 line** — the line stays text-only and no default flips), and **0.8.4** closed the
-line; the **0.9.x line is open and decision-free** (the month/week goal and
-rating surfaces, see *0.9.x iterations*), and `1.0.0` follows the deferred
-cutover and a real captured week. The phasing above (Phase 5 and later) is
-untouched by these lines until the native path lands.
+line; the **0.9.x line is closed at `v0.9.1`** (0.9.0's month/week goal and
+rating surfaces, and 0.9.1's close-history surface — the last item this
+section's *Missing* list recorded as a stored-data read gap; see *0.9.x
+iterations*), and `1.0.0` follows the deferred cutover and a real captured week.
+The phasing above (Phase 5 and later) is untouched by these lines until the
+native path lands.
 
 ### Phase 5 — Personalization that acts
 
@@ -809,16 +819,17 @@ new test cases are recorded in
 
 ## 0.9.x iterations
 
-The 0.8.x line is closed and the 0.9.x line is open. **0.9.0 — month/week goal
-and rating surfaces — has landed** (`v0.9.0`, 544 tests); **0.9.1 — the
-close-history surface — has landed too** (`v0.9.1`, 557 tests), making the stored
+The 0.8.x line is closed and the 0.9.x line is closed at `v0.9.1`. **0.9.0 —
+month/week goal and rating surfaces — landed** (`v0.9.0`, 544 tests); **0.9.1 —
+the close-history surface — landed too** (`v0.9.1`, 557 tests), making the stored
 day/week/lint close history readable in the existing insights view. The earlier
-docs-parity candidate for 0.9.1 was withdrawn; the line closes at `v0.9.1`. Its
-execution plan is
+docs-parity candidate for 0.9.1 was withdrawn; the line closed at its second tag.
+Its execution plan is
 [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md): patch-level deliverables, acceptance at
-the assertion level, the frozen-contract rule (only values in `PanelDay`'s
-already-declared optional fields change), the three-route agreement test, and the
-rule that owner-gated work does not enter 0.9. One line each:
+the assertion level, the frozen-contract rule with its two declared exceptions
+(values in `PanelDay`'s already-declared optional fields; one additive `closes`
+list on the insights payload), the three-route agreement test, and the rule that
+owner-gated work does not enter 0.9. One line each:
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
@@ -838,8 +849,10 @@ advice was "ship the decision-free month/week goal and rating surfaces as 0.9.0
 and stop there."
 
 **The line's tags at this revision:** **`v0.9.0`** (2026-11-27, commit
-`d0f9b5a`) and **`v0.9.1`** (the line's close, with a GitHub Release as
-**Latest**). No 0.9.2 is scheduled: the line's exit condition is met.
+`d0f9b5a`) and **`v0.9.1`** (2026-11-27, annotated tag on commit `ce0827e`, the
+line's close; GitHub Release **Latest**). Both have GitHub Releases, so the
+repository trail is **21 tags / 21 Releases**. No 0.9.2 is scheduled: the line is
+closed at `v0.9.1`.
 
 **The 0.9.0 record (kept as landed history).** Tag `v0.9.0` on `d0f9b5a`, GitHub
 Release Latest, 544 green tests (537 at 0.8.4, so +7 in 2 files: two panel route
@@ -861,6 +874,41 @@ design sketch — the three-dot cap, no extracted hover body, and `ratingColor`
 kept as a duplicate of the day view's local map — are recorded in
 [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 *Landed shape and deviations*.
 
+**The 0.9.1 record (kept as landed history).** Annotated tag `v0.9.1` on commit
+`ce0827e` (`chore(release): 0.9.1`), whose feature commit is `be7a10c`
+(*feat(panel): read the stored close history in the insights view*); GitHub
+Release **Latest**, 557 green tests (544 at 0.9.0, so +13 in 3 files: eleven
+cases in a new `tests/automation-read.test.ts`, one payload case in
+`tests/panel-insights.test.ts`, and one copy case in
+`tests/client-format.test.ts`), schema v10, 18 routes (9 GET + 9 POST),
+5 commands, 23 tools, 8 skills, no new host peer, npm still 404. The patch made
+the automation ledger readable: `PanelInsights.closes: PanelCloseSummary[]` is
+one additive list (the 0.8.1 `briefs` precedent), produced by the new
+`src/automation/read.ts` (`readPanelCloses`/`listPanelCloses`) from the store's
+existing `listAutomationRuns` — no new SQL and no `src/automation/store.ts`
+change. Each entry is `{job, day, status, attempts, error?, updated_at}`: newest
+`updated_at` first with ties by descending row id, capped at 10 by default (the
+reader accepts a 1–20 limit), a stored error clamped to 500 characters, and no
+row id, `created_at`, or stored `payload` on the wire. A missing, blank, or
+unopenable journal answers `[]` and creates no file; a corrupt ledger row is not
+silently dropped — the store's strict mapping surfaces `database_error` and the
+route answers a JSON error (503) rather than a shorter history that would read as
+complete. The client renders one read-only **Close history** block after
+**Briefs**: a job badge (Day close / Week close / Lint), the day or the week's
+date range, the localized status, the attempt count when a close needed more
+than one, the truncated error summary with the full message in its
+`title`/`aria-label`, and the updated date; failed and skipped rows carry one
+restrained amber tone, and nothing becomes a button — no retry, no re-run, no add
+row, no decision row. Both dictionaries carry the copy, and the block adds no
+route, tab, header button, schema step, configuration key, default, dependency,
+or model call. The docs travelled with the tag (README/README.zh,
+`docs/PANEL.md`, `docs/ARCHITECTURE.md`, `docs/NATIVE_PORT.md`, CHANGELOG, this
+roadmap, and [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md)). The deviations recorded
+against the section's sketch — the strict bad-row semantics instead of a
+tolerance, the row-local client helpers kept in `insights.tsx`, and the two
+`closes: []` literals in `tests/panel.test.ts` — are in
+[`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.1.
+
 **Not on 0.9.x (owner-gated or a new surface):** image admission (D1/D2/D11; the
 former 0.8.2 scope), the Phase 4 `source: owned` cutover (D10 plus a real
 captured week; the former 0.8.3 scope), any npm publish (D7), the `dsh dayflow
@@ -872,11 +920,11 @@ runbook — are unchanged and untouched by this line; they remain in
 
 ## Next line (1.0.0)
 
-The 0.9.x line's one patch landed without a functional default change, and the
+The 0.9.x line's two patches landed without a functional default change, and the
 0.9 line is the decision-free holding line above: it changes no default, no
 capture, no analysis, and no import, so nothing in it touches the 1.0.0
-prerequisites. **1.0.0 starts after the 0.9 line is declared closed and is gated
-on the owner, not on engineering:**
+prerequisites. The line is now closed at `v0.9.1`, so **1.0.0 is gated on the
+owner, not on engineering:**
 
 1. **1.0.0 prerequisites (all required):** a real captured week on the owned
    default (capture on, `source: owned`, Dayflow closed, zero data loss across
