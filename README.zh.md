@@ -269,7 +269,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 ```sh
 npm install
 npm run build                # TypeScript → lib/，以及 client bundle
-npm test                     # 构建、类型检查并运行 557 个测试
+npm test                     # 构建、类型检查并运行 558 个测试
 npm run typecheck            # 同时类型检查源码与测试
 npm run smoke                # 读取本机真实 Dayflow 数据库
 npm run native:smoke         # 只测采集 provider，不写入任何数据

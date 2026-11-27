@@ -2,7 +2,7 @@
 
 > Status: **open — the project is in maintenance, paused pending these five
 > answers, not abandoned.** Measured on the `v0.9.2` tree (`ccac653`): **22 tags /
-> 22 GitHub Releases**, **557** green tests, schema **v10**, **18** panel routes,
+> 22 GitHub Releases**, **557** green tests at `v0.9.2` (**558** in the current tree after the post-tag metadata guard), schema **v10**, **18** panel routes,
 > **5** slash commands, **23** tools, **8** skills, DSH `0.2.2-rc.5` declared and
 > pinned in the development dependencies, and npm still **404** (never
 > published). Nothing on this page has been answered as of 2026-11-27.

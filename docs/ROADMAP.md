@@ -1,8 +1,11 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: **`v0.9.1` is the latest tag, and the 0.9.x line's two functional
-> patches close its functional scope; a post-close maintenance patch, 0.9.2 —
-> DSH `0.2.2-rc.5` compatibility — has landed.**
+> Status: **`v0.9.2` is the latest tag and GitHub Release; the 0.9.x line's two
+> functional patches close its functional scope, and the post-close maintenance
+> patch 0.9.2 — DSH `0.2.2-rc.5` compatibility — has landed.** After that tag an
+> engineering-only package-metadata regression guard joined the tree (no tag, no
+> new patch), so the current tree is **558** tests against **557** at the tag and
+> the project stays **paused** under maintenance.
 > `v0.9.1` is an annotated tag whose tree is **557** green tests, schema **v10**, **18** panel
 > routes (9 `GET` + 9 `POST`), **5** slash commands, 23 tools, 8 skills, and no new
 > host peer; the previous line closed at `v0.8.4` (537 tests) and its two
@@ -13,7 +16,7 @@
 > are not renumbered. The 0.7.x line is closed too: its last tag is `v0.7.6`
 > (commit `007c287`) and all seven tags `v0.7.0`–`v0.7.6` have GitHub Releases;
 > 0.7.0 (`v0.7.0`, `45a7e42`) remains the **phase baseline**. Across the whole
-> repository the trail is now **21 tags / 21 GitHub Releases** and `v0.9.1` is
+> repository the trail is now **22 tags / 22 GitHub Releases** and `v0.9.2` is
 > **Latest**: the `v0.6.0` gap the 0.8.4 docs record as history was backfilled as
 > a release-only operation after that close, so no tag lacks a Release. Phase 4
 > is still **rehearsed
@@ -30,7 +33,10 @@
 > files: eleven reader cases in a new `tests/automation-read.test.ts`, one
 > `panel-insights` payload case, and one `client-format` copy case), schema
 > **v10**, **18** panel routes, **5** slash commands, 23 tools, 8 skills, no new
-> host peer. The 0.7
+> host peer. **The current tree is 558 green tests, against 557 at the `v0.9.2`
+> tag**: 0.9.2 itself added no test, and the one case added after the tag is the
+> engineering-only package-metadata regression guard described in §0.9.x, which
+> carries no tag. The 0.7
 > line's own record is [`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history), the 0.8
 > line's is [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) (frozen history too, now
 > that the line is closed), and the 0.9 line's is
@@ -45,8 +51,8 @@
 > configuration key, route, command, tool, skill, default, host peer, or model
 > call — the line stays at 18 routes, 5 commands, and schema v10. **0.9.1 — the
 > close-history surface — has landed** (`v0.9.1` on `ce0827e`, GitHub Release
-> **Latest**, 557 tests): the automation ledger's recorded day, week, and lint
-> closes become one additive `closes` list on the insights payload and one
+> **Latest until 0.9.2**, 557 tests): the automation ledger's recorded day, week,
+> and lint closes become one additive `closes` list on the insights payload and one
 > read-only **Close history** block in the existing Journal insights view — the
 > last stored history the native port recorded as missing — with no new route,
 > schema, config key, command, or model call. The earlier docs-parity 0.9.1
@@ -109,23 +115,29 @@
 > [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, unchanged by 0.9 and
 > consolidated in [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
 >
-> Last revised: 2026-11-27, against the `v0.9.1` tag (`ce0827e`): **21 tags and
-> 21 GitHub Releases** (`v0.9.1` **Latest**; the `v0.6.0` gap backfilled after
+> Last revised: 2026-11-27, after the `v0.9.2` tag (`ccac653`): **22 tags and
+> 22 GitHub Releases** (`v0.9.2` **Latest**; the `v0.6.0` gap backfilled after
 > the 0.8.4 close); 0.8.0's three ledger follow-ups, 0.8.1's briefs reading view,
 > and 0.8.4's release close landed; 0.8.2 image admission and 0.8.3 cutover are
 > deferred to the next line; 0.9.0 (month/week goal and rating surfaces) and
 > 0.9.1 (close-history surface) landed with GitHub Releases, closing the 0.9.x
-> line's functional scope at `v0.9.1`; after the tag the six remaining
-> decision-free candidates were evaluated and none is worth a tag, so the project
+> line's functional scope at `v0.9.1`; 0.9.2 (DSH `0.2.2-rc.5` compatibility)
+> landed too as the line's one maintenance tag, and the line returned to
+> maintenance; after that tag the six remaining decision-free candidates were
+> evaluated and none is worth a tag, so the project
 > is in maintenance, paused pending the five owner decisions consolidated in
 > [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md). The one decision-free fix found
 > after that evaluation is the **DSH `0.2.2-rc.5` compatibility gap** — the running
 > host is newer than the declared cohort and the pinned dev toolchain — which
-> opens the maintenance patch **0.9.2 (landed)** and changes none of the
-> decisions: no `0.10.0` and no 1.0.0 opens without the owner, and the analysis
-> contract is still **text-only** until D1/D2/D11 are answered. After the tag the
+> opens the maintenance patch **0.9.2 (landed; `v0.9.2`, the 22nd tag and
+> Release)** and changes none of the decisions: no `0.10.0` and no 1.0.0 opens
+> without the owner, and the analysis contract is still **text-only** until
+> D1/D2/D11 are answered. After the tag the
 > decision-free operator runbook ([`RUNBOOK.md`](RUNBOOK.md)) was written as the
-> first 1.0.0 engineering prep — docs only, no tag.
+> first 1.0.0 engineering prep — docs only, no tag. An engineering-only
+> package-metadata regression guard (`tests/compatibility.test.ts`) joined the
+> suite after that tag too — no tag and no new patch — so the current tree is
+> **558** tests against **557** at `v0.9.2`, and the pause stays in force.
 
 ## Where this starts
 
@@ -891,7 +903,7 @@ owner-gated work does not enter 0.9. One line each:
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.9.0 | Month/week goal and rating surfaces: the month and week payloads fill `PanelDay.goal`/`ratings` from the same readers the day route uses, and the client renders them read-only — a goal marker and rating dots in the month cell and the week column, the goal summary and review marks in the day hover card; no schema, config key, route, command, tool, skill, default, host peer, or model call; 18 routes and 5 commands unchanged | Phase 3 goal/rating read surfaces (the last stored-data panel gap) | **landed** — `v0.9.0` (`d0f9b5a`), GitHub Release Latest, 544 tests (537 → +7); shipped shape and deviations in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 |
+| 0.9.0 | Month/week goal and rating surfaces: the month and week payloads fill `PanelDay.goal`/`ratings` from the same readers the day route uses, and the client renders them read-only — a goal marker and rating dots in the month cell and the week column, the goal summary and review marks in the day hover card; no schema, config key, route, command, tool, skill, default, host peer, or model call; 18 routes and 5 commands unchanged | Phase 3 goal/rating read surfaces (the last stored-data panel gap) | **landed** — `v0.9.0` (`d0f9b5a`), GitHub Release (Latest until 0.9.1), 544 tests (537 → +7); shipped shape and deviations in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 |
 | 0.9.1 | Close-history surface: the recent scheduled closes the automation already records (day close, week close, weekly memory lint) join the existing insights payload as one additive `closes` list, and the existing view gains one read-only Close history block; no new route, schema, config key, command, tool, skill, peer, write path, or model call | Native port Phase 3 remainder / §1 Missing (close-history surface) | **landed** — `v0.9.1`, 557 tests (544 → +13); shipped shape in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.1 |
 | 0.9.2 | DSH `0.2.2-rc.5` compatibility (maintenance): declare `0.2.2-rc.5` in `dsh.compatibility.dshReleases`, move the seven DSH SDK dev dependencies and the lock from `0.2.1-rc.2` to `0.2.2-rc.5`, add the three client host peers as devDependencies for clean `npm ci` resolution, apply a minimal adaptation only if the new typings require one, and re-run suite/typecheck/build/package; no behaviour, default, schema, config key, route, command, tool, skill, runtime dependency, or host peer change | Maintenance — host-compatibility fix (decision-free) | **landed** (`v0.9.2`) — after the tag/Release the line returns to maintenance |
 
@@ -913,15 +925,17 @@ about this tree. Fixing that is maintenance in the narrow sense the pause allows
 configure, or decide.
 
 **The line's tags at this revision:** **`v0.9.0`** (2026-11-27, commit
-`d0f9b5a`) and **`v0.9.1`** (2026-11-27, annotated tag on commit `ce0827e`, the
-functional close; GitHub Release **Latest**). Both have GitHub Releases, so the
-repository trail is **21 tags / 21 Releases**; `v0.9.2`, once the lead cuts it
-from the green compat tree, becomes the 22nd tag and Release and then the line
-returns to maintenance. The functional line stays closed at `v0.9.1`.
+`d0f9b5a`), **`v0.9.1`** (2026-11-27, annotated tag on commit `ce0827e`, the
+functional close; GitHub Release Latest until 0.9.2), and **`v0.9.2`**
+(2026-11-27, annotated tag on commit `ccac653`, the maintenance fix; GitHub
+Release **Latest**). Each has a GitHub Release, so the repository trail is
+**22 tags / 22 Releases** and the line returned to maintenance after the
+`v0.9.2` cut. The functional line stays closed at `v0.9.1`.
 
 **The 0.9.0 record (kept as landed history).** Tag `v0.9.0` on `d0f9b5a`, GitHub
-Release Latest, 544 green tests (537 at 0.8.4, so +7 in 2 files: two panel route
-tests and five `client-format` cases), schema v10, 18 routes (9 GET + 9 POST),
+Release (Latest until 0.9.1), 544 green tests (537 at 0.8.4, so +7 in 2 files:
+two panel route tests and five `client-format` cases), schema v10, 18 routes
+(9 GET + 9 POST),
 5 commands, 23 tools, 8 skills, no new host peer, npm still 404. The patch shipped
 one feature commit (`38178c5`, *feat(panel): show the stored goal and review
 marks on month and week*) plus the release commit: the month and week payloads
@@ -942,8 +956,8 @@ kept as a duplicate of the day view's local map — are recorded in
 **The 0.9.1 record (kept as landed history).** Annotated tag `v0.9.1` on commit
 `ce0827e` (`chore(release): 0.9.1`), whose feature commit is `be7a10c`
 (*feat(panel): read the stored close history in the insights view*); GitHub
-Release **Latest**, 557 green tests (544 at 0.9.0, so +13 in 3 files: eleven
-cases in a new `tests/automation-read.test.ts`, one payload case in
+Release **Latest until 0.9.2**, 557 green tests (544 at 0.9.0, so +13 in 3
+files: eleven cases in a new `tests/automation-read.test.ts`, one payload case in
 `tests/panel-insights.test.ts`, and one copy case in
 `tests/client-format.test.ts`), schema v10, 18 routes (9 GET + 9 POST),
 5 commands, 23 tools, 8 skills, no new host peer, npm still 404. The patch made
@@ -990,8 +1004,9 @@ maintenance; the one post-close exception is the 0.9.2 host-compatibility patch
 described below.** It is **paused pending the owner's answers, not abandoned**:
 the plugin works at its current scope (readable journal, briefs, review queue,
 panel views, native capture and text-only analysis on the safe defaults), every
-tag has a Release, and the suite is green (re-run at this revision: **557 pass,
-0 fail**) — but everything left is owner-gated, a new product surface, or not
+tag has a Release, and the suite is green (re-run at this revision, after the
+post-tag guard: **558 pass, 0 fail** — **557** at the `v0.9.2` tag) — but
+everything left is owner-gated, a new product surface, or not
 worth a release, so no `0.10.0` or `1.0.0` is opened. The `0.9.2` compatibility
 patch is not a counter-example: it was opened by the harness's own version move
 *after* the evaluation below, changes no default, ships nothing a user can see or
@@ -1022,6 +1037,25 @@ line (with the CLI import beside the no-Dayflow runbook), while D1/D2/D11/D7
 shape 1.0.0 and image admission. If the owner does not answer, this is where the
 project stays — complete at its current scope, maintained, and waiting on
 [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
+
+**Engineering-only guard added after the `v0.9.2` tag — no tag, no new patch,
+pause unchanged.** The metadata 0.9.2 realigned — the
+`dsh.compatibility.dshReleases` map, the bumped DSH devDependencies, and the peer
+ranges — is invisible at runtime, so one more host move could drift it again
+exactly as it drifted before 0.9.2, and the behavioural suite would stay green
+because no request exercises those declarations. The new
+`tests/compatibility.test.ts` closes that gap with one metadata-contract case: it
+pins the compat map (`0.2.0-rc.2`, `0.2.1-rc.2`, `0.2.2-rc.5`), the seven SDK and
+three client host devDependency pins, the two deliberate deviations (`cordis`
+`4.1.0` against the `^4.0.4` peer floor; `schemastery` dev `3.18.5` against the
+conservative `~3.18.4` peer), the DSH peer ranges, the empty `dependencies`, and
+the absence of an attachment package — with each assertion message naming the
+drifted field, so the next upgrade fails at the declaration instead of drifting
+silently. It is engineering-only: it adds no behaviour, default, route, schema,
+command, tool, skill, or dependency, produces no tag and no release, and leaves
+the pause and the five owner questions exactly as they are. It is the one case
+the tree gained after the tag, so the current tree is **558** tests against
+**557** at `v0.9.2`; that count is a maintenance measurement, not a patch.
 
 ### 0.9.2 — DSH 0.2.2-rc.5 compatibility (landed)
 

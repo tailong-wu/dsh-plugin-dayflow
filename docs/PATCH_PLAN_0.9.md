@@ -1,9 +1,10 @@
 # Patch plan: the 0.9.x line
 
 > **Status:** **the 0.9.x line's functional scope is closed at `v0.9.1`, and it
-> was decision-free by construction; the line is reopened for exactly one
-> maintenance patch — 0.9.2, DSH `0.2.2-rc.5` compatibility — which is in
-> progress.** The 0.8.x line closed at its release-close
+> was decision-free by construction; the line was reopened for exactly one
+> maintenance patch — 0.9.2, DSH `0.2.2-rc.5` compatibility — which has landed
+> (`v0.9.2`, the 22nd tag and Release), and the line is back in maintenance.**
+> The 0.8.x line closed at its release-close
 > patch: `v0.8.4` is an annotated tag on commit `e298813`, the commit that
 > closed the line, with a GitHub Release (Latest until `v0.9.0`). That tree is
 > **537** green tests, schema **v10**, **18** panel routes (9 `GET` + 9 `POST`),
@@ -12,8 +13,8 @@
 > 0.8 line's tags are exactly **`v0.8.0`, `v0.8.1`, `v0.8.4`**, each with a
 > GitHub Release; the owner-gated 0.8.2 (image admission) and 0.8.3 (Phase 4
 > cutover) were **deferred to the next line**, never started, and are not
-> renumbered. Across the repository the trail is now **21 tags / 21 Releases**,
-> with **`v0.9.1` Latest**: the `v0.6.0` gap the 0.8.4 close recorded as history
+> renumbered. Across the repository the trail is now **22 tags / 22 Releases**,
+> with **`v0.9.2` Latest**: the `v0.6.0` gap the 0.8.4 close recorded as history
 > was backfilled as a release-only operation after that tag, so every tag has a
 > Release today.
 >
@@ -28,7 +29,8 @@
 >
 > **0.9.1 is the line's second and final functional patch, reopened into the
 > close-history surface and landed** (`v0.9.1`, annotated tag on commit `ce0827e`, GitHub
-> Release **Latest**, **557** green tests — 544 at `v0.9.0`, so 0.9.1 added 13).
+> Release **Latest at the time**, **557** green tests — 544 at `v0.9.0`, so 0.9.1
+> added 13).
 > The automation ledger has recorded every attempted day close, week
 > close, and weekly memory lint in `automation_runs` since schema v9, with the
 > status, the attempt count, and the stored error or skip reason — but the panel
@@ -46,8 +48,8 @@
 > docs pass covered README/README.zh, PANEL, ARCHITECTURE, CHANGELOG, ROADMAP,
 > and this file, so no drift is known, and a docs-only release with no
 > user-visible change would be release noise. **The line is reopened for exactly
-> one maintenance patch, 0.9.2 — DSH `0.2.2-rc.5` compatibility — which is in
-> progress** (see §0.9.2). It is not a product patch and changes no decision: the
+> one maintenance patch, 0.9.2 — DSH `0.2.2-rc.5` compatibility — which has
+> landed** (see §0.9.2). It is not a product patch and changes no decision: the
 > installed DSH app moved to `0.2.2-rc.5` after `v0.9.1` was cut, while this tree
 > still declares `0.2.0-rc.2`/`0.2.1-rc.2` and pins its seven DSH dev
 > dependencies at `0.2.1-rc.2`, so the release the plugin actually runs on was
@@ -94,16 +96,17 @@ Facts checked against the repository, the tag list, the GitHub release list, and
 the npm registry on 2026-11-27. The **design baseline** was measured on the
 `v0.8.4` tree (`e298813`); the **landed measurement** is the `v0.9.1` tree
 (`ce0827e`), whose suite was re-run for this revision (**557 pass, 0 fail, 0
-skipped, 0 todo**) with the release list read (`v0.9.1` is `Latest`). Both are
-dated below; when an operation invalidates one, it updates this table. The
-`v0.9.0` measurement (544) is kept where it records what 0.9.0 added.
+skipped, 0 todo**) with the release list read (`v0.9.1` was then `Latest`; after
+this line's maintenance tag, `v0.9.2` is `Latest`). Both are dated below; when an
+operation invalidates one, it updates this table. The `v0.9.0` measurement (544)
+is kept where it records what 0.9.0 added.
 
 | Fact | Value | Checked at |
 | --- | --- | --- |
 | Baseline for this line | **landed through `0.9.1`**, annotated tag `v0.9.1` (commit `ce0827e`), whose `package.json` version is `0.9.1`; the first patch's tag is `v0.9.0` (commit `d0f9b5a`). The line was designed from and branched off `v0.8.4` (`e298813`). **0.9.2 is appended after the close**: it starts from `main` at `2383117` (the 0.9.1 tree plus docs runs) and is the one patch that reopens the line | `package.json`, `git tag`, `git log` |
-| Release trail | **21 tags / 21 GitHub Releases** across the repository; **`v0.9.1`** (`ce0827e`) is `Latest` and its body is the CHANGELOG `[0.9.1]` section, **`v0.9.0`** (`d0f9b5a`) was `Latest` before it, while `v0.8.4`'s body names 0.8.2/0.8.3 deferred with their blocking decisions. The 0.8 line's tags are exactly `v0.8.0` (`f4191b9`), `v0.8.1` (`af002c3`), `v0.8.4` (`e298813`), and the 0.9 line's are exactly `v0.9.0` and `v0.9.1`. The `v0.6.0` gap the tagged 0.8.4 docs record as history was **backfilled** as a release-only operation after that close (release published 2026-11-27 06:26Z), so no tag lacked a Release before this line | `gh release list --limit 30`, `git tag`, `gh release view v0.9.1` |
+| Release trail | **22 tags / 22 GitHub Releases** across the repository; **`v0.9.2`** (`ccac653`) is `Latest` and its body is the CHANGELOG `[0.9.2]` section, **`v0.9.1`** (`ce0827e`) was `Latest` before it, and **`v0.9.0`** (`d0f9b5a`) before that, while `v0.8.4`'s body names 0.8.2/0.8.3 deferred with their blocking decisions. The 0.8 line's tags are exactly `v0.8.0` (`f4191b9`), `v0.8.1` (`af002c3`), `v0.8.4` (`e298813`), and the 0.9 line's are exactly `v0.9.0`, `v0.9.1`, and `v0.9.2`. The `v0.6.0` gap the tagged 0.8.4 docs record as history was **backfilled** as a release-only operation after that close (release published 2026-11-27 06:26Z), so no tag lacked a Release before this line | `gh release list --limit 30`, `git tag`, `gh release view v0.9.2` |
 | npm | `npm view dsh-plugin-dayflow version` answers **404** — never published; D7 still unanswered, so the safe default stays "tagged here, not on the registry" (checked again on the `v0.9.1` tree) | `npm view`, README/README.zh |
-| Tests | **557** cases, green on the tag (`npm test`: 557 pass, 0 fail, 0 skipped, 0 todo; 544 at `v0.9.0`, 537 at `v0.8.4`, 521 at `v0.8.0`, 494 at `v0.7.6`). 0.9.0 added 7 in 2 files (`tests/panel.test.ts`: the three-route agreement and the empty month/week no-journal test; `tests/client-format.test.ts`: 5 cases) and 0.9.1 added 13 in 3 files: 11 reader cases in a new `tests/automation-read.test.ts`, one payload case in `tests/panel-insights.test.ts` (whose two "five empty lists" literals became six), and one copy case in `tests/client-format.test.ts`; `tests/panel.test.ts` gained only two `closes: []` literals. CI runs macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24. **0.9.2 re-runs the whole suite on the `0.2.2-rc.5` dev dependencies**; 557 is the floor, the count is recorded at the cut, and no case may be dropped or weakened | `npm test`, `.github/workflows/ci.yml` |
+| Tests | **557** cases, green on the tag (`npm test`: 557 pass, 0 fail, 0 skipped, 0 todo; 544 at `v0.9.0`, 537 at `v0.8.4`, 521 at `v0.8.0`, 494 at `v0.7.6`). 0.9.0 added 7 in 2 files (`tests/panel.test.ts`: the three-route agreement and the empty month/week no-journal test; `tests/client-format.test.ts`: 5 cases) and 0.9.1 added 13 in 3 files: 11 reader cases in a new `tests/automation-read.test.ts`, one payload case in `tests/panel-insights.test.ts` (whose two "five empty lists" literals became six), and one copy case in `tests/client-format.test.ts`; `tests/panel.test.ts` gained only two `closes: []` literals. CI runs macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24. **0.9.2 re-runs the whole suite on the `0.2.2-rc.5` dev dependencies**; 557 is the floor, the cut recorded 557, and after the tag `tests/compatibility.test.ts` adds one case, so the current tree is **558**; no case may be dropped or weakened | `npm test`, `.github/workflows/ci.yml` |
 | Tools / skills / commands | 23 tools registered by default (17 with `edits: false`) plus `dayflow_install_dayflow` behind `allowInstall: false`; 8 skills; 5 slash commands (`dayflow-task`, `dayflow-remember`, `dayflow-reflect`, `dayflow-analyze`, `dayflow-run-close`) — neither 0.9.0 nor 0.9.1 changes any of these | `src/index.ts`, `src/commands.ts`, `tests/plugin.test.ts` |
 | Panel | 18 exact host Fetch routes (9 GET + 9 POST), one UI entry (one header button, one panel tab), one insights payload. The read views are `/api/dayflow/day`, `/api/dayflow/month`, `/api/dayflow/week`, and all three days share one type (`PanelDay`); the insights answer gains 0.8.1's `briefs` and 0.9.1's `closes` — neither 0.9 patch adds a route | `src/panel-contract.ts`, `src/panel.ts`, `tests/panel.test.ts`, `tests/client-bundle.test.ts` |
 | Owned schema | **v10** (`automation_runs` accepts `'lint'`; `briefs.payload_json`); 0.8.4, 0.9.0, and 0.9.1 changed no migration and no table — 0.9.1 only reads the existing `automation_runs` | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
@@ -215,7 +218,7 @@ extend the product.
 | Patch | Theme | Roadmap item | Depends on | Decisions | Risk | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | **0.9.0** | **Month/week goal and rating surfaces:** fill `PanelDay.goal`/`ratings` on the month and week payloads from the same readers the day route uses, and render them read-only in the calendar cells, the week columns, and the day hover card; no schema, config, route, command, tool, skill, or peer change; routes stay 18 and commands 5 | Phase 3 goal/rating read surfaces (the last stored-data panel gap) / 0.8.4 §G2's first candidate | — (branched from `v0.8.4`) | none | Low | **landed** — `v0.9.0` (`d0f9b5a`), GitHub Release (Latest at the time), 544 tests; shipped shape and deviations in §0.9.0 *Landed shape and deviations* |
-| **0.9.1** | **Close-history surface (reopened, landed):** the recent scheduled closes the automation already records — day close, week close, and the weekly memory lint — join the existing insights payload as one additive `closes` list, and the existing Journal insights view gains one read-only Close history block (job, period, status, attempt count, error summary, updated date); no new route (still 18), no schema, config key, command, tool, skill, peer, write path, or model call | Native port Phase 3 remainder / [`NATIVE_PORT.md`](NATIVE_PORT.md) §1 *Missing* ("A close-history surface") | `v0.9.0` | none | Low | **landed** — `v0.9.1` (`ce0827e`), GitHub Release Latest, 557 tests (544 → +13); reopened from the withdrawn docs-parity candidate (see §0.9.1) |
+| **0.9.1** | **Close-history surface (reopened, landed):** the recent scheduled closes the automation already records — day close, week close, and the weekly memory lint — join the existing insights payload as one additive `closes` list, and the existing Journal insights view gains one read-only Close history block (job, period, status, attempt count, error summary, updated date); no new route (still 18), no schema, config key, command, tool, skill, peer, write path, or model call | Native port Phase 3 remainder / [`NATIVE_PORT.md`](NATIVE_PORT.md) §1 *Missing* ("A close-history surface") | `v0.9.0` | none | Low | **landed** — `v0.9.1` (`ce0827e`), GitHub Release (Latest until `v0.9.2`), 557 tests (544 → +13); reopened from the withdrawn docs-parity candidate (see §0.9.1) |
 | **0.9.2** | **DSH `0.2.2-rc.5` compatibility (maintenance, landed):** declare `0.2.2-rc.5` in `dsh.compatibility.dshReleases`, move the seven DSH SDK dev dependencies (`dsh-llm`, `dsh-skill`, `dsh-system-prompt`, `dsh-tools`, `dsh-util-values`, `dsh-client-connection`, `dsh-client-ui-primitives`) and the lock from `0.2.1-rc.2` to `0.2.2-rc.5`, add the three client host peers as devDependencies so `npm ci` resolves the cohort's cordis peers, apply a minimal source/typing adaptation only if the new declarations require one, and re-run suite/typecheck/build/package; no behaviour, default, schema, config key, route, command, tool, skill, runtime dependency, or host peer change | Maintenance — host-compatibility declaration and verification (decision-free) | `v0.9.1` | none | Low | **landed** (`v0.9.2`) — after the tag/Release the line returns to maintenance (see §0.9.2) |
 | *CLI import* | `dsh dayflow import` — one command over the existing importer | Phase 2 completion / 1.0.0 runbook | cutover line | none | Medium | **not on 0.9** — recommended for the cutover line; a new entry point (5 → 6 commands) belongs beside the no-Dayflow runbook (see *The CLI import is not 0.9 material*) |
 
@@ -436,8 +439,8 @@ planned.
 ### 0.9.1 — the closes the automation already stores (close-history surface)
 
 **Status: landed in `v0.9.1`, 2026-11-27 — annotated tag `v0.9.1` on commit
-`ce0827e` (feature commit `be7a10c`), GitHub Release Latest, 557 green tests
-(544 at `v0.9.0`, so +13).** It was reopened from the withdrawn docs-parity
+`ce0827e` (feature commit `be7a10c`), GitHub Release (Latest until `v0.9.2`), 557
+green tests (544 at `v0.9.0`, so +13).** It was reopened from the withdrawn docs-parity
 candidate. One theme (R1): *the closes the scheduler already recorded are
 legible in the panel — read-only, newest first.* It needs no owner answer and
 changes no default, so it satisfies P1. The docs-parity candidate it replaces is
@@ -862,6 +865,15 @@ scheduled later; the recommendation is simply not here.
   portable across the two schemastery copies. Behaviour, defaults, schema v10,
   18 routes, 5 commands, 23 tools, 8 skills, and the peer dependency ranges are
   unchanged.
+
+The declared contract this record describes is now guarded by
+`tests/compatibility.test.ts` (engineering-only, added after the tag, so it
+carries no tag and changes no release record): one metadata-contract case pins
+`dsh.compatibility.dshReleases`, both devDependency pin sets, the deliberate
+`cordis`/`schemastery` deviations, the DSH peer ranges, the empty `dependencies`,
+and the removed attachment package, so a host upgrade that moves the declared
+metadata fails the suite instead of drifting silently; it is that one added case,
+so the current tree is **558** tests against **557** at the `v0.9.2` tag.
 
 ## 4. What is not on this line, and the unchanged 1.0.0 prerequisites
 
