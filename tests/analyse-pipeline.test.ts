@@ -20,6 +20,7 @@ import { createFakeLlmAdapter } from '../src/analyse/llm.js';
 import type { AnalysisLlmStream } from '../src/analyse/llm.js';
 import { ANALYSIS_MAX_ATTEMPTS, analysisJobKey, listAnalysisJobs } from '../src/analyse/jobs.js';
 import type { AnalysisJob } from '../src/analyse/jobs.js';
+import type { AnalysisModelConfig } from '../src/analyse/models.js';
 import { AnalysisPipeline } from '../src/analyse/pipeline.js';
 import { recordScreenshotRow, writeCaptureState } from '../src/capture/state.js';
 import type { AnalysisConfig, CaptureConfig, ResolvedConfig } from '../src/config.js';
@@ -192,6 +193,15 @@ function jsonAnswer(overrides: Record<string, unknown> = {}): string {
 
 /** The categories every success case offers. */
 const WORK_CATEGORIES = ['Work', 'Communication', 'Distraction'] as const;
+
+/**
+ * A two-entry `analysis.models` list: a legacy-shaped first pair and a second
+ * pair that no legacy config could name, so a selected entry is unmistakable.
+ */
+const NAMED_MODELS: AnalysisModelConfig[] = [
+  { id: 'default', provider: 'fake-provider', model: 'fake-model' },
+  { id: 'second', provider: 'fake-provider-2', model: 'fake-model-2' },
+];
 
 /**
  * A valid answer padded with an ignored key, so one recorded call crosses a
@@ -396,6 +406,87 @@ test('a scripted replay writes one card and replaying it is a no-op', async () =
   assert.equal(replay.calls.length, 0, 'a complete job is never called again');
   assert.equal(activities(fixture).length, 1);
   assert.equal(observations(fixture).length, 3);
+});
+
+test('a named-list selection reaches the call, the job, and the card', async () => {
+  // Same frame layout as the happy-path replay case, but the profile names two
+  // models and `analysis.model` selects the second entry.
+  const fixture = createFixture({
+    analysis: { models: NAMED_MODELS, provider: '', model: 'second' },
+  });
+  seedFrames(fixture, [
+    { offsetSeconds: 0, app: CODE_APP, hash: 'aaa111' },
+    { offsetSeconds: 120, app: CODE_APP, hash: 'bbb222' },
+    { offsetSeconds: 240, app: CODE_APP, hash: 'ccc333' },
+  ]);
+  const analyser = createFakeLlmAdapter([jsonAnswer()]);
+  const pipeline = pipelineFor(fixture, { analyser, categories: WORK_CATEGORIES });
+
+  const result = await pipeline.run();
+  // The list mode changes no behaviour count: one window, one call, one card,
+  // and one observation per representative frame, exactly as the legacy pair.
+  assert.equal(result.outcome, 'analysed');
+  assert.equal(result.windows, 1);
+  assert.equal(result.analysed, 1);
+  assert.equal(result.skipped, 0);
+  assert.equal(result.failed, 0);
+  assert.equal(result.activitiesWritten, 1);
+
+  // The selected entry's pair is the pair the fake provider is called with.
+  assert.equal(analyser.calls.length, 1);
+  assert.equal(analyser.calls[0]?.provider, 'fake-provider-2');
+  assert.equal(analyser.calls[0]?.model, 'fake-model-2');
+
+  const jobKey = analysisJobKey(DAY, dayBaseSeconds());
+  const jobRows = jobs(fixture);
+  assert.equal(jobRows.length, 1);
+  const job = jobRows[0] as AnalysisJob;
+  assert.equal(job.job_key, jobKey);
+  assert.equal(job.status, 'complete');
+  assert.equal(job.attempts, 1);
+  assert.equal(job.model, 'fake-model-2', 'the job row records the selected model');
+
+  const activityRows = activities(fixture);
+  assert.equal(activityRows.length, 1);
+  assert.equal(activityRows[0]?.source_key, `analysis:${jobKey}`);
+  const payload = payloadOf(activityRows[0] as ActivityRow);
+  assert.equal(payload.job_key, jobKey);
+  assert.equal(payload.provider, 'fake-provider-2', 'the card records the selected provider');
+  assert.equal(payload.model, 'fake-model-2', 'the card records the selected model');
+  assert.equal(observations(fixture).length, 3, 'the selection changes nothing about the frames');
+});
+
+test('a blank analysis.model in list mode takes the first named entry', async () => {
+  const fixture = createFixture({
+    analysis: { models: NAMED_MODELS, provider: '', model: '' },
+  });
+  seedFrames(fixture, [
+    { offsetSeconds: 0, app: CODE_APP, hash: 'aaa111' },
+    { offsetSeconds: 120, app: CODE_APP, hash: 'bbb222' },
+    { offsetSeconds: 240, app: CODE_APP, hash: 'ccc333' },
+  ]);
+  const analyser = createFakeLlmAdapter([jsonAnswer()]);
+  const result = await pipelineFor(fixture, { analyser, categories: WORK_CATEGORIES }).run();
+
+  assert.equal(result.outcome, 'analysed');
+  assert.equal(result.windows, 1);
+  assert.equal(result.analysed, 1);
+  assert.equal(result.activitiesWritten, 1);
+
+  assert.equal(analyser.calls.length, 1);
+  assert.equal(analyser.calls[0]?.provider, 'fake-provider', 'an empty selector takes the first entry');
+  assert.equal(analyser.calls[0]?.model, 'fake-model');
+
+  const jobRows = jobs(fixture);
+  assert.equal(jobRows.length, 1);
+  assert.equal(jobRows[0]?.status, 'complete');
+  assert.equal(jobRows[0]?.model, 'fake-model');
+
+  const activityRows = activities(fixture);
+  assert.equal(activityRows.length, 1);
+  const payload = payloadOf(activityRows[0] as ActivityRow);
+  assert.equal(payload.provider, 'fake-provider');
+  assert.equal(payload.model, 'fake-model');
 });
 
 test('the consent gate skips every window with its typed reason and calls nothing', async (t) => {
