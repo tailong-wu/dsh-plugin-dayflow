@@ -2,22 +2,27 @@
 
 [← Back to README](../README.md)
 
-> **Status:** Phase 0 and Phase 1 are **landed** on the `0.7.0` development
-> line: the owned journal is at schema version 7 and has `capture_state`, the
-> capture provider, the capture engine, and the capture status/pause routes with
-> their panel line. Capture is still off by default and nothing is analysed yet.
-> Phase 2–4 (the analysis pipeline, cards and briefs, and cutover) are planned in
-> [NATIVE_PORT.md](NATIVE_PORT.md).
+> **Status:** Phase 0 and Phase 1 are **landed**, and the analysis foundation
+> (Phase 2 groundwork) landed in `0.7.1` on the `0.7.x` line: the owned journal is
+> at schema version 8 with `capture_state` and `analysis_jobs`, plus the capture
+> provider, the capture engine, the analysis pipeline behind its consent gate,
+> and the capture status/pause routes with their panel line. Capture is still off
+> by default and **no worker runs the analyzer yet** — real model calls are the
+> `0.7.2` step. The rest of Phase 2–4 (worker/status, cards and briefs, cutover)
+> is planned in [NATIVE_PORT.md](NATIVE_PORT.md).
 
 The plugin can record its own screen activity instead of only reading what the
 Dayflow app captured. **Phase 1 is the capture engine**: it records frames into
-the owned journal, but everything below is off by default and nothing is
-analysed yet.
+the owned journal. `0.7.1` adds the analysis foundation (window grouping, the
+consent gate, strict JSON validation, and the `activities`/`observations`
+writes), which is test-triggered only — no worker or timer calls it yet.
+Everything below is off by default.
 
 - **Capture is off by default.** Setting `capture.enabled: true` starts the
   engine with the plugin. The engine does not depend on the panel, so it runs
   with `panel: false` too. The `capture` block carries the knobs below; the
-  `analysis` and `automation` blocks are validated but still unused.
+  `analysis` block now configures the 0.7.1 pipeline (still no worker), and the
+  `automation` block is validated but unused.
 - **The engine records on an interval.** Every `capture.intervalSeconds` it
   checks the persisted pause flag, whether the screen is locked or the display
   asleep, the idle gate (`capture.idleSeconds`), and `capture.pauseApps`, then
@@ -36,19 +41,21 @@ analysed yet.
   duplicating work. `capture.maxFramesPerDay` caps one Dayflow day.
 - **Retention is enforced.** Roughly every `capture.retentionCheckMinutes` the
   engine deletes frame files older than the retention window and removes empty
-  day directories. Until the analysis phase exists nothing consumes frames, so
-  `keepFramesDays: 0` (the default) still keeps at least one day of frames.
+  day directories. With the 0.7.1 analysis pipeline, a successful window deletes
+  its frames immediately when `keepFramesDays: 0`; the engine's sweep still
+  covers frames no analysis ever took (at least one day is kept).
 - **Status and pause are wired.** `GET /api/dayflow/capture/status` reports the
   capture and analysis switches, the macOS Screen Recording permission, today's
   native frame count, and the persisted pause flag; `POST
   /api/dayflow/capture/pause` writes that flag into `capture_state` (schema
-  version 7). The Journal insights view shows it as one compact capture line —
+  version 8). The Journal insights view shows it as one compact capture line —
   off, on, paused, or permission needed — with a Pause/Resume button when
   capture is configured on.
-- **What does not happen yet:** no frame analysis, no activity cards, no
-  timeline, no briefs, and no automation. A stored frame is not turned into an
-  insight; the capture line reports the engine's state without claiming
-  otherwise.
+- **What does not happen yet:** no worker, timer, status route, or panel
+  progress for analysis; no activity cards in the timeline from native frames;
+  no briefs and no automation. The 0.7.1 pipeline exists and is tested with a
+  fake model adapter, but nothing calls it on a schedule and no real provider is
+  contacted until 0.7.2.
 - **Nothing is written by a status read.** With no journal, the status route
   answers zeros and does not create the file; only the pause write and the
   engine open it.
@@ -61,7 +68,7 @@ The capture block, shown with the Phase 1 additions:
       intervalSeconds: 45       # 5-600
       idleSeconds: 120          # skip after this much input idle; 0 disables
       maxFramesPerDay: 1200     # hard cap on frames per Dayflow day
-      keepFramesDays: 0         # at least one day is kept while analysis does not exist
+      keepFramesDays: 0         # delete a frame after its analysis succeeds; at least one day otherwise
       pauseApps: []             # bundle ids or app-name substrings never captured
       displays: main            # 'main' or 'all'
       dedupeDistance: 4         # dHash Hamming distance treated as a duplicate (0-16)

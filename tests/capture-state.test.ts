@@ -96,26 +96,27 @@ function isSchemaValidationError(error: unknown): boolean {
 // Migrations
 // ---------------------------------------------------------------------------
 
-test('a new journal migrates to schema v7 and creates capture_state', () => {
-  assert.equal(JOURNAL_SCHEMA_VERSION, 7);
+test('a new journal migrates to schema v8 and creates capture_state', () => {
+  assert.equal(JOURNAL_SCHEMA_VERSION, 8);
   const path = journalPath();
 
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 7);
+    assert.equal(schemaVersion(db), 8);
     assert.equal(tableExists(db, 'capture_state'), true);
-    // The rest of v6 is still there: v7 is additive.
+    assert.equal(tableExists(db, 'analysis_jobs'), true);
+    // The rest of v7 is still there: v8 is additive.
     for (const table of ['activities', 'screenshots', 'long_tasks', 'memory_claims', 'reflections']) {
-      assert.equal(tableExists(db, table), true, `${table} survives v7`);
+      assert.equal(tableExists(db, table), true, `${table} survives v8`);
     }
   });
 
   // Reopening an already-current journal is a no-op rather than another migration.
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 7);
+    assert.equal(schemaVersion(db), 8);
   });
 });
 
-test('a v6 journal upgrades to v7 and keeps its tasks and memory claims', () => {
+test('a v7 journal upgrades to v8 and keeps its tasks and memory claims', () => {
   const path = journalPath();
 
   withJournalDb(path, (db) => {
@@ -126,15 +127,16 @@ test('a v6 journal upgrades to v7 and keeps its tasks and memory claims', () => 
     db.prepare(
       "INSERT INTO memory_claims (kind, subject, body, observed_on) VALUES ('preference', 'capture switch', 'on 2026-10-19, capture was off by default', '2026-10-19')",
     ).run();
-    // Rewind to a real v6 journal: the table v7 adds is absent, the version says 6.
-    db.exec('DROP TABLE capture_state');
-    db.prepare('UPDATE schema_version SET version = 6 WHERE version = 7').run();
-    assert.equal(schemaVersion(db), 6);
+    // Rewind to a real v7 journal: the table v8 adds is absent, the version says 7.
+    db.exec('DROP TABLE analysis_jobs');
+    db.prepare('UPDATE schema_version SET version = 7 WHERE version = 8').run();
+    assert.equal(schemaVersion(db), 7);
   });
 
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 7);
+    assert.equal(schemaVersion(db), 8);
     assert.equal(tableExists(db, 'capture_state'), true);
+    assert.equal(tableExists(db, 'analysis_jobs'), true);
     const taskRows = db.prepare('SELECT title FROM long_tasks ORDER BY id').all() as { title?: unknown }[];
     assert.deepEqual(
       taskRows.map((row) => row.title),
@@ -390,6 +392,7 @@ test('capture, analysis, and automation default to safe values', () => {
     framesPerWindow: 3,
     maxCallsPerDay: 120,
     dailyTokenBudget: 200_000,
+    localProviders: [],
   });
   assert.deepEqual(resolved.automation, {
     enabled: true,

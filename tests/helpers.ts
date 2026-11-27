@@ -80,6 +80,7 @@ export function makeRuntime(
       framesPerWindow: 3,
       maxCallsPerDay: 120,
       dailyTokenBudget: 200_000,
+      localProviders: [],
     },
     automation: {
       enabled: true,

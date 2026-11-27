@@ -20,12 +20,12 @@ this table.
 | Fact | Value | Checked at |
 | --- | --- | --- |
 | Release | `0.7.0`, annotated tag `v0.7.0` (commit `45a7e42`), **not** on the npm registry, **no** GitHub Release | `package.json`, `git tag`, `npm view dsh-plugin-dayflow` → 404, `gh release view v0.7.0` → not found |
-| Tests | 319 cases, green; CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
+| Tests | 384 cases, green; CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
 | Tools | 23 registered by default (17 with `edits: false`), plus `dayflow_install_dayflow` behind `allowInstall: false` | `src/index.ts`, `src/tools/` |
 | Skills | 8 | `skills/` |
 | Panel | 13 exact host Fetch routes, one UI entry (one header button, one panel tab) | `src/panel-contract.ts`, `tests/panel.test.ts` |
-| Owned schema | v7 (`capture_state`) | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
-| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed, both default-off; **nothing is analysed** | `src/capture/`, `docs/NATIVE_PORT.md` |
+| Owned schema | v8 (`analysis_jobs` in 0.7.1); v7 was the 0.7.0 baseline | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
+| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed, both default-off; Phase 2's foundation (analysis modules, schema v8, consent gate, fake-adapter pipeline) landed in 0.7.1, still with **no worker** | `src/capture/`, `src/analyse/`, `docs/NATIVE_PORT.md` |
 | Release tool | `npm run release -- patch` bumps, runs the suite, commits, tags, pushes, creates the GitHub Release; it does **not** publish to npm | `scripts/release.mjs` |
 | Host cohort | DSH `0.2.1-rc.2` dev dependencies, `^0.2.0-rc.2` peers; `@deepseek-ai/dsh-attachment` is **not** currently a dependency | `package.json`, `npm ls` |
 
@@ -35,8 +35,9 @@ memory context, reflections, the read-only lint, the Journal insights view, the
 quick-capture slash commands, the importer and the owned read backend, native
 capture Phase 0/1, and the 13 panel routes.
 
-**Not landed, and what this plan is:** the analysis pipeline (native port Phase
-2), briefs and automation (Phase 3), interactive panel management, the
+**Not landed, and what this plan is:** the rest of the analysis pipeline (native
+port Phase 2 — its 0.7.1 foundation has landed, the worker and status have not),
+briefs and automation (Phase 3), interactive panel management, the
 scheduled lint job, and the release closure (npm, GitHub Releases, cutover
 rehearsal).
 
@@ -101,7 +102,7 @@ definition of that.
 
 | Patch | Theme | Roadmap item | Depends on | Decisions | Risk |
 | --- | --- | --- | --- | --- | --- |
-| 0.7.1 | Analysis foundation: frames become `activities` rows behind a fake adapter | Native port Phase 2 | — | D1, D2, D5 | Medium |
+| 0.7.1 | **landed** — Analysis foundation: frames become `activities` rows behind a fake adapter | Native port Phase 2 | — | D1, D2, D5 | Medium |
 | 0.7.2 | Analysis visible: worker timer, status route and panel line, budget ledger, manual command | Native port Phase 2 | 0.7.1 | D1, D3 | Medium |
 | 0.7.3 | Interactive insights: decide review items, attach/detach task sessions in the panel | Phase 3.5 / 3.7 remain | — (built against 0.7.2 tree) | D6 | Low |
 | 0.7.4 | The day closes itself: briefs, reflection, proposals, task sessions, weekly close | Native port Phase 3 | 0.7.2, 0.7.3 | D3, D4, D9 | High |
@@ -113,6 +114,10 @@ the plugin's default behaviour; each new path is off by default or requires
 consent, and that is part of every patch's acceptance.
 
 ### 0.7.1 — Analysis foundation: frames become rows
+
+**Status: landed in 0.7.1 (development line).** The schema, analyse modules,
+consent gate, idempotent pipeline, and fake-adapter tests are in the tree; the
+0.7.1 docs commit records the numbering fix and the landed scope.
 
 **Theme and motivation.** Phase 1 writes frames and `screenshots` rows, but
 nothing turns them into `activities`/`observations`, so the owned journal still
@@ -191,7 +196,7 @@ plan uses the real numbering.
    gone and `screenshots.file_path` is cleared; a failed job keeps them.
 9. Migration: a v7 fixture migrates to v8 in one transaction, reopening is a
    no-op, and a malformed `analysis_jobs` row is rejected with a typed error.
-10. `npm test` (319 existing + new), `npm run typecheck`, `check:package` green.
+10. `npm test` (the whole suite, 384 cases after this patch), `npm run typecheck`, `check:package` green.
 
 **Dependencies and owner decisions.** D1 (where analysis may go), D2
 (provider/model), D5 (retention) matter only for real runs; the fake adapter
@@ -211,6 +216,18 @@ the gate is a pure function tested for every blocked reason, and the adapter is
 only reachable through it. Rollback: revert the tag; a profile that ran 0.7.1
 keeps v8, and `analysis.enabled: false` turns the feature off without a
 downgrade (R8).
+
+**Implementation deviation (landed).** Image admission did **not** add
+`@deepseek-ai/dsh-attachment`: 0.7.1 ships the text-only contract (frontmost app,
+window title, frame hash) with no `attachments` inject, so no host peer changed
+and the JSON contract, consent gate, schema, and tests are exactly as above.
+Real image admission moves to 0.7.2. The one config key the plan text did not
+name is `analysis.localProviders` (default `[]`): it is the explicit allowlist
+the `local` consent checks, so a provider is never trusted as local by name
+alone. Activities are keyed by the deterministic window key
+(`analysis:<job key>`) rather than a content hash; replaying the same frames
+still produces the same keys and is a no-op. Otherwise everything in this
+section shipped as planned.
 
 ### 0.7.2 — Analysis visible: worker, status, budget
 
@@ -513,7 +530,7 @@ mitigated by the per-patch docs rule (R6) and this reconciliation pass.
 Before a patch is tagged, all of these hold. They are the same for all six
 patches; a patch's section adds only its own assertions.
 
-- [ ] `npm test` is green: the 319 existing cases still pass and the patch's new
+- [ ] `npm test` is green: the existing cases still pass and the patch's new
       cases are in the suite; the build and typecheck are part of `npm test`
       (`npm run typecheck` separately if a build step skipped it).
 - [ ] `npm run check:package` is green: the packed file list is what a profile

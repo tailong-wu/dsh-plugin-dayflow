@@ -571,7 +571,7 @@ and the risks and rollback. One line each, all **planned**:
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.7.1 | Analysis foundation: the `analyse/` modules, consent gate, schema v8 `analysis_jobs`, fake-adapter tests — nothing leaves the machine | Native port Phase 2 | planned |
+| 0.7.1 | Analysis foundation: the `analyse/` modules, consent gate, schema v8 `analysis_jobs`, fake-adapter tests — nothing leaves the machine | Native port Phase 2 | landed |
 | 0.7.2 | Analysis visible: worker timer, analysis status route and panel line, budget ledger, `/dayflow-analyze` | Native port Phase 2 | planned |
 | 0.7.3 | Interactive insights: decide review items and attach/detach task sessions in the panel | Phase 3.5 / 3.7 remain | planned |
 | 0.7.4 | The day closes itself: briefs, reflection, review proposals, task sessions, weekly close | Native port Phase 3 | planned |

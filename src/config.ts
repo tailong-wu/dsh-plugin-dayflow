@@ -69,6 +69,11 @@ export interface AnalysisConfig {
   enabled?: boolean;
   /** Whether frames may be sent to a provider; `none` keeps analysis local-only/off. */
   consent?: AnalysisConsent;
+  /**
+   * Provider ids that count as on-machine when `consent` is `local`, matched
+   * exactly and case-insensitively; empty accepts no provider under `local`.
+   */
+  localProviders?: string[];
   /** Provider id; empty uses the agent's default model selection. */
   provider?: string;
   /** Model id; empty uses the provider's default. */
@@ -121,6 +126,8 @@ export interface ResolvedCaptureConfig {
 export interface ResolvedAnalysisConfig {
   readonly enabled: boolean;
   readonly consent: AnalysisConsent;
+  /** Provider ids accepted as local under `consent: 'local'`, in written order. */
+  readonly localProviders: readonly string[];
   readonly provider: string;
   readonly model: string;
   readonly windowMinutes: number;
@@ -254,6 +261,10 @@ const AnalysisSchema = z
       .union([z.const('none'), z.const('cloud'), z.const('local')])
       .default('none')
       .description('Whether frames may be sent to a provider: none, cloud, or local only.'),
+    localProviders: z
+      .array(z.string())
+      .default([])
+      .description('Provider ids accepted as local under consent "local", matched case-insensitively.'),
     provider: z.string().default('').description('Model provider id; empty uses the agent default.'),
     model: z.string().default('').description('Model id; empty uses the provider default.'),
     windowMinutes: z
@@ -411,14 +422,14 @@ function resolveChoice<T extends string>(
   return value as T;
 }
 
-/** Trim, de-duplicate, and drop empty pause-app patterns, keeping the written order. */
-function resolvePauseApps(values: readonly string[] | undefined): string[] {
+/** Trim, de-duplicate, and drop empty string-list entries, keeping the written order. */
+function resolveStringList(values: readonly string[] | undefined, field: string): string[] {
   const resolved: string[] = [];
   const seen = new Set<string>();
   for (const value of values ?? []) {
     if (typeof value !== 'string') {
       throw new DayflowError(
-        `capture.pauseApps entries must be strings (received ${String(value)}).`,
+        `${field} entries must be strings (received ${String(value)}).`,
         'invalid_input',
       );
     }
@@ -428,6 +439,11 @@ function resolvePauseApps(values: readonly string[] | undefined): string[] {
     resolved.push(trimmed);
   }
   return resolved;
+}
+
+/** Trim, de-duplicate, and drop empty pause-app patterns, keeping the written order. */
+function resolvePauseApps(values: readonly string[] | undefined): string[] {
+  return resolveStringList(values, 'capture.pauseApps');
 }
 
 /** Resolve and validate the automation close time. */
@@ -497,6 +513,7 @@ export function resolveConfig(config: DayflowConfig = {}): ResolvedConfig {
   const analysis: ResolvedAnalysisConfig = {
     enabled: analysisInput.enabled ?? true,
     consent: resolveChoice(analysisInput.consent, ANALYSIS_CONSENTS, 'none', 'analysis.consent'),
+    localProviders: resolveStringList(analysisInput.localProviders, 'analysis.localProviders'),
     provider: analysisInput.provider?.trim() ?? '',
     model: analysisInput.model?.trim() ?? '',
     windowMinutes: resolveInteger(analysisInput.windowMinutes, 10, 1, 60, 'analysis.windowMinutes'),

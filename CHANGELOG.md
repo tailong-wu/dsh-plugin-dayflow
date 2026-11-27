@@ -6,6 +6,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The 0.7.1 analysis foundation, verified with fake adapters and **no network
+  access**: the owned journal moves to schema v8 with an `analysis_jobs` table,
+  and new `src/analyse/` modules turn a day's stored native frames into
+  `activities` and `observations`. A pure consent gate runs before any adapter
+  call — analysis and capture enabled, capture not paused, `analysis.consent`,
+  `analysis.localProviders` for a `local` consent, and an explicitly set
+  provider/model — and a blocked window is recorded as a `skipped` job with its
+  reason. The pipeline groups frames into windows, sends at most
+  `analysis.framesPerWindow` representative frames, validates the model's strict
+  JSON object, sessionises adjacent windows, writes idempotently under a
+  deterministic window key (`analysis:<job key>`), retries a failed job up to its
+  attempts cap, and stops at the per-day call budget. With `capture.keepFramesDays: 0` a
+  successfully analysed window's frame files are deleted and their
+  `screenshots.file_path` cleared while the row, its key, and its hash stay; the
+  engine's retention sweep remains the fallback for frames no job took. There is
+  no worker, timer, status route, or real provider call yet (0.7.2), so default
+  profiles analyse nothing and no frame leaves the machine.
+
 ## [0.7.0] - 2026-11-27
 
 ### Added

@@ -29,14 +29,22 @@ when a profile needs to share or back up the imported journal.
 
 ## Analysis and automation configuration
 
-Both blocks are validated at load time but **unused until the analysis and
-automation phases land**, so their keys currently change nothing. Defaults are
-shown; `provider` and `model` empty mean "use the agent's default route".
+Both blocks are validated at load time. `analysis` has its pipeline foundation
+on the 0.7.1 line: a caller (today a test; 0.7.2 adds the worker and the
+`/dayflow-analyze` command) can turn stored frames into `activities`/`observations`
+rows, gated by `analysis.consent`. **Nothing runs on a timer yet** — there is no
+worker, no status route, and no panel progress — and `automation` is still
+unused, so its keys change nothing. Screenshots are only sent to a model when
+consent is `cloud` **and** both `provider` and `model` are set; that real call
+path starts in 0.7.2, so today an unconfigured profile analyses nothing.
+Defaults are shown; `provider` and `model` empty mean "use the agent's default
+route".
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `analysis.enabled` | `true` | Run the frame analyser (also needs capture enabled). |
-| `analysis.consent` | `none` | `none`, `cloud` (frames may leave the machine), or `local` (local endpoints only). |
+| `analysis.consent` | `none` | `none`, `cloud` (frames may leave the machine), or `local` (only providers listed in `localProviders`). |
+| `analysis.localProviders` | `[]` | Provider ids accepted as local under `consent: local`, matched case-insensitively and exactly; empty accepts no provider. |
 | `analysis.provider` | `''` | Model provider id; empty uses the agent default. |
 | `analysis.model` | `''` | Model id; empty uses the provider default. |
 | `analysis.windowMinutes` | `10` | Minutes of frames grouped into one analysis window (1–60). |
@@ -62,7 +70,7 @@ capture block, with the Phase 1 additions:
       intervalSeconds: 45       # 5-600
       idleSeconds: 120          # skip after this much input idle; 0 disables
       maxFramesPerDay: 1200     # hard cap on frames per Dayflow day
-      keepFramesDays: 0         # at least one day is kept while analysis does not exist
+      keepFramesDays: 0         # 0: delete a frame once its window is analysed; unanalysed frames live a day
       pauseApps: []             # bundle ids or app-name substrings never captured
       displays: main            # 'main' or 'all'
       dedupeDistance: 4         # dHash Hamming distance treated as a duplicate (0-16)

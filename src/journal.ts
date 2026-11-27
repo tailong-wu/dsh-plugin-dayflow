@@ -20,7 +20,7 @@ import type { ResolvedConfig } from './config.js';
 import { defaultJournalPath } from './paths.js';
 
 /** Current owned-store schema version. Migrations are forward-only. */
-export const JOURNAL_SCHEMA_VERSION = 7;
+export const JOURNAL_SCHEMA_VERSION = 8;
 /** Default source id used by an import from a Dayflow database. */
 export const DAYFLOW_SOURCE_ID = 'dayflow';
 
@@ -456,6 +456,40 @@ const MIGRATION_7 = `
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+`;
+
+/**
+ * Migration 8 adds the analysis-job ledger: one row per window of captured
+ * frames that the analyser turns into an activity.
+ *
+ * The job is keyed by `job_key` (`<day>:<window start>`) so replaying the same
+ * window is idempotent; `status` is the state machine
+ * (`queued` → `running` → `complete` / `failed` / `skipped`), and `attempts`
+ * is what caps retries. `model` and the two token columns record what the one
+ * successful call cost, which is what the daily budget reads; `error` carries
+ * the last failure message or the skip reason. Analysis is off by default, so
+ * the table starts empty.
+ */
+const MIGRATION_8 = `
+  CREATE TABLE IF NOT EXISTS analysis_jobs (
+    id INTEGER PRIMARY KEY,
+    job_key TEXT NOT NULL UNIQUE,
+    day TEXT NOT NULL,
+    window_start_ts INTEGER NOT NULL,
+    window_end_ts INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued'
+      CHECK (status IN ('queued','running','complete','failed','skipped')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    model TEXT,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    payload_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS analysis_jobs_day_idx ON analysis_jobs (day, window_start_ts);
+  CREATE INDEX IF NOT EXISTS analysis_jobs_status_idx ON analysis_jobs (status);
 `;
 
 /**
@@ -989,6 +1023,11 @@ export function migrateJournal(db: DatabaseSync): number {
       db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(7);
       version = 7;
     }
+    if (version < 8) {
+      db.exec(MIGRATION_8);
+      db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(8);
+      version = 8;
+    }
     db.exec('COMMIT');
     return version;
   } catch (cause) {
@@ -1025,7 +1064,7 @@ function journalReady(path: string): boolean {
       .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'view' AND name = 'timeline_cards'")
       .get() as Row | undefined;
     if (view?.present !== 1) return false;
-    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims', 'reflections', 'capture_state']) {
+    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims', 'reflections', 'capture_state', 'analysis_jobs']) {
       const present = db
         .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?")
         .get(table) as Row | undefined;

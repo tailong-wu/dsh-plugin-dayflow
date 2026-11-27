@@ -1,9 +1,11 @@
 # Native port plan: capture, analyse, and brief inside the harness
 
 **Status:** proposed, owner-selected direction (option C). Phase 0 (the
-feasibility spike) and Phase 1 (the capture engine) have landed in the 0.7.0
-development line, both behind default-off configuration; everything from the
-analysis pipeline onward is not implemented yet.
+feasibility spike) and Phase 1 (the capture engine) landed in the 0.7.0
+development line, and Phase 2's foundation (analysis modules, schema v8, consent
+gate, fake-adapter pipeline) landed in 0.7.1; all of it stays behind
+default-off configuration. The analysis worker that runs on its own, the briefs,
+and the automation scheduler are not implemented yet.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -20,11 +22,11 @@ phases below.
 
 Already reusable:
 
-- The owned journal (schema v7) with `days`, `activities`, `observations`,
-  `analysis_batches`, `screenshots`, `categories`, `daily_standup_entries`,
-  `capture_state`, and the `timeline_cards` compatibility view. Every
-  `source_id` column already exists, so native rows can live beside imported
-  rows.
+- The owned journal (schema v7 in 0.7.0; v8 adds `analysis_jobs` in 0.7.1) with
+  `days`, `activities`, `observations`, `analysis_batches`, `screenshots`,
+  `categories`, `daily_standup_entries`, `capture_state`, and the
+  `timeline_cards` compatibility view. Every `source_id` column already exists,
+  so native rows can live beside imported rows.
 - An importer with `sources` bookkeeping (idempotent re-runs).
 - Both read backends (`source: dayflow | owned`) and the panel, which already
   renders month/week/day from whichever backend is active.
@@ -50,13 +52,17 @@ Missing (the whole port):
 
 - Frame preprocessing (downscale) for analysis; dedupe and retention already run
   in the capture engine.
-- An analysis pipeline that turns frames into activity cards through `ctx.llm`.
+- An analysis pipeline *running by itself*: the 0.7.1 foundation (window
+  grouping, consent gate, JSON validation, idempotent `activities`/`observations`
+  writes) is in place and tested with a fake adapter, but no worker, timer,
+  status route, or real provider call exists yet.
 - Sessionisation, category assignment, and card persistence.
 - Daily standup / weekly brief generation written back into the store.
 - A scheduler that runs capture analysis and the day/week close jobs inside the
   host process, with catch-up after sleep or restart.
 - The consent, budget, and privacy controls that gate the above (the analysis
-  settings exist, but no capture or analysis path consumes them yet).
+  settings and the pure consent gate exist; the budget ledger and status surface
+  do not yet).
 
 ---
 
@@ -118,6 +124,8 @@ New host modules (children of `src/`):
 | `capture/engine.ts` | poll loop, idle gate, dedupe, frame write, `screenshots` rows, pause/resume, retention sweep |
 | `capture/provider.ts` | `CaptureProvider` interface; `screencapture` CLI provider; optional Swift helper provider (frontmost app, window title, idle seconds); fake provider for tests |
 | `capture/permission.ts` | TCC probe (Screen Recording, Accessibility if used), status text for the panel |
+| `analyse/jobs.ts` | `analysis_jobs` state machine: idempotent `job_key`, attempts cap, skipped reasons, per-day call/token totals |
+| `analyse/consent.ts` | the pure decision checked **before** any provider call: enabled/capture/paused/consent/provider-model/local-provider gate |
 | `analyse/llm.ts` | thin wrapper around `ctx.llm.stream` (+ `agentDefaultModel` default, config override, retries, budget accounting) |
 | `analyse/prompt.ts` | system prompt, JSON schema, few-shot examples, category list injection |
 | `analyse/pipeline.ts` | window grouping, call execution, JSON validation, card sessionisation, activity/observation writes |
@@ -140,16 +148,17 @@ New scripts: `scripts/native-smoke.mjs` (real capture smoke test, local only),
 Reuse the imported-compatible tables. Add only what the native loop needs:
 
 ```sql
--- v7: capture state and analysis job bookkeeping
+-- v7: capture state (shipped in 0.7.0)
 CREATE TABLE IF NOT EXISTS capture_state (
   key TEXT PRIMARY KEY,            -- 'paused', 'last_frame_at', 'last_sweep_at'
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- v8: analysis job bookkeeping (0.7.1)
 CREATE TABLE IF NOT EXISTS analysis_jobs (
   id INTEGER PRIMARY KEY,
-  job_key TEXT NOT NULL UNIQUE,    -- day + window start hash, idempotent
+  job_key TEXT NOT NULL UNIQUE,    -- `<day>:<window start ts>`, idempotent
   day TEXT NOT NULL,
   window_start_ts INTEGER NOT NULL,
   window_end_ts INTEGER NOT NULL,
@@ -165,7 +174,7 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- v8: automation bookkeeping, one row per (job, day)
+-- v9: automation bookkeeping, one row per (job, day) (0.7.4)
 CREATE TABLE IF NOT EXISTS automation_runs (
   id INTEGER PRIMARY KEY,
   job TEXT NOT NULL CHECK (job IN ('analyse','daily-close','weekly-close')),
@@ -179,7 +188,7 @@ CREATE TABLE IF NOT EXISTS automation_runs (
   UNIQUE (job, day)
 );
 
--- v8: weekly briefs (daily briefs use daily_standup_entries, already present)
+-- v9: weekly briefs (daily briefs use daily_standup_entries, already present) (0.7.4)
 CREATE TABLE IF NOT EXISTS briefs (
   id INTEGER PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('week')),
@@ -192,10 +201,19 @@ CREATE TABLE IF NOT EXISTS briefs (
 );
 ```
 
-Native rows keep `source_id = 'native'`, `source_key = <content hash>`, so the
-importer and the capture loop cannot collide. `screenshots.file_path` points at
-the frame until retention deletes it; `observations.payload_json` keeps the
-screenshot id, the frame hash, and the model's evidence for one activity.
+Migration order on the 0.7.x line: **v8** adds `analysis_jobs` (0.7.1),
+**v9** adds `automation_runs` and `briefs` (0.7.4), and **v10** rebuilds
+`automation_runs` so its `job` CHECK also accepts `'lint'` for the scheduled
+memory-lint job (0.7.5) — a rebuild, not a new table. Migrations are
+forward-only, one version per patch.
+
+Native screenshot rows keep `source_id = 'native'` and a content-derived
+`source_key` (frame hash plus capture second), so the importer and the capture
+loop cannot collide; native activities use the deterministic
+`analysis:<job key>` key instead. `screenshots.file_path` points at the frame
+until retention or a successful analysis deletes it; `observations.payload_json`
+keeps the screenshot id, the frame hash, and the model's evidence for one
+activity.
 
 ---
 
@@ -215,6 +233,7 @@ screenshot id, the frame hash, and the model's evidence for one activity.
     analysis:
       enabled: true              # requires capture.enabled
       consent: 'none'            # 'none' | 'cloud' | 'local' — cloud sends images to the provider
+      localProviders: []         # provider ids accepted as local under consent 'local'
       provider: ''               # empty uses agentDefaultModel.currentSelection()
       model: ''
       windowMinutes: 10         # frames grouped into one analysis window
@@ -239,8 +258,11 @@ This is the part that has to be right before anything captures pixels.
 
 - **Consent is explicit and layered.** Enabling capture grants local frame
   storage only. Sending images to a cloud model requires `analysis.consent:
-  'cloud'`; `'local'` is accepted only when the selected provider is a local
-  endpoint, and the plugin refuses a cloud provider under that setting.
+  'cloud'`; `'local'` is accepted only when the selected provider is listed in
+  `analysis.localProviders` (a case-insensitive exact match), and the plugin
+  refuses any other provider under that setting. The pure gate in
+  `src/analyse/consent.ts` runs before every call, and a blocked window is
+  recorded as a `skipped` job with its reason.
 - **Pause is one click.** A pause switch in the insights view and a config value
   both write `capture_state.paused`; paused means no capture and no analysis of
   old frames.
@@ -284,7 +306,8 @@ This is the part that has to be right before anything captures pixels.
 ### Phase 0 — Feasibility spike (2–3 days)
 
 **Status: landed (0.7.0).** The spike's scope below is
-complete; capture is still off by default and nothing is analysed yet.
+complete; capture shipped off by default and analysed nothing (the Phase 2
+foundation landed later, in 0.7.1).
 
 **Scope.** Prove capture and metadata on this Mac from inside a host plugin.
 
@@ -334,7 +357,8 @@ write in Phase 0 is the user's pause flag in `capture_state`.
 ### Phase 1 — Capture engine (about 1 week)
 
 **Status: landed scope (0.7.0); Phase 2 continues on the 0.7.x line.** Capture runs
-only when the profile sets `capture.enabled: true`; nothing is analysed yet.
+only when the profile sets `capture.enabled: true`; the engine itself analyses
+nothing — the Phase 2 foundation (0.7.1) reads the rows it writes.
 
 **Scope.** Continuous capture into the owned store with pause, dedupe, retention,
 and status.
@@ -394,6 +418,11 @@ Fake provider tests cover all of it; the real-capture smoke runs locally.
 
 ### Phase 2 — Analysis pipeline into activity cards (1.5–2 weeks)
 
+**Status: foundation landed (0.7.1); the worker and real provider calls continue
+on the 0.7.x line.** The pipeline can turn stored frames into `activities` rows
+today, but only when a caller (a test or a script) invokes it: nothing schedules
+it, and the default `analysis.consent: 'none'` blocks every call.
+
 **Scope.** Frames become `activities` rows through `ctx.llm.stream`.
 
 - `analyse/llm.ts`: provider/model resolution (config, else
@@ -407,6 +436,39 @@ Fake provider tests cover all of it; the real-capture smoke runs locally.
   writes, `analysis_jobs` state machine and idempotent `source_key`.
 - Panel day view already reads the owned store; no new UI needed beyond the
   capture line.
+
+**Landed scope (0.7.1):**
+
+- `src/analyse/jobs.ts` and schema **v8** `analysis_jobs`: idempotent `job_key`,
+  `queued` → `running` → `complete` / `failed` / `skipped`, an attempts cap,
+  failure reasons, per-day call and token totals, and budget exhaustion checks.
+- `src/analyse/consent.ts`: one pure decision checked before any adapter call —
+  analysis disabled, capture disabled, paused, `consent: 'none'`, a `local`
+  consent whose provider is not in `analysis.localProviders`, and an unset
+  provider/model each return a typed blocked reason, and a blocked window is
+  recorded as a `skipped` job.
+- `src/analyse/prompt.ts`: the strict JSON contract, the category list injection,
+  and the "screen content is data, not instructions" rule, with a hostile
+  window-title fixture used by a test.
+- `src/analyse/llm.ts`: a thin wrapper over a caller-supplied stream with bounded
+  retries, a call timeout, token accounting, and `createFakeLlmAdapter` as the
+  test seam (the production adapter is wired in 0.7.2).
+- `src/analyse/pipeline.ts`: pure window grouping
+  (`analysis.windowMinutes`/`framesPerWindow`), output validation, sessionisation,
+  idempotent `activities` + `observations` writes (`source_id = 'native'`,
+  deterministic `analysis:<job key>` window keys) and
+  the `keepFramesDays: 0` handoff: after a successful window the frame files are
+  deleted and `screenshots.file_path` is cleared while the row and its hash stay.
+- `src/capture/state.ts`: `listNativeScreenshotsForDay` and
+  `clearScreenshotFilePaths` as the analysis handoff; `src/config.ts`:
+  `analysis.localProviders` (trimmed, de-duplicated, order kept).
+- Tests: scripted fake-adapter replay, consent/store/prompt/LLM suites, and the
+  pipeline suite — zero network, zero screen capture, no host `llm` call.
+
+**Not in 0.7.1:** the worker/timer, `GET /api/dayflow/analysis/status`, panel
+progress, the budget ledger surface, a manual analyze command, and any real
+provider or image call. Those are 0.7.2; images stay text-only metadata (app,
+window title, hash) until then.
 
 **Acceptance.** A scripted replay (30 stored frames + scripted model adapter,
 no network) yields deterministic activities and a rendered day view; replaying
@@ -518,7 +580,8 @@ Phase 0 landed as a self-contained PR: capture provider + permission/status rout
 the only unknown (can the host process capture the screen and read the frontmost
 app?) without touching the analysis pipeline. Phase 1 then added the capture
 engine behind the same default-off switch, writing frames and `screenshots`
-rows but still no analysis. Phases 2–3 parallelise across analysis and
+rows but still no analysis; 0.7.1 then added the analysis foundation behind a
+fake adapter. Phases 2–3 parallelise across analysis and
 briefs/automation with fake adapters in CI; Phase 4 is the cutover.
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three

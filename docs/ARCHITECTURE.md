@@ -4,7 +4,7 @@
 
 The plugin reads one of two backends — the Dayflow app's `chunks.sqlite`
 (`source: dayflow`, the default) or the plugin-owned journal (`source: owned`,
-owned schema version 7, filled by `journal_import`) — and writes through two
+owned schema version 8, filled by `journal_import`) — and writes through two
 channels: Dayflow's Unix socket for app edits, and `withJournalWrite` for the
 owned journal. This file covers those paths, the source layout, and the
 development scripts.
@@ -35,6 +35,21 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   (`src/journal.ts`), so they are not gated by Dayflow's edit switch. The
   quick-capture slash commands and the panel's three inline add routes write the
   same way.
+- **Native analysis (0.7.1 foundation, no worker yet).** When a caller invokes
+  it, `analyse/pipeline.ts` reads one Dayflow day's native `screenshots` rows
+  (04:00–04:00), groups them into windows (`analysis.windowMinutes`, at most
+  `framesPerWindow` representative frames), runs the pure consent gate, builds
+  the strict-JSON prompt, calls the injected analyser (a fake in tests; the host
+  `llm` adapter is wired in 0.7.2), validates the single JSON object, and writes
+  `activities` + `observations` with `source_id = 'native'` and a deterministic
+  window key (`analysis:<job key>`, per-frame keys for observations) in one
+  journal transaction. `analysis_jobs` (schema v8) records
+  each window so replaying the same frames is a no-op. With
+  `capture.keepFramesDays: 0` a successful window's frame files are deleted and
+  its `screenshots.file_path` is cleared, while the row, its key, and its hash
+  stay; the engine's retention sweep is the fallback for frames no job took.
+  Real provider/image calls, the worker timer, and the status route land in
+  0.7.2 — today the path is exercised only by fake-adapter tests.
 - **Categories** live in the app's preferences
   (`teleportlabs.com.Dayflow`, key `colorCategories`), not in SQLite. They are
   read with `defaults export` and parsed from the plist.
@@ -93,6 +108,12 @@ increment; use `source: dayflow` when you need app edits.
 src/
   index.ts        plugin entry: name, inject, Config, apply()
   config.ts       schema + validation
+  analyse/        frame analysis foundation (0.7.1; no worker or timer yet)
+    jobs.ts       analysis_jobs state machine, attempts cap, per-day call/token totals
+    consent.ts    the pure consent/allow gate checked before any provider call
+    prompt.ts     strict JSON contract, category list injection, untrusted-content rule
+    llm.ts        caller-supplied stream wrapper: retries, timeout, token accounting, fake adapter
+    pipeline.ts   window grouping, output validation, sessionisation, activities/observations writes
   day.ts          4 AM days, Monday 4 AM weeks, formatting
   db.ts           lazy node:sqlite, read-only open, query helper
   journal.ts      owned schema, migrations, importer, withJournalWrite
@@ -147,7 +168,7 @@ end.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 319 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
+npm test            # 384 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

@@ -42,7 +42,8 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   以及新建任务后的历史扫描与关联。→ [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md)。
 - **预算化记忆上下文**：active 长任务与最近的带日期记忆 claim 会注入，硬上限 1000 字节、60 秒缓存；
   没有值得说的内容时完全不注入。
-- **原生采集（预览）**：Phase 1 把帧写入自有日志，默认关闭、尚未分析。→ [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
+- **原生采集（预览）**：Phase 1 把帧写入自有日志，默认关闭；0.7.1 补上分析地基并用 fake adapter 验证，
+  但仍没有 worker、也不真正调用模型。→ [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
 - **除 `dsh` 外零运行时依赖**：SQLite 来自 `node:sqlite`；Dayflow 编辑走应用的本地 Unix socket，自建日志则写自己的 SQLite 文件。
 
 深入文档（英文）：[工具](docs/TOOLS.md) · [面板](docs/PANEL.md) · [快速记录](docs/QUICK_CAPTURE.md) ·
@@ -129,7 +130,7 @@ profile 也可以把入口整个关掉。
 
 ## 自有日志、记忆与洞察
 
-插件拥有第二个可移植的 SQLite 日志（schema **v7**），Dayflow 仍是默认数据源。先用 `journal_import`
+插件拥有第二个可移植的 SQLite 日志（0.7.1 线为 schema **v8**），Dayflow 仍是默认数据源。先用 `journal_import`
 导入一次，再把 profile 切到 `source: owned`：源库只读打开、导入幂等，现有工具与面板载荷不变。
 
 - **回顾队列**：distillation、重复出现的 loop、改进建议和 task proposal——agent 只提议，用户决定。
@@ -143,9 +144,12 @@ profile 也可以把入口整个关掉。
 
 ## 原生采集（预览）
 
-Phase 0 与 Phase 1 已落地：配置、采集状态（schema v7）、macOS 原生 provider，以及默认关闭的
+Phase 0 与 Phase 1 已落地：配置、采集状态（0.7.1 之前为 schema v7）、macOS 原生 provider，以及默认关闭的
 `capture.enabled` 背后的采集引擎。引擎按间隔把帧写入自有日志，跳过暂停、锁屏、空闲和暂停应用的
-tick，对近似帧去重并执行保留清理——但**目前不分析任何内容**：没有活动卡片、时间线、简报或自动化。
+tick，对近似帧去重并执行保留清理。0.7.1 补上分析**地基**：consent 门禁、幂等的「帧 →
+`activities`/`observations`」管线（schema v8 `analysis_jobs`），以及零网络的 fake-adapter 测试。
+**它还不会自己运行**——没有 worker、定时器、状态路由或面板进度，真实模型调用在 0.7.2 到来，且默认
+`analysis.consent: 'none'` 会拦下所有调用——所以 profile 仍然只采集不分析，采集也仍然默认关闭。
 
 本地验证（不碰真实数据）：
 
@@ -188,7 +192,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 - 删除活动会连带删除 observations，无法完全恢复；工具要求先确认，且只有用户本人能打开
   Dayflow 的编辑开关。
 - 原生采集默认关闭，帧只写入 `$DSH_HOME/dayflow/frames/`（目录 `0700`、文件 `0600`），
-  有保留清理；不分析、不外发。
+  有保留清理；分析不会自动运行，未设置 `cloud` 授权与 provider/model 前也不会外发（0.7.2）。
 - 面板的 favicon 抓取是唯一的对外请求：每个域名一次 `favicon.ico`，不带 cookie 与 referrer，
   拒绝 loopback 与裸 IP；设 `icons: false` 可完全关闭。
 
@@ -197,7 +201,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 ```sh
 npm install
 npm run build                # TypeScript → lib/，以及 client bundle
-npm test                     # 319 个测试
+npm test                     # 384 个测试
 npm run typecheck            # 同时类型检查源码与测试
 npm run smoke                # 读取本机真实 Dayflow 数据库
 npm run native:smoke         # 只测采集 provider，不写入任何数据

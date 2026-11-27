@@ -1,8 +1,9 @@
 /**
  * The native capture engine: schedule, gate, dedupe, store, and retain frames.
  *
- * Phase 1 writes frames and `screenshots` rows; it does not analyse them. The
- * engine is deliberately small: one {@link CaptureEngine.captureOnce} call is
+ * The engine itself still does not analyse anything: since 0.7.1 the analysis
+ * pipeline consumes its `screenshots` rows in a separate module. The engine is
+ * deliberately small: one {@link CaptureEngine.captureOnce} call is
  * the whole unit of work, so a test drives it without any timer, and
  * {@link CaptureEngine.start} only loops that unit on a recursive timeout. It
  * never starts by itself: the plugin constructs it only when `capture.enabled`.
@@ -17,9 +18,10 @@
  *
  * Retention is a maintenance pass, not a per-frame policy: it runs at most once
  * per `capture.retentionCheckMinutes` and deletes frame files older than
- * `keepFramesDays` days. Zero is treated as one day, not "delete at once",
- * because nothing analyses frames yet; the daily window is the unit that a
- * future analyser will read.
+ * `keepFramesDays` days. Since 0.7.1 `keepFramesDays: 0` deletes a window's
+ * frames as soon as the analysis pipeline has analysed it; this sweep is the
+ * fallback for frames no job ever took, so zero still keeps a frame for a day
+ * here instead of deleting it at once.
  * @module dsh-plugin-dayflow/capture/engine
  */
 
@@ -112,7 +114,11 @@ const FILE_MODE = 0o600;
 /** A Dayflow day, as milliseconds; retention measures whole days. */
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Even with `keepFramesDays: 0` a frame lives for a day: nothing analyses it yet. */
+/**
+ * The sweep's own floor: a frame no analysis job took survives at least a day.
+ * A `keepFramesDays: 0` frame that *was* analysed is already deleted by the
+ * analysis pipeline, which clears its `screenshots.file_path` with it.
+ */
 const MIN_RETENTION_DAYS = 1;
 
 /** A dHash is 64 bits written as 16 lowercase hex characters. */
@@ -623,6 +629,10 @@ export class CaptureEngine {
   /**
    * Delete frame files older than the retention window and drop their empty day
    * directories. A missing frames directory is not a failure.
+   *
+   * This is the fallback path: the analysis pipeline deletes analysed windows
+   * itself at `keepFramesDays: 0`, so the sweep here only has to reclaim frames
+   * no job ever took (and windows that failed permanently).
    * @returns how many files were removed.
    */
   private async sweep(now: number): Promise<number> {

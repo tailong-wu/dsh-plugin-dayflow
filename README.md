@@ -46,8 +46,9 @@ stayed. That is the whole dataset.
   add rows in the insights view, and a post-add history scan → [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
 - **A budgeted memory context**: active long tasks and recent dated claims are injected under a hard
   1000-byte cap with a 60-second cache; nothing is injected when there is nothing worth saying.
-- **Native capture (preview)**: Phase 1 records frames into the owned journal, off by default and not
-  analysed yet → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
+- **Native capture (preview)**: Phase 1 records frames into the owned journal, off by default; 0.7.1 adds an
+  analysis foundation verified with fake adapters, still with no worker or real model call
+  → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
 - **Zero runtime dependencies** beyond `dsh`: SQLite comes from `node:sqlite`; Dayflow edits use the
   app's local Unix socket, while the owned journal has its own SQLite file.
 
@@ -146,7 +147,7 @@ titles and neutral hosts; the full view reference and route list are in
 
 ## Owned journal, memory, and insights
 
-The plugin owns a second, portable SQLite journal (schema **v7**) alongside the Dayflow
+The plugin owns a second, portable SQLite journal (schema **v8** on the 0.7.1 line) alongside the Dayflow
 default. Import a Dayflow database once with `journal_import`, then point the profile at
 `source: owned`: the source is opened read-only, the import is idempotent, and the existing
 tools and panel keep their payloads.
@@ -165,10 +166,14 @@ the quick-capture shortcuts in [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
 
 ## Native capture (preview)
 
-Phase 0 and Phase 1 have landed: config, capture state (schema v7), a native macOS provider, and the capture
-engine behind a default-off `capture.enabled`. The engine records frames into the owned journal on an interval,
-skips paused, locked, idle, and paused-app ticks, dedupes near-identical frames, and enforces retention — but
-**nothing is analysed yet**: no activity cards, timeline, briefs, or automation.
+Phase 0 and Phase 1 have landed: config, capture state (schema v7 before 0.7.1), a native macOS provider, and
+the capture engine behind a default-off `capture.enabled`. The engine records frames into the owned journal on
+an interval, skips paused, locked, idle, and paused-app ticks, dedupes near-identical frames, and enforces
+retention. 0.7.1 adds the analysis **foundation**: a consent gate, an idempotent frames → `activities` /
+`observations` pipeline (schema v8 `analysis_jobs`), and fake-adapter tests that verify it with no network.
+**It does not run by itself yet** — there is no worker, timer, status route, or panel progress, real provider
+calls arrive in 0.7.2, and the default `analysis.consent: 'none'` blocks every call — so a profile still
+captures without analysing anything, and capture remains off by default.
 
 Verify it locally without touching real data:
 
@@ -214,7 +219,8 @@ default, and the capture/analysis/automation blocks are in
 - Deletions also remove the underlying observations and cannot be fully undone; the tools
   require confirmation first, and only the user can enable Dayflow's edit switch.
 - Native capture is off by default and writes frames only to `$DSH_HOME/dayflow/frames/`
-  (directory `0700`, file `0600`) with retention enforced; nothing is analysed or sent away.
+  (directory `0700`, file `0600`) with retention enforced; analysis never runs on its own, and no
+  frame is sent away without the `cloud` consent plus a configured provider and model (0.7.2).
 - The panel's favicon fetch is the only outbound request: one `favicon.ico` per domain, no
   cookies or referrer, loopback and bare-IP names refused, and `icons: false` stops it.
 
@@ -223,7 +229,7 @@ default, and the capture/analysis/automation blocks are in
 ```sh
 npm install
 npm run build                # TypeScript → lib/, plus the client bundle
-npm test                     # 319 tests
+npm test                     # 384 tests
 npm run typecheck            # type-check sources and tests together
 npm run smoke                # read this Mac's real Dayflow database
 npm run native:smoke         # capture provider only; writes nothing

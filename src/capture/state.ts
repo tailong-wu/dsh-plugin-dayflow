@@ -250,3 +250,128 @@ export function countScreenshotsForDay(db: DatabaseSync, day: string): number {
   const frames = finiteNumber(rows[0]?.frames);
   return frames === undefined ? 0 : Math.floor(frames);
 }
+
+/** One native screenshot row, as the analysis handoff reads it. */
+export interface NativeScreenshotRow {
+  /** Row id in `screenshots`. */
+  id: number;
+  /**
+   * Capture instant in epoch **seconds**, the unit `screenshots.captured_at`
+   * stores; a row written in milliseconds by an older caller is converted.
+   */
+  capturedAt: number;
+  /** Frame file on disk; absent once retention or analysis deleted it. */
+  filePath?: string;
+  /** Size of the frame file in bytes. */
+  fileSize?: number;
+  /** Input idleness at capture time, in seconds. */
+  idleSeconds?: number;
+  /** Parsed `payload_json` evidence; absent when the row has none or it does not parse. */
+  payload?: unknown;
+}
+
+/** Read an optional non-negative integer column, ignoring values that are not one. */
+function optionalStoredInteger(value: unknown): number | undefined {
+  const number = finiteNumber(value);
+  if (number === undefined || !Number.isFinite(number) || number < 0) return undefined;
+  return Math.floor(number);
+}
+
+/** Parse `payload_json` tolerantly: a missing or malformed payload is simply absent. */
+function parsedPayload(value: unknown): unknown {
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Validate one screenshot row id from a caller. */
+function requireScreenshotId(value: number): number {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new DayflowError(`Screenshot ids must be positive whole numbers (received ${String(value)}).`, 'invalid_input');
+  }
+  return value;
+}
+
+/**
+ * List the native frames recorded for one Dayflow day, oldest first.
+ *
+ * This is the analysis handoff: the pipeline reads a day's frames, groups them
+ * into windows, and later clears their `file_path` once it has deleted them.
+ * The day uses the same 04:00-to-04:00 window as {@link countScreenshotsForDay},
+ * soft-deleted and imported rows are never returned, and `capturedAt` is always
+ * epoch seconds even when a row was written in milliseconds.
+ * @param db - an open, migrated journal connection.
+ * @param day - the Dayflow day key.
+ * @returns the day's native frames, ordered by capture instant then id.
+ */
+export function listNativeScreenshotsForDay(db: DatabaseSync, day: string): NativeScreenshotRow[] {
+  const window = dayWindowForKey(typeof day === 'string' ? day : '');
+  if (window === undefined) {
+    throw new DayflowError(`Screenshot day must be a real YYYY-MM-DD date (received ${String(day)}).`, 'invalid_input');
+  }
+  const rows = db
+    .prepare(
+      `SELECT id, captured_at, file_path, file_size, idle_seconds_at_capture, payload_json
+         FROM screenshots
+        WHERE source_id = ? AND COALESCE(is_deleted, 0) = 0 AND captured_at >= ? AND captured_at < ?
+        ORDER BY captured_at ASC, id ASC`,
+    )
+    .all(NATIVE_SOURCE_ID, epochSeconds(window.start), epochSeconds(window.end)) as Row[];
+
+  const screenshots: NativeScreenshotRow[] = [];
+  for (const row of rows) {
+    const id = finiteNumber(row.id);
+    const capturedAt = finiteNumber(row.captured_at);
+    if (id === undefined || capturedAt === undefined) {
+      throw new DayflowError('A native screenshot row is missing its id or capture time.', 'database_error');
+    }
+    const seconds = Math.floor(capturedAt);
+    const screenshot: NativeScreenshotRow = {
+      id: Math.floor(id),
+      capturedAt: seconds >= EPOCH_MILLISECONDS_FLOOR ? Math.floor(seconds / 1000) : seconds,
+    };
+    if (typeof row.file_path === 'string' && row.file_path !== '') screenshot.filePath = row.file_path;
+    const fileSize = optionalStoredInteger(row.file_size);
+    if (fileSize !== undefined) screenshot.fileSize = fileSize;
+    const idleSeconds = optionalStoredInteger(row.idle_seconds_at_capture);
+    if (idleSeconds !== undefined) screenshot.idleSeconds = idleSeconds;
+    const payload = parsedPayload(row.payload_json);
+    if (payload !== undefined) screenshot.payload = payload;
+    screenshots.push(screenshot);
+  }
+  return screenshots;
+}
+
+/** The largest number of row ids one `UPDATE … IN (…)` statement addresses. */
+const SCREENSHOT_ID_CHUNK = 500;
+
+/**
+ * Clear the `file_path` of native screenshot rows whose frame files are gone.
+ *
+ * The analysis pipeline calls this after it deletes a fully analysed window's
+ * frames: the row, its `source_key`, and the hash in its payload stay, so replay
+ * reads identity without the pixels. Imported (`dayflow`) rows are never
+ * touched, and an empty id list is a no-op.
+ *
+ * Note: `screenshots` has no `updated_at` column (unlike `activities` and the
+ * other owned tables), so only `file_path` changes here.
+ * @param db - an open, migrated journal connection.
+ * @param ids - the row ids whose frame files were just deleted.
+ */
+export function clearScreenshotFilePaths(db: DatabaseSync, ids: readonly number[]): void {
+  const valid: number[] = [];
+  for (const id of ids) valid.push(requireScreenshotId(id));
+  if (valid.length === 0) return;
+
+  for (let start = 0; start < valid.length; start += SCREENSHOT_ID_CHUNK) {
+    const chunk = valid.slice(start, start + SCREENSHOT_ID_CHUNK);
+    const placeholders = chunk.map(() => '?').join(', ');
+    db.prepare(
+      `UPDATE screenshots SET file_path = NULL
+        WHERE source_id = ? AND id IN (${placeholders})`,
+    ).run(NATIVE_SOURCE_ID, ...chunk);
+  }
+}
