@@ -6,6 +6,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-27
+
+### Added
+
+- **0.9.0 — month/week goal and rating surfaces.** The month calendar and the
+  week swim lanes now mark the records the day view already showed. Additively,
+  `GET /api/dayflow/month` and `GET /api/dayflow/week` fill every `PanelDay`
+  with `goal: PanelGoal | null` and `ratings: PanelRating[]` — the same records
+  and semantics as `GET /api/dayflow/day`, read on the same connection. A day
+  the user set no goal for answers `goal: null`, and a day with no review marks
+  answers `ratings: []`; both fields are optional in the contract, so a client
+  that does not read them is unaffected.
+- The client renders those records read-only: a month cell carries a compact
+  goal marker and small rating dots (its hover card adds the goal summary and
+  the marks), and a week day column carries a compact goal chip and rating dots
+  in its meta row. A day with neither draws no marker, dot, or placeholder, so
+  a profile with no goals or marks looks exactly as before, and browsing it
+  makes no model call. No button, tab, view, entry point, or click behaviour
+  changed; the panel keeps its single entry point and three views.
+- No route, command, tool, skill, configuration key, schema version, or host
+  peer change: the fields ride in the two existing answers, so the panel stays
+  at its **18 host Fetch routes** (nine `GET` and nine `POST`). Tests cover the
+  month and week payloads carrying the same goal and review marks the day
+  answer reports, an empty month or week that still answers `200` with `null`
+  and `[]` on every day, the unchanged 18-route set, and a panel read that still
+  never creates the owned journal.
+
 ## [0.8.4] - 2026-11-27
 
 ### Added
@@ -701,7 +728,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.1...v0.8.4
 [0.8.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.6...v0.8.0
