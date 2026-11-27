@@ -6,11 +6,14 @@ import { test } from 'node:test';
 
 import {
   compactDuration,
+  compactGoalText,
   dayLabel,
   formatClock,
   formatDuration,
   formatHour,
   formatShare,
+  goalDetail,
+  goalMarkerText,
   goalSummary,
   layoutDayCards,
   leadingBlanks,
@@ -19,15 +22,20 @@ import {
   monthLabel,
   monthOfDay,
   panelLanguage,
+  ratingColor,
+  ratingDots,
   ratingLabel,
   ratingTimeRange,
+  ratingsMarkerText,
+  ratingsSummary,
+  RATING_DOTS_LIMIT,
   shiftWeekKey,
   shortDate,
   todayKey,
   weekRangeLabel,
   weekdayLabels,
 } from '../src/client/format.js';
-import type { PanelCard, PanelGoal } from '../src/panel-contract.js';
+import type { PanelCard, PanelGoal, PanelRating } from '../src/panel-contract.js';
 import { EN, ZH } from '../src/client/locale.js';
 
 const en = (key: string): string => EN[key] ?? key;
@@ -196,6 +204,13 @@ function goal(fields: Partial<PanelGoal>): PanelGoal {
   return { focus_categories: [], distraction_categories: [], ...fields };
 }
 
+/** A review mark on the local 2026-10-19 covering a quarter of the hour. */
+function mark(rating: string, startHour = 9): PanelRating {
+  const start = new Date(2026, 9, 19, startHour, 0, 0, 0);
+  const end = new Date(2026, 9, 19, startHour, 15, 0, 0);
+  return { start: start.toISOString(), end: end.toISOString(), rating };
+}
+
 test('the goal summary joins only the targets the goal carries', () => {
   assert.equal(
     goalSummary(goal({ focus_minutes: 270, distraction_limit_minutes: 120 }), enT),
@@ -229,6 +244,93 @@ test('a review mark shows the stretch of the day it covers', () => {
   assert.equal(ratingTimeRange(start, end), '10:40 AM–10:55 AM');
   assert.equal(ratingTimeRange(start, end, 'zh-CN'), '10:40–10:55');
   assert.equal(ratingTimeRange('not-a-date', end), '');
+});
+
+test('the compact goal marker shows what fits a small chip', () => {
+  assert.equal(compactGoalText(goal({ focus_minutes: 270 }), enT), '4h30');
+  assert.equal(compactGoalText(goal({ distraction_limit_minutes: 120 }), enT), '≤2h');
+  assert.equal(compactGoalText(goal({ is_skipped: true }), enT), 'Skipped');
+  assert.equal(compactGoalText(goal({}), enT), '');
+  assert.equal(compactGoalText(goal({ focus_categories: [{ name: 'Work' }] }), enT), '');
+  assert.equal(compactGoalText(goal({ focus_minutes: 270 }), zhT), '4h30');
+  assert.equal(compactGoalText(goal({ distraction_limit_minutes: 90 }), zhT), '≤1h30');
+});
+
+test('a goal marker falls back from targets to categories to its label', () => {
+  assert.equal(goalDetail(goal({ focus_minutes: 270 }), enT), 'Focus target: 4h 30m');
+  assert.equal(goalDetail(goal({}), enT), '');
+  assert.equal(
+    goalMarkerText(goal({ focus_minutes: 270, distraction_limit_minutes: 120 }), enT),
+    'Goal · Focus target: 4h 30m · Distraction limit: 2h',
+  );
+  assert.equal(
+    goalMarkerText(goal({ focus_categories: [{ name: 'Work' }], distraction_categories: [{ name: 'Social' }] }), enT),
+    'Goal · Work · Social',
+  );
+  assert.equal(goalMarkerText(goal({}), enT), 'Goal');
+  assert.equal(goalMarkerText(goal({}), zhT), '目标');
+  assert.equal(goalMarkerText(goal({ is_skipped: true }), zhT), '目标 · 已跳过');
+});
+
+test('review ratings paint with the day view states', () => {
+  assert.equal(ratingColor('focused'), 'var(--dsw-alias-state-success-primary)');
+  assert.equal(ratingColor('distracted'), 'var(--dsw-alias-state-warn-primary)');
+  assert.equal(ratingColor('neutral'), 'var(--dsw-alias-label-tertiary)');
+  assert.equal(ratingColor('tired'), 'var(--dsw-alias-label-tertiary)');
+  assert.equal(ratingColor(''), 'var(--dsw-alias-label-tertiary)');
+});
+
+test('a compact ratings marker keeps a few dots and counts the rest in its title', () => {
+  const ratings = [mark('focused'), mark('neutral'), mark('distracted'), mark('focused', 11)];
+  const dots = ratingDots(ratings);
+  assert.equal(dots.length, RATING_DOTS_LIMIT);
+  assert.deepEqual(
+    dots.map((dot) => dot.rating),
+    ['focused', 'neutral', 'distracted'],
+  );
+  assert.equal(dots[0]?.color, 'var(--dsw-alias-state-success-primary)');
+  assert.deepEqual(ratingDots([]), []);
+  assert.deepEqual(ratingDots(ratings, 1).map((dot) => dot.rating), ['focused']);
+  assert.equal(ratingsSummary(ratings, enT), 'Focused ×2 · Neutral · Distracted');
+  assert.equal(ratingsSummary(ratings, zhT), '专注 ×2 · 中性 · 分心');
+  assert.equal(ratingsSummary([], enT), '');
+  // An unknown stored value keeps its own name and sorts after the known ones.
+  assert.equal(ratingsSummary([mark('tired'), mark('focused')], enT), 'Focused · tired');
+  assert.equal(
+    ratingsMarkerText(ratings, enT),
+    'Review marks · Focused ×2 · Neutral · Distracted',
+  );
+  assert.equal(ratingsMarkerText(ratings, zhT), '回顾标记 · 专注 ×2 · 中性 · 分心');
+  assert.equal(ratingsMarkerText([], enT), 'Review marks');
+});
+
+test('the compact month and week marker copy exists in both dictionaries', () => {
+  // The bare prefixes carry no placeholder, so a title fallback never leaks one.
+  for (const key of ['goalMarker', 'ratingsMarker']) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+    assert.doesNotMatch(EN[key] ?? '', /\{\w+\}/, `English copy for ${key} has no placeholder`);
+    assert.doesNotMatch(ZH[key] ?? '', /\{\w+\}/, `Chinese copy for ${key} has no placeholder`);
+  }
+  // The titled forms interpolate the summary both languages must carry.
+  for (const key of ['goalMarkerTitle', 'ratingsMarkerTitle']) {
+    assert.match(EN[key] ?? '', /\{summary\}/, `English copy for ${key} names the summary`);
+    assert.match(ZH[key] ?? '', /\{summary\}/, `Chinese copy for ${key} names the summary`);
+  }
+  for (const dictionary of [EN, ZH]) {
+    assert.match(dictionary['goalLimitCompact'] ?? '', /\{value\}/);
+    for (const placeholder of ['{label}', '{count}']) {
+      assert.ok((dictionary['ratingRepeat'] ?? '').includes(placeholder), `ratingRepeat carries ${placeholder}`);
+    }
+  }
+  assert.equal(enT('goalMarkerTitle', { summary: 'Focus target: 4h 30m' }), 'Goal · Focus target: 4h 30m');
+  assert.equal(zhT('goalMarkerTitle', { summary: '专注目标：4h 30m' }), '目标 · 专注目标：4h 30m');
+  assert.equal(enT('ratingsMarkerTitle', { summary: 'Focused ×2' }), 'Review marks · Focused ×2');
+  assert.equal(zhT('ratingsMarkerTitle', { summary: '专注 ×2' }), '回顾标记 · 专注 ×2');
+  assert.equal(enT('ratingRepeat', { label: 'Focused', count: 2 }), 'Focused ×2');
+  assert.equal(zhT('ratingRepeat', { label: '专注', count: 2 }), '专注 ×2');
+  assert.equal(enT('goalLimitCompact', { value: '2h' }), '≤2h');
+  assert.equal(zhT('goalLimitCompact', { value: '2h' }), '≤2h');
 });
 
 test('the goal and review copy exists in both dictionaries', () => {

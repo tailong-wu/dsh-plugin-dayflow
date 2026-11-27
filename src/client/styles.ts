@@ -169,8 +169,10 @@ export const PANEL_CSS = `
 .dfp-cell {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1px;
   min-width: 0;
   padding: 2px 0 3px;
   border: 0;
@@ -968,6 +970,184 @@ export const PANEL_CSS = `
   flex: none;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Compact goal and review markers ────────────────────────────────── */
+
+/* The month cell stacks its ring and a tiny meta row; the week column head
+ * stacks its weekday/date block and the same row. Both stay inside the panel's
+ * narrowest width, and a day without data renders nothing at all. */
+
+.dfp-cell-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 9px;
+}
+
+.dfp-goal-marker {
+  box-sizing: border-box;
+  position: relative;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border: 1.5px solid var(--dsw-alias-state-business-primary);
+  border-radius: 999px;
+}
+
+.dfp-goal-marker::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 999px;
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dfp-rating-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.dfp-rating-dot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 999px;
+}
+
+.dfp-hc-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.dfp-hc-label {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.dfp-hc-goal-text {
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-hc-ratings {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 5px;
+}
+
+.dfp-hc-rating {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.dfp-hc-rating .dfp-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.dfp-hc-rating-label {
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-week-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 3px;
+  min-width: 0;
+  margin-top: 2px;
+}
+
+.dfp-week-goal {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 10px;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.dfp-week-goal .dfp-goal-marker {
+  width: 7px;
+  height: 7px;
+  border-width: 1px;
+}
+
+.dfp-week-goal .dfp-goal-marker::after {
+  inset: 1px;
+}
+
+.dfp-week-goal-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The calendar's rings grow with the panel, so their meta row grows with them. */
+@container (min-width: 470px) {
+  .dfp-cell-meta {
+    gap: 5px;
+    min-height: 10px;
+  }
+  .dfp-goal-marker {
+    width: 10px;
+    height: 10px;
+  }
+  .dfp-rating-dots {
+    gap: 2.5px;
+  }
+  .dfp-rating-dot {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+@container (min-width: 640px) {
+  .dfp-cell-meta {
+    gap: 6px;
+    min-height: 11px;
+  }
+  .dfp-goal-marker {
+    width: 11px;
+    height: 11px;
+    border-width: 1.75px;
+  }
+  .dfp-goal-marker::after {
+    inset: 2.5px;
+  }
+  .dfp-rating-dots {
+    gap: 3px;
+  }
+  .dfp-rating-dot {
+    width: 7px;
+    height: 7px;
+  }
 }
 
 /* ── Timeline ────────────────────────────────────────────────────────── */

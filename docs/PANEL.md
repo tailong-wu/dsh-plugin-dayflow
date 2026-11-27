@@ -19,6 +19,17 @@ switch its entry point off entirely.
   dotted track; a captured day with nothing to show draws a plain track; a day
   whose analysis is still queued pulses amber; a recorded day draws its arcs.
   Missing data is not zero activity.
+- **The calendar also marks the user's own records, read-only.** A day with a
+  stored goal carries a compact goal marker, and a day with review marks
+  carries a few small rating dots in the focused, neutral, and distracted
+  colours, labelled with the full count; the day's hover card adds the goal
+  summary plus each mark's time range and label. A day with neither draws no
+  marker, no dot, and no placeholder, so a profile without goals or marks looks
+  exactly as before. Both arrive inside the existing `GET /api/dayflow/month`
+  answer — the same records and semantics as the day view, with `goal` `null`
+  and `ratings` `[]` when the user recorded nothing — so the calendar adds no
+  request, no route, no entry point, and no model call: the panel stays at its
+  **18 host Fetch routes**.
 - Hovering a day shows its total, category split, and the two longest activities;
   hovering one arc shows that category's name, duration, and share. The card
   clamps to the viewport and flips above the anchor near the bottom edge.
@@ -45,6 +56,14 @@ card placed at its time and tinted with its category colour.
   returns to the current one.
 - The week header totals the tracked time, and the category legend above the
   grid names every colour in use.
+- Each day column also carries that day's own records in a compact meta row: a
+  goal chip when the user set a goal, and small rating dots when they marked
+  stretches of the day. A day with neither leaves the row empty instead of
+  reserving space, and the row never covers the activity cards; a narrow
+  sidebar wraps it. It is read-only like the calendar: no control and no extra
+  request, because the fields ride in the existing `GET /api/dayflow/week`
+  answer (`goal` `null` and `ratings` `[]` when empty). The panel still has one
+  entry, three views, and **18 host Fetch routes**.
 - Every card carries the icon of the site or app it was recorded from, and falls
   back to a lettered tile in the category colour when a site has no favicon.
 
@@ -56,8 +75,9 @@ card placed at its time and tinted with its category colour.
   Escape) returns to the calendar with that day still marked as selected.
 - The day view also shows the user's own records for that day: the focus goal
   with its focus and distraction categories, or a quiet "no goal" line, and the
-  review marks they made on the timeline. The month and week payloads are
-  unchanged, so only opening a day pays for those reads.
+  review marks they made on the timeline. The month and week answers carry the
+  same records per day (see above), so their views mark them without another
+  fetch; opening a day still shows the full goal card and the review-mark list.
 - On touch devices hover is replaced by tap: a tap opens the day, and the back
   control sits in the day header.
 

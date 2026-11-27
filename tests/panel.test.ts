@@ -384,9 +384,14 @@ test('a month payload covers every calendar day and keeps the day states apart',
   assert.equal(day('2026-10-20').pending_batches, 1);
   assert.ok(day('2026-10-20').last_capture_at !== undefined);
 
-  // Goals and review marks are day-route only, so no month day carries them.
-  assert.ok(payload.days.every((entry) => entry.goal === undefined));
-  assert.ok(payload.days.every((entry) => entry.ratings === undefined));
+  // Every calendar day carries its own goal and review marks now, built the
+  // same way the day route builds them.
+  assert.equal(day('2026-10-19').goal?.focus_minutes, 240);
+  assert.equal(day('2026-10-19').ratings?.length, 3);
+  assert.equal(day('2026-10-20').goal?.is_skipped, true);
+  assert.deepEqual(day('2026-10-20').ratings, []);
+  assert.equal(day('2026-10-18').goal, null);
+  assert.deepEqual(day('2026-10-18').ratings, []);
 
   assert.equal(payload.today, day('2026-10-19').today);
   assert.equal(typeof payload.time_zone, 'string');
@@ -404,8 +409,12 @@ test('the month route answers JSON and rejects a malformed month', async () => {
   const payload = (await ok.json()) as PanelMonth;
   assert.equal(payload.month, '2026-10');
   assert.equal(payload.days.length, 31);
-  // The month wire shape is unchanged: the day-only keys never appear.
-  assert.ok(payload.days.every((entry) => !('goal' in entry) && !('ratings' in entry)));
+  // The month wire shape now fills each day's goal and review marks.
+  assert.ok(payload.days.every((entry) => 'goal' in entry && 'ratings' in entry));
+  const recorded = payload.days.find((entry) => entry.date === '2026-10-19');
+  assert.ok(recorded);
+  assert.equal(recorded.goal?.focus_minutes, 240);
+  assert.equal(recorded.ratings?.length, 3);
 
   const bad = await month.fetch(new Request(`http://127.0.0.1${PANEL_MONTH_PATH}?month=2026-13`));
   assert.equal(bad.status, 400);
@@ -453,9 +462,17 @@ test('a week payload holds seven Monday-first days with the same shapes as the m
   assert.equal(empty.last_capture_at, undefined);
   assert.equal(empty.tracked_minutes, 0);
 
-  // Goals and review marks are day-route only, so no week day carries them.
-  assert.ok(payload.days.every((day) => day.goal === undefined));
-  assert.ok(payload.days.every((day) => day.ratings === undefined));
+  // Every week day carries its goal and review marks, like the month view.
+  assert.equal(monday.goal?.focus_minutes, 240);
+  assert.equal(monday.ratings?.length, 3);
+  const skippedGoal = payload.days.find((day) => day.date === '2026-10-20');
+  assert.ok(skippedGoal);
+  assert.equal(skippedGoal.goal?.is_skipped, true);
+  assert.deepEqual(skippedGoal.ratings, []);
+  const remaining = payload.days.filter((day) => day.date >= '2026-10-21');
+  assert.equal(remaining.length, 5);
+  assert.ok(remaining.every((day) => day.goal === null));
+  assert.ok(remaining.every((day) => Array.isArray(day.ratings) && day.ratings.length === 0));
 });
 
 test('the week route answers JSON, defaults to this week, and rejects bad dates', async () => {
@@ -476,6 +493,73 @@ test('the week route answers JSON, defaults to this week, and rejects bad dates'
 
   const bad = await week.fetch(new Request(`http://127.0.0.1${PANEL_WEEK_PATH}?date=not-a-day`));
   assert.equal(bad.status, 400);
+});
+
+test('the month and week payloads carry the same goal and review marks as the day route', () => {
+  const runtime = makeRuntime(fixture.path);
+  const month = buildPanelMonth(runtime, '2026-10');
+  const week = buildPanelWeek(runtime, '2026-10-21');
+
+  const monthDay = (key: string): PanelDay => {
+    const found = month.days.find((entry) => entry.date === key);
+    assert.ok(found, `the month is missing ${key}`);
+    return found;
+  };
+  const weekDay = (key: string): PanelDay => {
+    const found = week.days.find((entry) => entry.date === key);
+    assert.ok(found, `the week is missing ${key}`);
+    return found;
+  };
+
+  // Both calendar surfaces agree with the day route on the days that carry the
+  // user's own records: the main day's goal and marks, the skipped next goal.
+  for (const key of ['2026-10-19', '2026-10-20']) {
+    const fromDayRoute = buildPanelDay(runtime, key);
+    assert.deepEqual(monthDay(key).goal, fromDayRoute.goal, `month goal for ${key}`);
+    assert.deepEqual(monthDay(key).ratings, fromDayRoute.ratings, `month ratings for ${key}`);
+    assert.deepEqual(weekDay(key).goal, fromDayRoute.goal, `week goal for ${key}`);
+    assert.deepEqual(weekDay(key).ratings, fromDayRoute.ratings, `week ratings for ${key}`);
+  }
+  assert.equal(monthDay('2026-10-19').goal?.focus_minutes, 240);
+  assert.equal(monthDay('2026-10-19').ratings?.length, 3);
+  assert.equal(monthDay('2026-10-20').goal?.is_skipped, true);
+
+  // A day with no stored goal or review marks carries null and [].
+  for (const key of ['2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25']) {
+    assert.equal(monthDay(key).goal, null);
+    assert.deepEqual(monthDay(key).ratings, []);
+    assert.equal(weekDay(key).goal, null);
+    assert.deepEqual(weekDay(key).ratings, []);
+  }
+});
+
+test('an empty month and week answer null goals and empty ratings without creating the journal', async () => {
+  const journalPath = journalFile('empty-month-week');
+  assert.equal(existsSync(journalPath), false);
+  const routes = fakeHost(makeRuntime(fixture.path, { journalPath }));
+
+  const monthRoute = routes.get(PANEL_MONTH_PATH);
+  assert.ok(monthRoute);
+  const monthResponse = await monthRoute.fetch(new Request(`http://127.0.0.1${PANEL_MONTH_PATH}?month=2026-09`));
+  assert.equal(monthResponse.status, 200);
+  const month = (await monthResponse.json()) as PanelMonth;
+  assert.equal(month.days.length, 30);
+  assert.ok(month.days.every((entry) => entry.goal === null));
+  assert.ok(month.days.every((entry) => Array.isArray(entry.ratings) && entry.ratings.length === 0));
+
+  const weekRoute = routes.get(PANEL_WEEK_PATH);
+  assert.ok(weekRoute);
+  const weekResponse = await weekRoute.fetch(new Request(`http://127.0.0.1${PANEL_WEEK_PATH}?date=2026-11-04`));
+  assert.equal(weekResponse.status, 200);
+  const week = (await weekResponse.json()) as PanelWeek;
+  assert.equal(week.days.length, 7);
+  assert.equal(week.week_start, '2026-11-02');
+  assert.ok(week.days.every((entry) => entry.goal === null));
+  assert.ok(week.days.every((entry) => Array.isArray(entry.ratings) && entry.ratings.length === 0));
+
+  // A panel read never creates the journal: these payloads come from the
+  // Dayflow database on the same connection as the screen activity.
+  assert.equal(existsSync(journalPath), false);
 });
 
 test('day keys shift across month and year boundaries', () => {

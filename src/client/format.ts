@@ -4,7 +4,7 @@
  */
 
 import { shiftDayKey } from '../panel-contract.js';
-import type { PanelCard, PanelGoal } from '../panel-contract.js';
+import type { PanelCard, PanelGoal, PanelRating } from '../panel-contract.js';
 
 /** Translation function bound to the panel namespace. */
 export type Translate = (key: string, params?: Record<string, string | number>) => string;
@@ -73,6 +73,55 @@ export function goalSummary(goal: PanelGoal, t: Translate): string {
   return parts.join(' · ');
 }
 
+/**
+ * The goal's own description with the target copy folded out: its targets when
+ * it has any, otherwise the categories it names, otherwise an empty string.
+ *
+ * The month and week views have no room for a full goal section, so they read
+ * this one-line form instead; the day view keeps rendering the card itself.
+ * @param goal - the day's goal, as the host serialises it.
+ * @param t - the bound translator.
+ * @returns the description, or an empty string when the goal names nothing.
+ */
+export function goalDetail(goal: PanelGoal, t: Translate): string {
+  const summary = goalSummary(goal, t);
+  if (summary !== '') return summary;
+  return [...goal.focus_categories, ...goal.distraction_categories]
+    .map((category) => category.name)
+    .filter((name) => name !== '')
+    .join(' · ');
+}
+
+/**
+ * A compact stand-in for a goal on a small chip: the focus target, else the
+ * distraction limit, else `Skipped`, else nothing for a goal that reads as
+ * categories alone.
+ * @param goal - the day's goal, as the host serialises it.
+ * @param t - the bound translator.
+ * @returns the compact text, or an empty string.
+ */
+export function compactGoalText(goal: PanelGoal, t: Translate): string {
+  if (goal.is_skipped === true) return t('goalSkipped');
+  if (goal.focus_minutes !== undefined) return compactDuration(goal.focus_minutes);
+  if (goal.distraction_limit_minutes !== undefined) {
+    return t('goalLimitCompact', { value: compactDuration(goal.distraction_limit_minutes) });
+  }
+  return '';
+}
+
+/**
+ * The one-line description a compact goal marker carries as its title and
+ * accessible label: the goal's detail behind a `Goal` prefix, or the bare
+ * prefix when the goal names nothing at all.
+ * @param goal - the day's goal, as the host serialises it.
+ * @param t - the bound translator.
+ * @returns a string with no raw `{…}` placeholder left in it.
+ */
+export function goalMarkerText(goal: PanelGoal, t: Translate): string {
+  const detail = goalDetail(goal, t);
+  return detail === '' ? t('goalMarker') : t('goalMarkerTitle', { summary: detail });
+}
+
 /** The locale key for each review rating Dayflow writes. */
 const RATING_KEYS: Record<string, string> = {
   focused: 'ratingFocused',
@@ -107,6 +156,86 @@ export function ratingTimeRange(start: string, end: string, language = 'en-US'):
   const to = formatClock(end, language);
   if (from === '' || to === '') return '';
   return `${from}–${to}`;
+}
+
+/**
+ * The color a review rating paints with. The dot reads like the day view's own
+ * marks: focused is the success state, distracted the warning state, and an
+ * unknown stored value stays neutral rather than disappearing.
+ * @param rating - the stored rating value.
+ * @returns a `--dsw-*` color token.
+ */
+export function ratingColor(rating: string): string {
+  switch (rating) {
+    case 'focused':
+      return 'var(--dsw-alias-state-success-primary)';
+    case 'distracted':
+      return 'var(--dsw-alias-state-warn-primary)';
+    default:
+      return 'var(--dsw-alias-label-tertiary)';
+  }
+}
+
+/** How many review dots a compact marker shows before the rest fold into its title. */
+export const RATING_DOTS_LIMIT = 3;
+
+/** One compact review dot: the stored rating and the color token it paints with. */
+export interface RatingDot {
+  readonly rating: string;
+  readonly color: string;
+}
+
+/**
+ * The first few review marks of a day, one dot each.
+ *
+ * A month cell and a week column are too small for every mark, so the marker's
+ * title carries the whole count instead; an empty list yields no dots at all.
+ * @param ratings - the day's review marks, in the order the host sent them.
+ * @param limit - how many dots to keep.
+ * @returns up to `limit` dots.
+ */
+export function ratingDots(ratings: readonly PanelRating[], limit = RATING_DOTS_LIMIT): RatingDot[] {
+  return ratings
+    .slice(0, Math.max(0, limit))
+    .map((rating) => ({ rating: rating.rating, color: ratingColor(rating.rating) }));
+}
+
+/**
+ * A count summary of a day's review marks: `Focused ×2 · Neutral`.
+ *
+ * Known ratings come first in their fixed order, so two days holding the same
+ * marks read the same no matter which order the host stored them in.
+ * @param ratings - the day's review marks.
+ * @param t - the bound translator.
+ * @returns the summary, or an empty string for an empty list.
+ */
+export function ratingsSummary(ratings: readonly PanelRating[], t: Translate): string {
+  const counts = new Map<string, number>();
+  for (const rating of ratings) counts.set(rating.rating, (counts.get(rating.rating) ?? 0) + 1);
+  const known = ['focused', 'neutral', 'distracted'];
+  const order = [
+    ...known.filter((rating) => counts.has(rating)),
+    ...[...counts.keys()].filter((rating) => !known.includes(rating)),
+  ];
+  return order
+    .map((rating) => {
+      const count = counts.get(rating) ?? 0;
+      const label = ratingLabel(rating, t);
+      return count > 1 ? t('ratingRepeat', { label, count }) : label;
+    })
+    .join(' · ');
+}
+
+/**
+ * The one-line description a compact ratings marker carries as its title and
+ * accessible label: the mark counts behind a `Review marks` prefix.
+ * @param ratings - the day's review marks.
+ * @param t - the bound translator.
+ * @returns the description, or the bare prefix for an empty list.
+ */
+export function ratingsMarkerText(ratings: readonly PanelRating[], t: Translate): string {
+  const summary = ratingsSummary(ratings, t);
+  return summary === '' ? t('ratingsMarker') : t('ratingsMarkerTitle', { summary });
 }
 
 /**

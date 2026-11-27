@@ -17,7 +17,7 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** 0.8.x 线已在 `v0.8.4` 收口（仓库已打 tag；npm registry 仍然返回 `404`，即尚未取得发布授权——owner 决策 D7）。
+> **状态：** `v0.9.0` 已在仓库打 tag（npm registry 仍然返回 `404`，即尚未取得发布授权——owner 决策 D7）。
 > `v0.8.0` 是 analysis ledger 的收尾，`v0.8.1` 是 briefs 阅读视图；原计划的 `0.8.2` 图像 admit（image admission）
 > 与 `0.8.3` Phase 4 cutover 正式推迟到下一线（owner-gated，D1/D2/D10/D11），`v0.8.4` 是 release close。
 > 请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
@@ -39,8 +39,9 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   `journal_memory`、`journal_reflection` 和 6 个编辑工具。全表 → [docs/TOOLS.md](docs/TOOLS.md)。
 - **8 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`、`long-task`、`memory`、`reflection`。
 - **可选 Web 面板**：月历分段圆环、周泳道、日视图，以及 **Journal insights（洞察）** 视图；只有一个头部按钮、
-  一个标签页和 18 条 host Fetch 路由。回顾队列可在面板里直接决定，任务 session 可直接关联或解绑，
-  无需 agent turn。细节 → [docs/PANEL.md](docs/PANEL.md)。
+  一个标签页和 18 条 host Fetch 路由。月视图与周泳道也会标出用户自己设置的当日目标（day goal）与回顾标记
+  （review ratings）——只读，与日视图显示的是同一份记录，不新增请求或路由。回顾队列可在面板里直接决定，
+  任务 session 可直接关联或解绑，无需 agent turn。细节 → [docs/PANEL.md](docs/PANEL.md)。
 - **快速记录**：三条斜杠命令（`/dayflow-task`、`/dayflow-remember`、`/dayflow-reflect`），洞察视图里的内联添加行，
   以及新建任务后的历史扫描与关联。→ [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md)。
 - **共 5 条斜杠命令**：上述三条快速记录命令，加上 `/dayflow-analyze`（手动跑一次分析 tick）和
@@ -265,7 +266,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 ```sh
 npm install
 npm run build                # TypeScript → lib/，以及 client bundle
-npm test                     # 构建、类型检查并运行 537 个测试
+npm test                     # 构建、类型检查并运行 544 个测试
 npm run typecheck            # 同时类型检查源码与测试
 npm run smoke                # 读取本机真实 Dayflow 数据库
 npm run native:smoke         # 只测采集 provider，不写入任何数据

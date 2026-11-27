@@ -13,9 +13,16 @@ import {
   formatClock,
   formatDuration,
   formatShare,
+  goalDetail,
+  goalMarkerText,
   leadingBlanks,
   monthLabel,
   panelLanguage,
+  ratingColor,
+  ratingDots,
+  ratingLabel,
+  ratingTimeRange,
+  ratingsMarkerText,
   shortDate,
   weekdayLabels,
 } from './format.js';
@@ -113,6 +120,12 @@ function iconButton(path: ReactNode, label: string, onClick: () => void): ReactN
 function DayHover({ day, t }: { day: PanelDay; t: Translate }): ReactNode {
   const state = dayState(day);
   const top = [...day.cards].sort((left, right) => right.duration_minutes - left.duration_minutes).slice(0, 2);
+  // The goal and review marks are optional on the wire, so a host that does not
+  // send them yet leaves the hover card exactly as it was before.
+  const goal = day.goal;
+  const goalText = goal !== undefined && goal !== null ? goalDetail(goal, t) : '';
+  const ratings = day.ratings ?? [];
+  const language = panelLanguage(t);
   return (
     <>
       <div className="dfp-hc-head">
@@ -121,6 +134,26 @@ function DayHover({ day, t }: { day: PanelDay; t: Translate }): ReactNode {
           {day.tracked_minutes > 0 ? formatDuration(day.tracked_minutes) : stateText(state, t)}
         </span>
       </div>
+      {goalText !== '' && (
+        <div className="dfp-hc-goal">
+          <span className="dfp-hc-label">{t('goalTitle')}</span>
+          <span className="dfp-hc-goal-text">{goalText}</span>
+        </div>
+      )}
+      {ratings.length > 0 && (
+        <div className="dfp-hc-ratings">
+          {ratings.map((rating, index) => {
+            const range = ratingTimeRange(rating.start, rating.end, language);
+            return (
+              <div key={`${rating.start}-${index}`} className="dfp-hc-rating">
+                <span className="dfp-dot" style={{ background: ratingColor(rating.rating) }} />
+                <span className="dfp-hc-rating-label">{ratingLabel(rating.rating, t)}</span>
+                {range !== '' && <span className="dfp-hc-muted">{range}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
       {day.categories.length > 0 && (
         <div className="dfp-hc-cats">
           {day.categories.map((category) => (
@@ -138,7 +171,7 @@ function DayHover({ day, t }: { day: PanelDay; t: Translate }): ReactNode {
         <div className="dfp-hc-events">
           {top.map((card) => (
             <span key={card.record_id} className="dfp-hc-event">
-              <span className="dfp-hc-muted">{formatClock(card.start, panelLanguage(t))}</span> {card.title}
+              <span className="dfp-hc-muted">{formatClock(card.start, language)}</span> {card.title}
             </span>
           ))}
         </div>
@@ -254,15 +287,23 @@ export function MonthView(props: MonthViewProps): ReactNode {
               const state = dayState(day);
               const accessible =
                 day.tracked_minutes > 0 ? formatDuration(day.tracked_minutes) : stateText(state, t);
+              const goal = day.goal;
+              const goalText = goal !== undefined && goal !== null ? goalMarkerText(goal, t) : '';
+              const ratings = day.ratings ?? [];
+              const dots = ratingDots(ratings);
+              const ratingsText = ratings.length > 0 ? ratingsMarkerText(ratings, t) : '';
               const classes = ['dfp-cell', `is-${state}`];
               if (day.date === today) classes.push('is-today');
               if (day.date === selected) classes.push('is-selected');
+              const label = [shortDate(day.date, t), accessible, goalText, ratingsText]
+                .filter((part) => part !== '')
+                .join(' · ');
               return (
                 <button
                   key={day.date}
                   type="button"
                   className={classes.join(' ')}
-                  aria-label={`${shortDate(day.date, t)} · ${accessible}`}
+                  aria-label={label}
                   aria-current={day.date === today ? 'date' : undefined}
                   onClick={() => onPick(day.date)}
                   onMouseEnter={
@@ -301,6 +342,22 @@ export function MonthView(props: MonthViewProps): ReactNode {
                       )}
                     </span>
                   </span>
+                  {(goalText !== '' || dots.length > 0) && (
+                    <span className="dfp-cell-meta" aria-hidden="true">
+                      {goalText !== '' && <span className="dfp-goal-marker" title={goalText} />}
+                      {dots.length > 0 && (
+                        <span className="dfp-rating-dots" title={ratingsText}>
+                          {dots.map((dot, index) => (
+                            <span
+                              key={`${dot.rating}-${index}`}
+                              className="dfp-rating-dot"
+                              style={{ background: dot.color }}
+                            />
+                          ))}
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </button>
               );
             })}

@@ -12,7 +12,19 @@ import { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { PanelDay, PanelWeek } from '../panel-contract.js';
-import { dayLabel, formatClock, formatDuration, formatHour, layoutDayCards, panelLanguage, weekRangeLabel } from './format.js';
+import {
+  compactGoalText,
+  dayLabel,
+  formatClock,
+  formatDuration,
+  formatHour,
+  goalMarkerText,
+  layoutDayCards,
+  panelLanguage,
+  ratingDots,
+  ratingsMarkerText,
+  weekRangeLabel,
+} from './format.js';
 import type { Translate } from './format.js';
 import { AppBadge } from './app-badge.js';
 import { HoverCard } from './hover-card.js';
@@ -100,6 +112,45 @@ function ColumnHead({ day, today, t }: { day: PanelDay; today: string; t: Transl
     <div className={`dfp-wk-head${isToday ? ' is-today' : ''}`}>
       <span className="dfp-wk-weekday">{new Intl.DateTimeFormat(panelLanguage(t), { weekday: 'short' }).format(date)}</span>
       <span className="dfp-wk-date">{isToday ? <em>{date.getDate()}</em> : <span>{date.getDate()}</span>}</span>
+    </div>
+  );
+}
+
+/**
+ * A column's compact meta line: the day's goal as a chip and its review marks
+ * as a row of dots.
+ *
+ * It renders inside the sticky head row and only when the day carries data, so
+ * an empty day keeps the column exactly as tall as its neighbours and nothing
+ * ever paints over a swim-lane card. Both halves wrap in a narrow column.
+ */
+function ColumnMeta({ day, t }: { day: PanelDay; t: Translate }): ReactNode {
+  const goal = day.goal;
+  const goalLabel = goal !== undefined && goal !== null ? goalMarkerText(goal, t) : '';
+  const goalText = goal !== undefined && goal !== null ? compactGoalText(goal, t) : '';
+  const ratings = day.ratings ?? [];
+  const dots = ratingDots(ratings);
+  if (goalLabel === '' && dots.length === 0) return null;
+  const ratingsLabel = dots.length > 0 ? ratingsMarkerText(ratings, t) : '';
+  return (
+    <div className="dfp-week-meta">
+      {goalLabel !== '' && (
+        <span className="dfp-week-goal" role="img" aria-label={goalLabel} title={goalLabel}>
+          <span className="dfp-goal-marker" aria-hidden="true" />
+          {goalText !== '' && <span className="dfp-week-goal-text">{goalText}</span>}
+        </span>
+      )}
+      {dots.length > 0 && (
+        <span className="dfp-rating-dots" role="img" aria-label={ratingsLabel} title={ratingsLabel}>
+          {dots.map((dot, index) => (
+            <span
+              key={`${dot.rating}-${index}`}
+              className="dfp-rating-dot"
+              style={{ background: dot.color }}
+            />
+          ))}
+        </span>
+      )}
     </div>
   );
 }
@@ -210,6 +261,7 @@ export function WeekView(props: WeekViewProps): ReactNode {
             {data.days.map((day) => (
               <div key={day.date} className={`dfp-week-colhead${day.date === today ? ' is-today' : ''}${day.date === selected ? ' is-selected' : ''}`}>
                 <ColumnHead day={day} today={today} t={t} />
+                <ColumnMeta day={day} t={t} />
               </div>
             ))}
           </div>

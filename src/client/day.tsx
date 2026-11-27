@@ -189,8 +189,8 @@ export function DayView(props: DayViewProps): ReactNode {
 
   const status: RingState = day === undefined ? 'no-data' : dayState(day);
   const cards = day === undefined ? [] : filter === undefined ? day.cards : day.cards.filter((card) => card.category === filter);
-  // Only the day route fills these: undefined means the payload came from the
-  // month or week view, while null is a real "the user set no goal" answer.
+  // The day, month, and week routes all fill these; undefined means an older
+  // payload predates the field, while null is a real "the user set no goal".
   const goal = day?.goal;
   const ratings = day?.ratings;
 

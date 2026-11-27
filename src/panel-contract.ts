@@ -76,9 +76,16 @@ export interface PanelDay {
   pending_batches: number;
   last_capture_at?: string;
   edits_enabled: boolean;
-  /** The goal the user set for this day; null means no goal. Only the day route fills this. */
+  /**
+   * The goal the user set for this day; null means no goal. The day, month, and
+   * week routes all fill it, so a calendar day carries the same goal its day
+   * route reports.
+   */
   goal?: PanelGoal | null;
-  /** The user's own review marks for this day; only the day route fills this. */
+  /**
+   * The user's own review marks for this day; an empty array means none. The
+   * day, month, and week routes all fill it.
+   */
   ratings?: PanelRating[];
 }
 

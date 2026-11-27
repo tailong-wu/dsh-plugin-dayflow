@@ -38,6 +38,7 @@ import {
 } from './tasks.js';
 import type { LongTaskPayload, TaskHistoryDayInput } from './tasks.js';
 import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekWindowContaining } from './day.js';
+import type { DayWindow } from './day.js';
 import { DayflowError, isDayflowError } from './errors.js';
 import {
   PANEL_ANALYSIS_STATUS_PATH,
@@ -80,6 +81,7 @@ import type {
   PanelMemoryAddRequest,
   PanelMemoryAddResponse,
   PanelMonth,
+  PanelRating,
   PanelReflectionAddRequest,
   PanelReflectionAddResponse,
   PanelReflectionSummary,
@@ -380,15 +382,23 @@ export function buildPanelMonth(runtime: ToolRuntime, month?: string): PanelMont
   }
 
   const dayKeys = monthDayKeys(target);
-  const firstWindow = dayArgument(dayKeys[0]);
-  const lastWindow = dayArgument(dayKeys[dayKeys.length - 1]);
+  const windows = dayKeys.map((key) => dayArgument(key));
+  const firstWindow = windows[0];
+  const lastWindow = windows[windows.length - 1];
   const preferences = panelPreferences(runtime);
   const colors = new Map(preferences.categories.map((category) => [category.name, category.colorHex]));
+  const owned = !runtime.config.dayflow;
 
-  const { activities, captures, pending } = readDatabase(runtime, (db) => ({
+  const { activities, captures, pending, goals, ratings } = readDatabase(runtime, (db) => ({
     activities: activitiesStartingBetween(db, firstWindow.start, lastWindow.end),
     captures: dayCaptures(db, firstWindow.start, lastWindow.end),
     pending: dayPendingBatches(db, firstWindow.start, lastWindow.end),
+    // The goal and the review marks are the user's own records, so every
+    // calendar day reads them on the same connection as its screen activity.
+    goals: new Map<string, DayGoalPayload>(dayKeys.map((key) => [key, dayGoalPayload(db, key, owned)])),
+    ratings: new Map<string, PanelRating[]>(
+      windows.map((window) => [window.dayKey, reviewRatingsForDay(db, window, owned)]),
+    ),
   }));
 
   const byDay = new Map<string, typeof activities>();
@@ -400,8 +410,8 @@ export function buildPanelMonth(runtime: ToolRuntime, month?: string): PanelMont
   }
 
   const today = formatDayKey(new Date());
-  const days = dayKeys.map((key) =>
-    dayPayload(
+  const days = dayKeys.map((key) => {
+    const payload = dayPayload(
       key,
       byDay.get(key) ?? [],
       pending.get(key) ?? 0,
@@ -409,8 +419,12 @@ export function buildPanelMonth(runtime: ToolRuntime, month?: string): PanelMont
       colors,
       preferences.editsEnabled,
       today,
-    ),
-  );
+    );
+    const goal = goals.get(key);
+    payload.goal = goal === undefined ? null : panelGoal(goal);
+    payload.ratings = ratings.get(key) ?? [];
+    return payload;
+  });
 
   return {
     month: target,
@@ -432,11 +446,29 @@ export function buildPanelWeek(runtime: ToolRuntime, date?: string): PanelWeek {
   const week = weekWindowContaining(anchor);
   const preferences = panelPreferences(runtime);
   const colors = new Map(preferences.categories.map((category) => [category.name, category.colorHex]));
+  const owned = !runtime.config.dayflow;
 
-  const { activities, captures, pending } = readDatabase(runtime, (db) => ({
+  const mondayKey = formatDayKey(week.start);
+  const windows: DayWindow[] = [];
+  for (let offset = 0; offset < 7; offset += 1) {
+    // Step by calendar day, not by 86_400_000 ms: a daylight-saving boundary
+    // would otherwise land the window on the wrong date (or the wrong 4 AM).
+    const window = dayWindowForKey(shiftDayKey(mondayKey, offset));
+    if (window !== undefined) windows.push(window);
+  }
+
+  const { activities, captures, pending, goals, ratings } = readDatabase(runtime, (db) => ({
     activities: activitiesStartingBetween(db, week.start, week.end),
     captures: dayCaptures(db, week.start, week.end),
     pending: dayPendingBatches(db, week.start, week.end),
+    // Same as the month view: each of the seven days reads its own goal and
+    // review marks on this connection.
+    goals: new Map<string, DayGoalPayload>(
+      windows.map((window) => [window.dayKey, dayGoalPayload(db, window.dayKey, owned)]),
+    ),
+    ratings: new Map<string, PanelRating[]>(
+      windows.map((window) => [window.dayKey, reviewRatingsForDay(db, window, owned)]),
+    ),
   }));
 
   const byDay = new Map<string, typeof activities>();
@@ -448,24 +480,21 @@ export function buildPanelWeek(runtime: ToolRuntime, date?: string): PanelWeek {
   }
 
   const today = formatDayKey(new Date());
-  const mondayKey = formatDayKey(week.start);
   const days: PanelDay[] = [];
-  for (let offset = 0; offset < 7; offset += 1) {
-    // Step by calendar day, not by 86_400_000 ms: a daylight-saving boundary
-    // would otherwise land the window on the wrong date (or the wrong 4 AM).
-    const window = dayWindowForKey(shiftDayKey(mondayKey, offset));
-    if (window === undefined) continue;
-    days.push(
-      dayPayload(
-        window.dayKey,
-        byDay.get(window.dayKey) ?? [],
-        pending.get(window.dayKey) ?? 0,
-        captures.get(window.dayKey)?.lastCaptureAt,
-        colors,
-        preferences.editsEnabled,
-        today,
-      ),
+  for (const window of windows) {
+    const payload = dayPayload(
+      window.dayKey,
+      byDay.get(window.dayKey) ?? [],
+      pending.get(window.dayKey) ?? 0,
+      captures.get(window.dayKey)?.lastCaptureAt,
+      colors,
+      preferences.editsEnabled,
+      today,
     );
+    const goal = goals.get(window.dayKey);
+    payload.goal = goal === undefined ? null : panelGoal(goal);
+    payload.ratings = ratings.get(window.dayKey) ?? [];
+    days.push(payload);
   }
 
   return {
