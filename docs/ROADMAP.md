@@ -1,17 +1,15 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
 > Status: **0.7.5 is the current head**, tagged `v0.7.5` on 2026-11-27 (commit
-> `1375717`), not on the npm registry, and without a GitHub Release
+> `f117cdc`), not on the npm registry, and without a GitHub Release
 > (`gh release list` still ends at the older `v0.5.1`). 0.7.0 (`v0.7.0`,
 > `45a7e42`) remains the **phase baseline**: it closed the read
 > surface and landed native capture Phase 0/1. `main` is the **0.7.x patch
-> line**: 0.7.1–0.7.4 have landed (the analysis foundation, the
+> line**: 0.7.1–0.7.5 have landed (the analysis foundation, the
 > worker/status/panel line that made it visible, the interactive insights panel,
-> then the day that closes itself), **0.7.5 has landed** (the scheduled
-> memory lint with the weekly digest: schema v10, an advisory pass that proposes
-> at most one item per claim per week and never writes a claim, a Memory-health
-> paragraph in the weekly brief; no route, command, tool, or entry change), and
-> 0.7.6 remains planned; the line is summarised in *Patch iterations (0.7.x)*
+> the day that closes itself, then the scheduled memory lint and its digest),
+> and 0.7.6 remains planned as the **release and compatibility close** — the
+> last patch of the line; the line is summarised in *Patch iterations (0.7.x)*
 > below. The 0.6.0 release (tagged `v0.6.0`) shipped the **read path** of
 > Phases 1+2 only — the owned schema, its forward migration, the Dayflow
 > importer, and the owned read backend; 0.7.0 is the increment that closed the
@@ -52,7 +50,7 @@
 > Its `skipped` jobs are terminal — enabling consent later does not replay
 > earlier windows; 0.7.2 kept that, and the catch-up policy was re-triaged in the
 > 0.7.3 window and is an **0.8.0 candidate by default** (the owner has not
-> answered; 0.7.4 and the finalised 0.7.5 do not take it — see
+> answered; 0.7.4 and 0.7.5 do not take it — see
 > [`PATCH_PLAN.md`](PATCH_PLAN.md)).
 >
 > 0.7.2 (`v0.7.2`) made the analysis pipeline visible and operable: the
@@ -95,7 +93,24 @@
 > nothing. It adds `GET /api/dayflow/automation/status` (route set 17 → **18**:
 > 9 GET + 9 POST), the panel's close-state line, and `/dayflow-run-close` (the
 > fifth command); no new tool, skill, host peer, or dependency, and no token
-> gate. Tests 493 (477 at 0.7.4), 18 panel routes, no GitHub Release, not on npm.
+> gate. Tests 477 (425 at 0.7.3), 18 panel routes, no GitHub Release, not on npm.
+>
+> 0.7.5 (`v0.7.5`, `f117cdc`) added the **scheduled weekly memory lint** and its
+> digest. Schema **v10** rebuilds `automation_runs` in one transaction so its
+> `job` CHECK also accepts `'lint'` (every v9 row copied, no row rewritten) and
+> adds a nullable `briefs.payload_json` for the digest. As part of the weekly
+> close, a read-only pass (`src/automation/lint.ts`, `lintMemoryClaims`) turns
+> each finding into at most one `improvement` review proposal per subject —
+> which is at most one per claim per week — capped at three per pass and going
+> through the existing fingerprint, suppression, and daily cap; it **never**
+> supersedes, forgets, or writes a claim. It records one `automation_runs` row
+> with `job: 'lint'` and `day` = the week's Monday, so a re-run of the same week
+> is a no-op, and the weekly brief gains a single **`Memory health: …`** digest
+> paragraph plus `payload_json.memory_health` (a clean week says "nothing to
+> report"). The lint makes no model call, so it runs even when the week's model
+> call is gated off (the close itself is then recorded `skipped`). Tests 493
+> (477 at 0.7.4), 18 panel routes, 5 commands, no new tool or skill, no GitHub
+> Release, not on npm.
 >
 > Still later work: the owned-journal write path (the editing tools still go
 > through Dayflow and refuse `source: owned`), the `dsh dayflow import` CLI, the
@@ -105,19 +120,19 @@
 > the summarization prompt, automatic activity attribution (matching is an
 > inspectable `suggest` step the agent calls), a briefs reading view (the
 > daily/weekly briefs are stored, but the panel has no briefs surface yet), the
-> scheduled lint job (0.7.5, **landed**: schema v10 and the weekly digest),
-> the analysis-ledger follow-ups 0.7.2 left behind (skipped-window catch-up, the
+> analysis-ledger follow-ups 0.7.2 left behind (skipped-window catch-up, the
 > token cap as a gate, the 04:00 day tail — re-triaged and now **0.8.0
-> candidates by default**, deliberately outside 0.7.4 and the finalised 0.7.5),
-> image admission (pixels need a host attachment peer; a 0.8.0 candidate, not on
-> the 0.7.x line), the Phase 4 cutover, release closure (npm publication, GitHub
-> Releases — 0.7.6), and Phase 5. Phase 5 and everything after it remain
-> proposals.
-> Last revised: 2026-11-27 (0.7.5 landed as the current head;
-> 0.7.5 finalised in [`PATCH_PLAN.md`](PATCH_PLAN.md) — schema v10, weekly
-> memory lint + digest, 18 routes and 5 commands unchanged — with the three
-> analysis-ledger follow-ups carried as **0.8.0 candidates by default** and the
-> analysis contract text-only for the whole line).
+> candidates by default**, deliberately outside 0.7.4 and 0.7.5), image
+> admission (pixels need a host attachment peer; a 0.8.0 candidate, not on the
+> 0.7.x line), the Phase 4 cutover, **release closure (0.7.6**: npm decision,
+> GitHub Releases for `v0.7.1`–`v0.7.6`, docs reconciliation, cutover
+> rehearsal), and Phase 5. Phase 5 and everything after it remain proposals.
+> Last revised: 2026-11-27 (0.7.5 landed as the current head at `f117cdc` and
+> recorded in [`PATCH_PLAN.md`](PATCH_PLAN.md) — schema v10, the weekly memory
+> lint + digest, 493 tests, 18 routes and 5 commands unchanged; 0.7.6 is the
+> remaining release/compatibility close), with the three analysis-ledger
+> follow-ups carried as **0.8.0 candidates by default** and the analysis
+> contract text-only for the whole line).
 
 ## Where this starts
 
@@ -607,12 +622,14 @@ context (4b: 1000-byte cap, 60-second cache, nothing injected when empty), and
 reflections (4c) stored in the owned journal so later sessions read a compiled
 summary instead of replaying raw days. The read-only lint is implemented as
 `journal_memory` `action: "lint"`; the panel's in-panel insights view renders
-review items, tasks, claims, and reflections. The scheduled lint job is the
-0.7.5 patch, **landed** and finalised in
+review items, tasks, claims, and reflections. The scheduled lint job **landed
+in 0.7.5** (`v0.7.5`, `f117cdc`) and is recorded in
 [PATCH_PLAN.md](PATCH_PLAN.md): it turns the read-only lint into a weekly
 advisory pass whose findings become review proposals (at most one per claim per
-week) and whose digest is written into the weekly brief — schema v10, and no
-claim is ever written by it (D8/D9).
+week, never more than three per pass) and whose digest is written into the
+weekly brief — schema v10, and no claim is ever written by it (D8/D9). With it,
+phase 4's ingest/query/lint maintenance loop is complete on the 0.7.x line; the
+remaining phase-4 work is the cutover, not the lint.
 
 ### Native port — capture and analysis inside the harness
 
@@ -658,9 +675,10 @@ schema **v9** adds `automation_runs` + `briefs`; the scheduler runs at
 activity text only — never frames or window titles — while the scheduler mounts
 inside the existing capture+analysis+`llm` block, so a default profile still
 runs nothing. That patch also adds `GET /api/dayflow/automation/status` (route
-set 18) and `/dayflow-run-close`. The scheduled lint is the 0.7.5 patch, **in
-progress** (schema v10, the weekly digest, no claim writes), and the
-release close 0.7.6; the Phase 4 cutover is rehearsed in 0.7.6 but
+set 18) and `/dayflow-run-close`. **0.7.5** added the scheduled weekly memory
+lint and its digest (schema v10, proposals only, no claim writes) as part of the
+weekly close, so the text-only automation slice now covers the whole maintenance
+loop; the release close is 0.7.6, and the Phase 4 cutover is rehearsed there but
 belongs to the next minor line; image admission (pixels) is not on this line
 (0.8.0 candidate). The phasing above (Phase 5 and later) is untouched by this
 line until the native path lands.
@@ -683,10 +701,10 @@ it remains a proposal.
 ## Patch iterations (0.7.x)
 
 0.7.0 closed the long development line; `main` moved to small tagged patches so
-every change is reviewable, testable, and revertible on its own. **0.7.1–0.7.4
-have landed** (0.7.4's tagged tree is the baseline for the next patch), **0.7.5
-is in progress** — finalised in the execution plan against that tree — and
-0.7.6 remains planned. The execution plan is
+every change is reviewable, testable, and revertible on its own. **0.7.1–0.7.5
+have landed** (0.7.5's tagged tree is the baseline for the next patch), and
+**0.7.6 remains planned** as the release and compatibility close. The execution
+plan is
 [`PATCH_PLAN.md`](PATCH_PLAN.md): it carries each patch's deliverables at file
 level, the acceptance assertions, the owner decisions and safe defaults, and the
 risks and rollback. One line each:
@@ -707,7 +725,7 @@ is not part of this line — it belongs to the next minor release after a real w
 of capture. Three analysis-ledger items are deliberately **not** in 0.7.2, 0.7.3
 or 0.7.4: skipped-window catch-up, the token cap as a gate, and the 04:00 day
 tail — all re-triaged and now **0.8.0 candidates by default**: the owner has not
-answered, 0.7.5 keeps one theme (taking one early would need an explicit R1
+answered, 0.7.5 kept one theme (taking one early would need an explicit R1
 relaxation), and the decision is taken when 0.8.0 is scoped (see
 [PATCH_PLAN.md](PATCH_PLAN.md) §0.7.3 and §0.7.4). 0.7.4's own catch-up is
 about missed **close jobs** (`automation_runs`) and is bounded by
