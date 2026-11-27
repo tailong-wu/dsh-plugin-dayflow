@@ -82,7 +82,8 @@
     "release": "node scripts/release.mjs",
     "check:package": "npm pack --dry-run --json > /tmp/dayflow-pack.json && node scripts/check-package.mjs /tmp/dayflow-pack.json",
     "native:smoke": "node scripts/native-smoke.mjs",
-    "native:engine-smoke": "node scripts/native-engine-smoke.mjs"
+    "native:engine-smoke": "node scripts/native-engine-smoke.mjs",
+    "rehearsal": "node scripts/cutover-rehearsal.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",

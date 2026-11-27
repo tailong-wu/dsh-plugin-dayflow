@@ -8,9 +8,12 @@ only a conversation can. None of them adds a second UI entry.
 
 ## Slash commands
 
-When the host exposes a command registry, the plugin registers three commands
-that write straight to the owned journal: no model turn, no tool call, and not
-gated by Dayflow's edit switch.
+When the host exposes a command registry, the plugin registers five slash
+commands. Three of them write straight to the owned journal — no model turn, no
+tool call, and not gated by Dayflow's edit switch; the other two run work instead
+of writing: `/dayflow-analyze` runs one analysis tick and `/dayflow-run-close`
+runs one due day/week close, both through the same consent and idempotent paths
+the plugin uses on its own. The three journal-writing commands are:
 
 | Command | What it writes |
 | --- | --- |

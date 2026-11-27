@@ -50,8 +50,9 @@ The review queue is where the agent keeps what it noticed and wants to carry
 forward: a **distillation** (a lesson worth keeping), a **loop** (a pattern that
 keeps repeating), an **improvement** (a concrete change to the setup), or a
 **task proposal** (work that should become a task). The agent may only propose;
-the user decides. It lives in the plugin-owned journal (schema version 7), not
-in Dayflow, and is not gated by Dayflow's edits switch.
+the user decides. It lives in the plugin-owned journal (`review_items`), not in
+Dayflow, and is not gated by Dayflow's edits switch. The 0.7.4 day close and the
+0.7.5 weekly memory lint also file proposals here (never decisions).
 
 | Tool | Arguments | Effect |
 | --- | --- | --- |

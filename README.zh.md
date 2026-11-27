@@ -11,7 +11,7 @@
 把你的工作日志交给 AI。这个插件为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）
 提供原生工具、技能和一个 Web 面板，数据来自开源 Mac 应用 [Dayflow](https://github.com/JerryZLiu/Dayflow)：
 它把屏幕活动变成保存在本机的私有时间线，记录前台是什么、持续多久。插件读 Dayflow 的本地数据库，
-也读从它一次性导入、由插件自有的日志；数据不离开这台 Mac。
+也读从它一次性导入、由插件自有的日志；除非你显式开启 cloud analysis，插件不会把数据发离这台 Mac。
 
 > “我今天做了什么？” · “这周屏幕时间都去哪了？” · “帮我写今天的 standup。”
 
@@ -41,18 +41,21 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   无需 agent turn。细节 → [docs/PANEL.md](docs/PANEL.md)。
 - **快速记录**：三条斜杠命令（`/dayflow-task`、`/dayflow-remember`、`/dayflow-reflect`），洞察视图里的内联添加行，
   以及新建任务后的历史扫描与关联。→ [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md)。
+- **共 5 条斜杠命令**：上述三条快速记录命令，加上 `/dayflow-analyze`（手动跑一次分析 tick）和
+  `/dayflow-run-close`（手动触发一次日/周收盘）。
 - **预算化记忆上下文**：active 长任务与最近的带日期记忆 claim 会注入，硬上限 1000 字节、60 秒缓存；
   没有值得说的内容时完全不注入。
 - **原生采集（预览）**：Phase 1 把帧写入自有日志，默认关闭；0.7.1 补上 consent 门禁后的分析管线，
   0.7.2 让它跑在宿主的模型服务上，并在面板里显示状态行。0.7.4 加上纯文本自动化：日收盘在 04:00、
-  周收盘在周一，失败重试、默认补收盘 2 天，并把 standup、brief、反思、回顾提案和任务 session 写入
-  自有日志——随 analysis 栈挂载，并受 `analysis.consent`、`analysis.provider`、`analysis.model` 门禁。
+  周收盘在周一，失败重试、默认补收盘 2 天，并把 standup、当日反思、一条周 brief、回顾提案和任务 session
+  写入自有日志（存下的 week brief 就是压缩后的周记录，没有 weekly reflection）——随 analysis 栈挂载，
+  并受 `analysis.consent`、`analysis.provider`、`analysis.model` 门禁。
   → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
 - **除 `dsh` 外零运行时依赖**：SQLite 来自 `node:sqlite`；Dayflow 编辑走应用的本地 Unix socket，自建日志则写自己的 SQLite 文件。
 
 深入文档（英文）：[工具](docs/TOOLS.md) · [面板](docs/PANEL.md) · [快速记录](docs/QUICK_CAPTURE.md) ·
 [配置](docs/CONFIGURATION.md) · [架构](docs/ARCHITECTURE.md) · [原生采集](docs/NATIVE_CAPTURE.md) ·
-[原生移植计划](docs/NATIVE_PORT.md) · [路线图](docs/ROADMAP.md)。
+[原生移植计划](docs/NATIVE_PORT.md) · [cutover 预演](docs/CUTOVER_REHEARSAL.md) · [路线图](docs/ROADMAP.md)。
 
 ## 环境要求
 
@@ -63,10 +66,14 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 | Node.js ≥ 22.5 | Node 22.5–22.12 与 23.0–23.3 需要 `--experimental-sqlite`；Node 22.13+ 与 23.4+（含 24）无需该参数。 |
 | `dsh` ≥ 0.2.0-rc.2 | 插件声明的 peer 范围是 harness 0.2 系列；只有 `dsh plugin add` 需要 `PATH` 里有 `pnpm`。 |
 
+0.7.x 线**没有**新增声明范围之外的 host peer：`@deepseek-ai/dsh-llm` 本来就是已声明的 peer，也是分析路径
+唯一调用的 host 服务；整条线保持 text-only，所以 `@deepseek-ai/dsh-attachment` **不是**依赖。需要该附件服务
+的图像 admit（image admission）属于 0.8.0。
+
 ## 安装
 
-`0.7.0` 还没有发布到 registry。在那之前请从源码 checkout 安装——那装的正是本文描述的开发线；
-发布之后执行 `dsh plugin --profile web add dsh-plugin-dayflow` 即可。
+`0.7.x` 还没有发布到 registry（`v0.7.5` 已在本仓库打 tag）。在发布之前请从源码 checkout 安装——
+那装的正是本文描述的开发线；发布之后执行 `dsh plugin --profile web add dsh-plugin-dayflow` 即可。
 
 ### Desktop App
 
@@ -136,13 +143,13 @@ profile 也可以把入口整个关掉。
 
 ## 自有日志、记忆与洞察
 
-插件拥有第二个可移植的 SQLite 日志（0.7.1 线为 schema **v8**），Dayflow 仍是默认数据源。先用 `journal_import`
+插件拥有第二个可移植的 SQLite 日志（0.7.5 线为 schema **v10**），Dayflow 仍是默认数据源。先用 `journal_import`
 导入一次，再把 profile 切到 `source: owned`：源库只读打开、导入幂等，现有工具与面板载荷不变。
 
 - **回顾队列**：distillation、重复出现的 loop、改进建议和 task proposal——agent 只提议，用户在面板里
   或通过工具决定。
-- **长任务**带按日 session、停滞标记和可解释的 `suggest`；另有**带日期的记忆** claim、日/周**反思**，
-  以及注入系统提示词的预算化上下文。
+- **长任务**带按日 session、停滞标记和可解释的 `suggest`；另有**带日期的记忆** claim、可保存的**反思**
+  （按日或按周，由 agent 或你通过 `journal_reflection` 写入），以及注入系统提示词的预算化上下文。
 - 洞察视图里的历史**扫描**（最近 14 天）加**关联**是同一套证据链的用户侧入口：先预览，
   只写入用户确认的日期，已关联的日期还能在面板里**解绑**（Unlink）。
 
@@ -151,7 +158,7 @@ profile 也可以把入口整个关掉。
 
 ## 原生采集（预览）
 
-Phase 0 与 Phase 1 已落地：配置、采集状态（0.7.1 之前为 schema v7）、macOS 原生 provider，以及默认关闭的
+Phase 0 与 Phase 1 已落地：配置、采集状态（0.7.0 中为 schema v7）、macOS 原生 provider，以及默认关闭的
 `capture.enabled` 背后的采集引擎。引擎按间隔把帧写入自有日志，跳过暂停、锁屏、空闲和暂停应用的
 tick，对近似帧去重并执行保留清理。0.7.1 补上分析管线：consent 门禁、幂等的「帧 →
 `activities`/`observations`」写入（schema v8 `analysis_jobs`），并已用 fake adapter 零网络验证。
@@ -169,7 +176,8 @@ tick，对近似帧去重并执行保留清理。0.7.1 补上分析管线：cons
 
 0.7.4 补上**纯文本自动化**：schema v9（`automation_runs` 与 `briefs`）、在 `automation.dailyAt`
 （默认 04:00）收盘 Dayflow 的一天、在 `automation.weeklyOn`（默认周一）收盘一周的调度器，以及收盘后的洞察
-pass：写入当天的 **standup 条目**、周 **brief**、日/周 **反思**、最多三条**回顾提案**、仅在证据持久时写入
+pass：写入当天的 **standup 条目**、当日 **反思**、一条周 **brief**（存下的 week brief 就是压缩后的周记录，
+没有 weekly reflection，也没有 weekly review pass）、最多三条**回顾提案**、仅在证据持久时写入
 **kept 记忆 claim**，以及匹配的**任务 session**。它随 analysis 栈挂载——与 worker 相同的
 `capture.enabled` + `analysis.enabled` + 宿主模型服务门禁——所以默认 profile（采集关闭）不会跑收盘
 job；挂载后，收盘还需要 `cloud`/`local` consent 加上显式 provider 与 model，否则记为 `skipped`、
@@ -234,11 +242,12 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 ```sh
 npm install
 npm run build                # TypeScript → lib/，以及 client bundle
-npm test                     # 构建、类型检查并运行测试套件
+npm test                     # 构建、类型检查并运行 494 个测试
 npm run typecheck            # 同时类型检查源码与测试
 npm run smoke                # 读取本机真实 Dayflow 数据库
 npm run native:smoke         # 只测采集 provider，不写入任何数据
 npm run native:engine-smoke  # 用临时日志驱动采集引擎
+npm run rehearsal            # 仅 fixture 的 Phase 4 cutover 预演（不抓屏、不联网）
 npm run demo                 # 重新生成面板截图与 GIF
 ```
 

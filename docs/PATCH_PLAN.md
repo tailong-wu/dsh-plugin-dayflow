@@ -1,16 +1,21 @@
 # Patch plan: the 0.7.x line
 
 > **Status:** revised 2026-11-27 against `v0.7.5` (annotated tag `v0.7.5`,
-> commit `f117cdc`). **0.7.1–0.7.5 have landed**, so their sections record what
-> actually shipped, and 0.7.5's tagged tree is measured at the end of its
-> section; **0.7.6 is the remaining patch** (release and compatibility close,
-> planned below). Six patches, 0.7.1–0.7.6: each one theme, one integration
-> point, one tag. This is a decision-level plan, not a commitment of dates.
-> Every patch below is shippable under the safe default of the decisions in
+> commit `f117cdc`); `main` is at `81af8e3`, the commit that reconciled this
+> plan and the roadmap with the tagged tree. **0.7.1–0.7.5 have landed**, so
+> their sections record what actually shipped, and 0.7.5's tagged tree is
+> measured at the end of its section; **0.7.6 is in progress** and is the
+> remaining patch (release and compatibility close), finalised below as an
+> executable checklist (§A–§F) with a boxed acceptance list. Six patches,
+> 0.7.1–0.7.6: each one theme, one integration point, one tag. This is a
+> decision-level plan, not a commitment of dates. Every patch below is
+> shippable under the safe default of the decisions in
 > [§6](#6-owner-decisions-and-safe-defaults), so no patch waits on an answer.
-> The revision before this one was written against `v0.7.4` (tag `v0.7.4`,
-> commit `1375717`); its scope survived unchanged except where 0.7.5 reality
-> corrected it.
+> The revision before this one was written against `v0.7.5` and reconciled the
+> line with its tagged tree; the one before that against `v0.7.4` (tag
+> `v0.7.4`, commit `1375717`). This revision changes no landed fact: it adds
+> the verified 0.7.5 implementation anchors and turns 0.7.6 into a checklist an
+> implementer can run top to bottom.
 >
 > Related documents: [`ROADMAP.md`](ROADMAP.md) carries the phases and what
 > remains; [`NATIVE_PORT.md`](NATIVE_PORT.md) is the capture → analysis →
@@ -20,22 +25,22 @@
 ## 1. Starting point, measured
 
 Facts checked against the repository and the registry on 2026-11-27, on the
-`v0.7.5` tree; `npm test` was run for this revision (493 pass, 0 fail, 0
-skipped), and `npm run typecheck` / `npm run check:package` are green. They are
-the baseline every patch below assumes; a patch that invalidates one updates
-this table.
+`v0.7.5` tree at `81af8e3`; `npm test` was re-run for this revision (493 pass,
+0 fail, 0 skipped, 0 todo), and `npm run typecheck` / `npm run check:package`
+are green. They are the baseline every patch below assumes; a patch that
+invalidates one updates this table.
 
 | Fact | Value | Checked at |
 | --- | --- | --- |
 | Baseline | `0.7.0`, annotated tag `v0.7.0` (commit `45a7e42`), the phase baseline this plan was first written against | `package.json`, `git tag` |
-| Current head | `0.7.5`, annotated tag `v0.7.5` (commit `f117cdc`), **not** on the npm registry, **no** GitHub Release | `package.json`, `git tag`, `npm view dsh-plugin-dayflow version` → 404, `gh release list` → latest release is `v0.5.1` |
-| Tests | 493 cases, green on the `v0.7.5` tree (`npm test`: 493 pass, 0 fail, 0 skipped; 477 at `v0.7.4`, 425 at `v0.7.3`, 408 at `v0.7.2`, 384 at `v0.7.1`); CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
+| Current head | `0.7.5`, annotated tag `v0.7.5` (commit `f117cdc`); `main` is `81af8e3`, the 0.7.5 docs reconciliation. **Not** on the npm registry; **no** GitHub Release for any 0.7.x tag (the latest release is `v0.5.1`). **0.7.6, the release close, is in progress** | `package.json`, `git tag`, `npm view dsh-plugin-dayflow version` → 404, `gh release list` → latest release is `v0.5.1` |
+| Tests | 493 cases, green on the `v0.7.5` tree at `81af8e3` (`npm test`: 493 pass, 0 fail, 0 skipped, 0 todo; 477 at `v0.7.4`, 425 at `v0.7.3`, 408 at `v0.7.2`, 384 at `v0.7.1`); CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
 | Tools | 23 registered by default (17 with `edits: false`), plus `dayflow_install_dayflow` behind `allowInstall: false`; 0.7.3–0.7.5 added no tool | `src/index.ts`, `src/tools/`, `tests/plugin.test.ts` |
 | Skills | 8; 0.7.3–0.7.5 added none | `skills/`, `tests/plugin.test.ts` |
 | Panel | 18 exact host Fetch routes (9 GET + 9 POST), one UI entry (one header button, one panel tab); 0.7.4 added exactly the automation GET (17 → 18) and 0.7.5 added no route, so it stays 18 | `src/panel-contract.ts`, `tests/panel.test.ts` |
 | Owned schema | **v10**, landed in 0.7.5 — rebuild `automation_runs` so `job` also accepts `'lint'`, plus an additive `briefs.payload_json` column for the weekly digest; v9 (`automation_runs` + `briefs`) was 0.7.4's, v8 (`analysis_jobs`) 0.7.1's, v7 the 0.7.0 baseline, and 0.7.2/0.7.3 made **no** schema change | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
-| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed in 0.7.0, both default-off; Phase 2's foundation landed in 0.7.1 and its **visibility** in 0.7.2 (worker/timer, text-only host `ctx.llm` adapter, status route, panel analysis line, `/dayflow-analyze`, budget ledger), so Phase 2 is complete as of `v0.7.2`; 0.7.3 added no native-port work (interactive panel only); **Phase 3 landed in 0.7.4** (briefs, insight pass, scheduler, schema v9), so the text-only automation slice is complete; **the Phase 4 lint remain landed in 0.7.5** (scheduled weekly memory lint + digest, schema v10), closing the ingest/query/lint loop on this line; 0.7.6 is the release close and cutover rehearsal, still with no image | `src/capture/`, `src/analyse/`, `src/briefs/`, `src/automation/`, `docs/NATIVE_PORT.md` |
-| Release tool | `npm run release -- patch` bumps, runs the suite, commits, tags, pushes, creates the GitHub Release; it does **not** publish to npm. `v0.7.1`, `v0.7.2`, `v0.7.3`, `v0.7.4` and `v0.7.5` were tagged without a GitHub Release, so 0.7.6 must backfill `v0.7.1`–`v0.7.5` by hand where a tag lacks one | `scripts/release.mjs`, `gh release list` |
+| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed in 0.7.0, both default-off; Phase 2's foundation landed in 0.7.1 and its **visibility** in 0.7.2 (worker/timer, text-only host `ctx.llm` adapter, status route, panel analysis line, `/dayflow-analyze`, budget ledger), so Phase 2 is complete as of `v0.7.2`; 0.7.3 added no native-port work (interactive panel only); **Phase 3 landed in 0.7.4** (briefs, insight pass, scheduler, schema v9), so the text-only automation slice is complete; **the Phase 4 lint remainder landed in 0.7.5** (scheduled weekly memory lint + digest, schema v10), closing the ingest/query/lint loop on this line; 0.7.6 is the release close and cutover rehearsal and flips no default, still with no image; the Phase 4 `source: owned` default flip is 0.8.0 | `src/capture/`, `src/analyse/`, `src/briefs/`, `src/automation/`, `docs/NATIVE_PORT.md` |
+| Release tool | `npm run release -- patch` bumps, runs the suite, commits (`chore(release): v<version>`), tags, pushes, and creates the GitHub Release from the CHANGELOG section; it does **not** publish to npm. The 0.7.x release commits read `chore(release): 0.7.N`, not this script's `chore(release): v<version>` form — so the five tags were not cut by the current release tool and have no GitHub Release; 0.7.6 must backfill all five by hand before cutting its own tag with the script | `scripts/release.mjs`, `git log --grep='chore(release)'`, `gh release list` |
 | Host cohort | DSH `0.2.1-rc.2` dev dependencies, `^0.2.0-rc.2` peers; `@deepseek-ai/dsh-llm` is declared and is now actually called in 0.7.2 through `ctx.llm` (a structural `HostLlmLike` seam, so CI still never reaches a model); `@deepseek-ai/dsh-attachment` is **not** a dependency (the line stays text-only) | `package.json`, `npm ls`, `src/analyse/` |
 
 **Landed in 0.7.0, therefore not in this plan:** the four Phase 3 read tools and
@@ -114,18 +119,23 @@ writes a claim. The tagged tree measures **493** green tests (477 at 0.7.4) and
 stays at **18** routes and **5** commands. Its section below records the landed
 shape and the corrections against the draft.
 
-**Not landed, and what this plan is:** the release closure only (0.7.6: npm,
-GitHub Releases for `v0.7.1`–`v0.7.5`, docs reconciliation, cutover rehearsal).
-Native port Phase 2 is complete as of 0.7.2, 0.7.3 landed the interactive panel,
-0.7.4 landed the automation, and 0.7.5 completed the memory maintenance loop with
-the lint. The three analysis-ledger follow-ups 0.7.2 deliberately left behind
-stay out of 0.7.4 and 0.7.5 and are **0.8.0 candidates by default** — the owner
-has not answered the decision, and 0.7.5 kept a single theme.
+**Not landed, and what this plan is:** the release closure only (0.7.6, in
+progress: GitHub Releases for `v0.7.1`–`v0.7.5` backfilled plus `v0.7.6` cut by
+the release tool, the npm decision with no publication by default, docs
+reconciliation, the Phase 4 cutover rehearsal, the config-defaults audit, and
+the release gates). Native port Phase 2 is complete as of 0.7.2, 0.7.3 landed
+the interactive panel, 0.7.4 landed the automation, and 0.7.5 completed the
+memory maintenance loop with the lint. The three analysis-ledger follow-ups
+0.7.2 deliberately left behind stay out of 0.7.4 and 0.7.5 and are **0.8.0
+candidates by default** — the owner has not answered the decision, and 0.7.5
+kept a single theme. 0.7.6 changes no plugin behaviour and no default: it
+closes the line, it does not open the next one.
 
-**Deliberately not in 0.7.x:** the Phase 4 default cutover (0.8.0 material), the
-month/week panel goal and rating surfaces, editing tools for the owned journal,
-the `dsh dayflow import` CLI (only the tool exists), embeddings, the
-`review.cards` switch (the plugin has no card stack, so it has no surface),
+**Deliberately not in 0.7.x:** the Phase 4 default cutover (0.8.0 material;
+0.7.6 only rehearses it, flips nothing), the month/week panel goal and rating
+surfaces, editing tools for the owned journal, the `dsh dayflow import` CLI
+(only the tool exists), embeddings, the `review.cards` switch (the plugin has no
+card stack, so it has no surface),
 image admission (pixels need a host attachment peer and a vision contract;
 0.8.0 candidate), automatic catch-up for skipped analysis windows, the token cap
 as a gate, and the 04:00 day tail (all three re-triaged in the 0.7.3 and 0.7.4
@@ -193,8 +203,8 @@ definition of that.
 | 0.7.2 | **landed** — Analysis visible: worker timer, text-only host adapter, status route and panel line, budget ledger, manual command; no schema change | Native port Phase 2 | 0.7.1 | D1, D3 | Medium |
 | 0.7.3 | **landed** — Interactive insights: decide review items, attach/detach task sessions in the panel; three POST routes, one shared decision module, no schema or model dependency | Phase 3.5 / 3.7 remain | — (built against 0.7.2 tree) | D6 | Low |
 | 0.7.4 | **landed** — The day closes itself: schema v9 (`automation_runs` + `briefs`), daily/weekly briefs, the insight pass, a scheduler with `automation.catchUpDays` (1–30, default 2), one GET route (18 total) and the fifth slash command; text-only, no image and no token gate | Native port Phase 3 | 0.7.2, 0.7.3 | D3, D4, D9 | High |
-| 0.7.5 | **landed** — Scheduled memory lint with the weekly digest: schema v10 (`automation_runs` accepts `lint`, plus `briefs.payload_json`), a weekly lint pass that proposes at most one item per claim per week and never writes a claim, and a memory-health paragraph in the weekly brief; no route, no command, no new surface. The deferred analysis-ledger follow-ups stay 0.8.0 candidates (owner unanswered; single-theme patch) | Phase 4 lint remain | 0.7.4 | D8 | Low–Medium |
-| 0.7.6 | Release and compatibility close | Release closure / Phase 4 rehearsal | 0.7.1–0.7.5 | D1, D7 | Low |
+| 0.7.5 | **landed** — Scheduled memory lint with the weekly digest: schema v10 (`automation_runs` accepts `lint`, plus `briefs.payload_json`), a weekly lint pass that proposes at most one item per claim per week and never writes a claim, and a memory-health paragraph in the weekly brief; no route, no command, no new surface. The deferred analysis-ledger follow-ups stay 0.8.0 candidates (owner unanswered; single-theme patch) | Phase 4 lint remainder | 0.7.4 | D8 | Low–Medium |
+| 0.7.6 | **in progress** — Release and compatibility close: six 0.7.x tags each with a GitHub Release (`v0.7.1`–`v0.7.5` backfilled by hand from the corrected CHANGELOG, `v0.7.6` cut by the release tool), the npm state settled without publishing by default (D7 unanswered), docs reconciliation including the two "weekly reflection" overstatements and the v8/v9/v10 numbering, `docs/CUTOVER_REHEARSAL.md` plus `npm run rehearsal` (a repo-side fixture dry run with its test, neither shipped), the 0.7.0→0.7.5 config-defaults audit, and both CI legs + `check:package` green; no plugin-source, schema, route, command, config, or default change | Release closure / Phase 4 rehearsal | 0.7.1–0.7.5 | D1, D7 | Low |
 
 Order rationale: see [§5](#5-sequencing-rationale). Nothing in the table changes
 the plugin's default behaviour; each new path is off by default or requires
@@ -204,8 +214,9 @@ memory lint and its digest, 493 tests, 18 routes, 5 commands — with **no** ima
 **no** token gate, and **no** replay of analysis-ledger skips. 0.7.5 kept one
 theme (R1): the read-only lint became a weekly advisory pass whose findings are
 proposals (at most one per claim per week, never an automatic supersede or
-forget) and whose digest is written into the weekly brief. **0.7.6 is the only
-patch left**: release and compatibility close. The three analysis-ledger
+forget) and whose digest is written into the weekly brief. **0.7.6 is in progress and is
+the only patch left**: release and compatibility close, finalised as an
+executable checklist in its section below. The three analysis-ledger
 follow-ups 0.7.2 left behind remain outside 0.7.4 and, by default, outside the
 0.7.x line: they are 0.8.0 candidates until the owner answers.
 
@@ -1301,10 +1312,13 @@ remaining Phase 4 gap is the editing path, not the lint.
   `docs/ROADMAP.md` remain line, `CHANGELOG.md` (the `[Unreleased]` entry moves
   into the release section at the bump).
 
-**Landed shape and corrections (measured on the `v0.7.5` tree).** The tagged
-tree implements the shape above; these are the points where reality is more
-specific than the draft, and they are the record 0.7.6 reconciles other docs
-against.
+**Landed shape and corrections (measured on the `v0.7.5` tree at `81af8e3`).**
+The tagged tree implements the shape above; these are the points where reality
+is more specific than the draft, and they are the record 0.7.6 reconciles other
+docs against. Verified again for this revision: `npm test` 493 pass / 0 fail /
+0 skipped / 0 todo, `npm run typecheck` and `npm run check:package` green;
+`JOURNAL_SCHEMA_VERSION = 10`; `src/panel-contract.ts` registers 18 paths; and
+`DAYFLOW_COMMAND_NAMES` has exactly five entries.
 
 - **One proposal per subject, capped at three.** The draft said "one proposal
   per claim"; the implementation reduces the flattened finding lists to one
@@ -1348,6 +1362,26 @@ against.
   + 9 POST), 5 commands, 23 tools, 8 skills, schema v10, no new peer or
   dependency, no image. `npm test`, `npm run typecheck`, and
   `npm run check:package` are green on the tagged tree.
+- **Implementation anchors the 0.7.6 docs pass checks against (measured on the
+  tagged tree):** `src/journal.ts` — `JOURNAL_SCHEMA_VERSION = 10` and
+  `MIGRATION_10` rebuilds `automation_runs` (replacement table, id-preserving
+  copy, drop/rename, `automation_runs_day_idx` recreated) and adds the nullable
+  `briefs.payload_json` under a `tableHasColumn` guard;
+  `src/automation/store.ts` — `AutomationJob` includes `'lint'` (and the `JOBS`
+  validator), a brief's corrupt payload decodes to "no payload" while a run's
+  payload stays strict; `src/automation/lint.ts` — `runWeeklyLint(...)` returns
+  `WeeklyLintResult {status, scanned, findings, proposals, summary, reason?}`,
+  `DEFAULT_WEEKLY_LINT_MAX_PROPOSALS = 3` (option 1–10), records
+  `automation_runs(job = 'lint', day = <Monday>)`, reports a completed week as
+  `skipped: already-complete`, recomputes that row with `force`, and proposes
+  one `kind = 'improvement'` item per subject ("Memory check: <subject>",
+  confidence 0.7) through the existing queue rules;
+  `src/briefs/weekly.ts` — the optional `memoryHealth` input renders exactly one
+  `Memory health: <summary>` paragraph after the model answer and stores
+  `payload_json.memory_health`; `src/index.ts` — `closeWeek` runs
+  `runWeeklyLint` **then** `writeWeeklyBrief` and maps both through
+  `describeWeekClose(weekly, lint)`. The pass makes no model call and has no
+  consent gate of its own.
 
 **Tests and acceptance.**
 
@@ -1414,85 +1448,393 @@ forward-only (R8), so a bad migration is fixed forward.
 
 ### 0.7.6 — Release and compatibility close
 
-**Theme and motivation.** Close the line honestly: every 0.7.x change documented
-and released, the publication decision taken by the owner, and the Phase 4
-cutover rehearsed without flipping any default. This is the only patch that
-touches the release trail itself, and it starts from a measured backlog: on
-2026-11-27 the registry has no `dsh-plugin-dayflow` (404), the latest GitHub
-Release is `v0.5.1`, and `v0.7.1`–`v0.7.5` are tags without release notes —
-each carrying value only in the tagged tree.
+**Status: in progress, finalised 2026-11-27 against the `v0.7.5` tree at
+`81af8e3` (tag `v0.7.5`, commit `f117cdc`).** One theme (R1): close the line
+honestly — make every 0.7.x tag readable as a release, settle the npm question
+without publishing by default, reconcile the docs with the tagged behaviour,
+and rehearse the Phase 4 cutover without flipping a default. It is a
+**docs-and-release patch**: no plugin source (`src/`), schema, route, command,
+tool, skill, config key, default, host peer, or dependency changes. The one
+executable artifact is the Phase 4 rehearsal — `scripts/cutover-rehearsal.mjs`,
+its test, the `rehearsal` npm script, and `docs/CUTOVER_REHEARSAL.md` — whose
+fixture dry run is CI-safe (fake provider, scripted analyser, temporary journal)
+and whose real-capture step is owner-present and opt-in; neither the script nor
+the test ships in the tarball (`files` excludes `scripts/` and `tests/`). The
+work is ordered A → F so one implementer can run it top to bottom; the boxed
+acceptance list at the end is the definition of done for the tag.
 
-**Deliverables.**
+**Measured backlog at `81af8e3` (re-verified for this revision).**
 
-- GitHub Releases: `npm run release -- patch` already creates one for the tag
-  it cuts; verify `v0.7.1`–`v0.7.6` each have a release whose notes are the
-  matching CHANGELOG section. `v0.7.1`, `v0.7.2`, `v0.7.3` and `v0.7.4` are
-  tagged but had **no** GitHub Release on 2026-11-27 (the latest published
-  release is `v0.5.1`), so this patch backfills **`v0.7.1`–`v0.7.5` by hand
-  (five releases)**; `v0.7.6` is cut by the release tool with its own release.
-  If a tag was in fact cut with a release, verify its notes instead of
-  recreating it; the same rule covers any later tag cut without one.
-- npm: a publication checklist, not a publication. `npm pack --dry-run` and
-  `check-package.mjs` already gate the file list; confirm the registry name is
-  still free, that `docs/` (including this plan) ships in the tarball, and that
-  the tag/version guard in `ci.yml` protects the tag. `npm publish` happens only
-  under D7 authorization; otherwise the README stays "tagged here, not yet on
-  the npm registry".
-- Docs reconciliation: README/README.zh status line, `docs/ROADMAP.md` status
-  and phase remain lines, `docs/NATIVE_PORT.md` phase statuses, the v8/v9/v10
-  numbering **and its §4 shapes** (v9 shipped: two automation job values, five
-  statuses, both brief kinds; v10 shipped: three job values and
-  `briefs.payload_json`), and its "images stay text-only until 0.7.2" sentence
-  (the contract is text-only for the whole 0.7.x line; image admission is 0.8.0
-  material), `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, `docs/PANEL.md`,
-  `docs/TOOLS.md` if the surface changed, the deferred analysis-ledger items
-  (skipped-window catch-up, the token gate, the 04:00 tail) recorded as still
-  deferred to 0.8.0, and this file's status column updated to what actually
-  shipped.
-- **CHANGELOG and NATIVE_PORT correction:** the `[0.7.4]` section says the
-  weekly close adds "the weekly reflection, the weekly review pass, and the
-  memory lint summary", and `docs/NATIVE_PORT.md` §Phase 3 still says the weekly
-  close adds "the weekly reflection and the weekly review pass". The tagged tree
-  closes a week with exactly one brief (`briefs(kind='week')`) and no weekly
-  reflection; the memory lint and its digest landed in 0.7.5, and a weekly
-  reflection is not scheduled on the 0.7.x line at all. Rewrite both sentences
-  to match the tagged behaviour rather than the intent.
-- Phase 4 cutover **rehearsal**: a fresh-profile dry run (capture on, consent
-  `local` or `none`, analysis on, one real day, next-morning close) with a
-  written pass/fail checklist covering permission, frames, cards, brief,
-  reflection, queue, and no data loss across a restart. The default `source:
-  owned` flip is **not** part of this patch; it is 0.8.0 (native preview), with
-  1.0.0 after a real week of capture per `NATIVE_PORT.md` §8 Phase 4.
-- CI: both Node legs green, `check:package` still covering the new modules, and
-  the new test files in the same run (no second job unless the runtime needs
-  one).
-- Compatibility statement: README/ARCHITECTURE state the DSH peer cohort and
-  that the 0.7.x line added **no** host peer: analysis stays text-only (the
-  `llm` peer was already declared) and image admission, which would need
-  `@deepseek-ai/dsh-attachment`, is 0.8.0 material.
+- npm: `npm view dsh-plugin-dayflow version` answers **404** — the package has
+  never been published.
+- GitHub: `gh release list` ends at **`v0.5.1`**. `v0.7.1`–`v0.7.5` are
+  annotated tags pushed to `origin`, each with its own CHANGELOG section, and
+  each with **no release**. Their release commits read `chore(release): 0.7.N`,
+  while `scripts/release.mjs` writes `chore(release): v<version>` and creates
+  the release itself — so the 0.7.x tags were not cut by the current tool,
+  which is why the releases are missing.
+- `gh auth status` reports the repository owner account with `repo` scope, so
+  the backfill is one `gh release create` per tag, not a new authorisation.
+- The tagged tree is green under the same gates as the rest of the line: 493
+  tests, typecheck, `check:package`; 18 routes, 5 commands, schema v10.
 
-**Acceptance.**
+**A. Release trail — six releases, five of them backfilled.** The target state
+is one GitHub Release per 0.7.x tag whose body is that version's corrected
+CHANGELOG section, plus a `v0.7.6` release created by the release tool rather
+than by hand.
 
-1. Six tags exist (`v0.7.1`–`v0.7.6`), each with a GitHub Release whose notes
-   match its CHANGELOG section; the `v0.7.1`–`v0.7.5` releases are backfilled by
-   hand where the tag was cut without one; the tag version guard passes on each.
-2. `npm view dsh-plugin-dayflow version` either shows the authorized version or
-   the README explicitly says the line is tagged and unpublished — no
-   ambiguity.
-3. The cutover rehearsal checklist is complete with dates and observed frame,
-   card, and queue counts; any data loss is a blocking finding for 0.8.0.
-4. A config-defaults audit diff against 0.7.0 shows every change was either an
-   explicit owner decision or is inert by default.
-5. CI green on both Node legs and `check:package` green.
+1. Preconditions: the docs passes from C–E are on `main` (the backfilled notes
+   are extracted from the corrected CHANGELOG), the tree is clean, and
+   `git fetch --tags origin` has run. Record `git tag -l 'v0.7.*'` and
+   `gh release list --limit 20` in a scratch release checklist
+   (`/tmp/dayflow-0.7.6-release.md`, not committed; its summary goes into the
+   post-release docs commit).
+2. Version guard, per tag: `git show v0.7.N:package.json` must name version
+   `0.7.N` — the same rule `.github/workflows/ci.yml`'s `release-check` job
+   enforces for a new tag. CI does not re-run for an old tag, so check it here.
+3. Notes come from the CHANGELOG, never from memory (R6). `scripts/release.mjs`
+   exports its parser, so extract the body with it rather than by hand:
+   `node --input-type=module -e "import {changelogSection} from
+   './scripts/release.mjs'; import {readFileSync,writeFileSync} from
+   'node:fs'; const t=readFileSync('CHANGELOG.md','utf8'); for (const v of
+   ['0.7.1','0.7.2','0.7.3','0.7.4','0.7.5']) writeFileSync('/tmp/v'+v+'.md',
+   changelogSection(t,v)+'\n');"` — one notes file per version.
+4. Create, one tag at a time: `gh release create v0.7.N --verify-tag --title
+   "v0.7.N — <theme>" --notes-file /tmp/v0.7.N.md`. `--verify-tag` refuses if
+   the tag is not on the remote. Themes match the tag subjects (the `v0.5.1`
+   release uses the same `v<version> — <theme>` title shape):
+   `v0.7.1 — analysis foundation (schema v8, consent gate, fake-adapter
+   pipeline)`; `v0.7.2 — analysis worker, text-only host adapter, status route
+   and panel line`; `v0.7.3 — interactive insights (review decisions, task
+   session unlink)`; `v0.7.4 — text-only automation (daily/weekly briefs,
+   insight pass, scheduler, schema v9)`; `v0.7.5 — scheduled memory lint,
+   weekly digest, schema v10`.
+5. Verify each: `gh release view v0.7.N --json tagName,name,body` — the body
+   equals the CHANGELOG section, the tag is the expected one, and the newest
+   release is marked `Latest`. A wrong title or body is fixed by
+   `gh release delete v0.7.N --yes` and re-creating the release; the **tag is
+   never deleted, moved, or re-cut**.
+6. `v0.7.6` is cut by the tool: with the docs committed and only `CHANGELOG.md`
+   dirty (its `## [0.7.6] - <date>` section written), run
+   `npm run release -- patch` (from 0.7.5 that yields 0.7.6; `-- 0.7.6` is the
+   explicit form). Do **not** pass `--no-release`. The script runs the suite,
+   bumps `package.json` + the lock, commits `chore(release): v0.7.6`, creates
+   the annotated tag, pushes `main` and the tag, and creates the GitHub Release
+   from the CHANGELOG section. If the push or `gh release create` fails it exits
+   having printed the exact manual commands; finish those instead of re-running
+   the bump.
+7. The six notes bodies are the record: no hand-written release summary, and no
+   release is published before its CHANGELOG section is final — C runs first
+   for exactly this reason.
 
-**Dependencies and owner decisions.** D7 (publish or stay tagged), D1 (whether
-cloud consent is exercised in the rehearsal). Safe default: no publish, local
-consent only in the rehearsal.
+**B. npm — a decision and a check, not a publication.** D7 (npm publication)
+has **no owner answer**, so the safe default is **do not publish**: the README
+stays "tagged here, not yet on the npm registry", and the line is legible as a
+tag-only line only because §A gives every tag a release.
 
-**Risks and rollback.** Publishing is hard to undo, so it is gated on an
-explicit owner decision, a dry-run tarball review, and a token; everything else
-in the line is reversible by config or a revert. Docs drift is the second risk,
-mitigated by the per-patch docs rule (R6) and this reconciliation pass.
+1. `npm view dsh-plugin-dayflow version` → `E404` (record the output). If it
+   ever shows a version, stop: someone published, and the owner decides whether
+   that was intended before anything else touches the registry.
+2. `npm pack --dry-run --json > /tmp/dayflow-pack.json`, then
+   `node scripts/check-package.mjs /tmp/dayflow-pack.json` (`npm run
+   check:package` is the same pair). Confirm that `docs/` — including this
+   file, `docs/CUTOVER_REHEARSAL.md`, `docs/ROADMAP.md` and
+   `docs/NATIVE_PORT.md` — plus both READMEs, `CHANGELOG.md`, `skills/`, `lib/`,
+   and `cordis.patch.yml` are in the list, and that `tests/`, `scripts/`, and
+   `.github/` are not (the `files` field does not change in this patch).
+3. Record the tarball file count and size next to the same numbers for
+   `v0.7.5`, and confirm no dependency or peer drift:
+   `git diff v0.7.5..HEAD -- package.json package-lock.json` is the version
+   bump plus the `rehearsal` script line, with no dependency or peer change.
+4. README/README.zh status line: version `v0.7.6`, the same "not yet on the npm
+   registry" sentence. The README's deep-documentation list gains
+   `docs/CUTOVER_REHEARSAL.md`. PATCH_PLAN §6 D7 and ROADMAP say the same.
+5. Publishing is **out of the safe default** and never happens in an unattended
+   run. If the owner authorises it in writing: review the dry-run tarball,
+   confirm `repository`/`homepage`/`license`, check the token and 2FA, run
+   `npm publish --access public`, and record the publish in `CHANGELOG.md` and
+   the READMEs — the tag and the GitHub Release do not change.
+
+**C. Docs reconciliation — file and sentence list.** Measured against the
+committed tree at `81af8e3`. A separate docs pass was already in flight when
+this revision was written (it corrects the `[0.7.4]` CHANGELOG sentence and
+parts of `NATIVE_PORT.md`/`CONFIGURATION.md`/`README.md`), so every row is
+**verify-or-correct**: the acceptance is the grep at the end, not who made the
+edit.
+
+1. `CHANGELOG.md`, `[0.7.4]` — at `81af8e3` the sentence read "the weekly close
+   adds the weekly reflection, the weekly review pass, and the memory lint
+   summary." The tagged tree closes a week with exactly one brief
+   (`briefs(kind='week')`) and no weekly reflection, and the lint and its digest
+   landed in 0.7.5. Keep the corrected text: one stored week brief, no weekly
+   reflection, no weekly review pass, with the lint described in `[0.7.5]`.
+2. `docs/NATIVE_PORT.md`, Phase 3 ("Insights pass", committed line ~609) —
+   "The weekly close adds the weekly reflection and the weekly review pass."
+   Replace with: the weekly close writes one text-only brief and adds no weekly
+   reflection; the memory lint is the separate 0.7.5 pass below.
+3. `docs/NATIVE_PORT.md`, the architecture diagram's `WeeklyClose` block —
+   verify it names the weekly brief and the 0.7.5 digest and **no** weekly
+   reflection (at `81af8e3` it read "weekly reflection + review items + memory
+   promotion rules"; the in-flight pass rewrites it).
+4. `docs/NATIVE_PORT.md`, §4 migration shapes and the "Migration order on the
+   0.7.x line" paragraph — verify v8 `analysis_jobs` (0.7.1), v9
+   `automation_runs` + `briefs` (0.7.4: two `job` values, five statuses, both
+   brief kinds), v10 rebuild (0.7.5: three `job` values,
+   `briefs.payload_json`, `tableHasColumn`, "not a new table"). Already correct
+   at `81af8e3`; keep the shipped shape, not the draft, and do not renumber.
+5. `docs/CONFIGURATION.md` — two stale sentences: "both write day or week
+   reflections" (only the day close writes a reflection; the weekly close
+   writes one brief) and the `analysis.dailyTokenBudget` row's "hard
+   enforcement lands in 0.7.3" (it never landed; the token cap is reported-only
+   and a 0.8.0 candidate). Verify the key table against `src/config.ts` while
+   there.
+6. `docs/TOOLS.md` — the review-queue section says the queue lives in the
+   journal "(schema version 7)"; the review-items table is owned schema **v3**
+   (the journal is v10 now). Say "the review-items table (owned schema v3,
+   journal v10)" or drop the number, and confirm the 23-tools / 8-skills lists
+   still match `src/tools/` and `skills/`.
+7. `docs/ARCHITECTURE.md` — verify owned schema version 10, the
+   `automation/lint.ts` write-path paragraph, the `briefs/` + `automation/`
+   layout row, and the 493-test line. Already correct at `81af8e3`.
+8. `docs/PANEL.md` — verify the exact route set (18 host Fetch routes: 9 GET +
+   9 POST), the one-entry rule, the three 0.7.3 POSTs, the automation GET, and
+   the close line; the digest stays in `briefs` and adds no panel surface.
+9. `README.md` / `README.zh.md` — "Quick capture: three slash commands" reads as
+   if the plugin had three commands, but `DAYFLOW_COMMAND_NAMES` has five (the
+   three quick-capture ones plus `/dayflow-analyze` in 0.7.2 and
+   `/dayflow-run-close` in 0.7.4). Say five and keep the three as the
+   quick-capture subset; scope the same sentence in `docs/QUICK_CAPTURE.md`
+   ("the plugin registers three commands") to the journal-writing commands.
+10. `README.md` / `README.zh.md`, native-capture section — "day/week
+    reflections" from the automation close: the insight pass writes one **day**
+    reflection and the weekly close writes the brief; a week reflection can only
+    be written by the agent or the user through `journal_reflection`. Reword the
+    automation sentence to "the day's reflection" — a later README bullet may
+    still say "day/week **reflections**" for the store, because the tool really
+    does support both kinds; the claim that has to be exact is the one about
+    what the close writes.
+11. `README.md` / `README.zh.md` status line and `docs/ROADMAP.md` — version
+    `v0.7.6`, "not yet on the npm registry", and the 0.7.6 row/paragraphs as
+    landed after §A's tag; `docs/CUTOVER_REHEARSAL.md` linked from the README's
+    deep-documentation list, and the test-count lines in README,
+    `docs/ARCHITECTURE.md`, `docs/CUTOVER_REHEARSAL.md` §2, and §1 here updated
+    to the tag's actual `npm test` total (493 at `81af8e3` plus the rehearsal
+    case).
+12. Deferred items — skipped-window catch-up, the token cap as a post-call
+    gate, and the 04:00 day tail stay **0.8.0 candidates by default** in every
+    doc (PATCH_PLAN §6, ROADMAP, NATIVE_PORT); confirm no doc promises them on
+    the 0.7.x line, and that image admission (pixels + the attachment peer) is
+    also stated as 0.8.0 material.
+13. Compatibility statement — README (and README.zh) and
+    `docs/ARCHITECTURE.md` state the DSH peer cohort (dev `0.2.1-rc.2`, peers
+    `^0.2.0-rc.2`, supported releases `0.2.0-rc.2`/`0.2.1-rc.2`) and that the
+    0.7.x line added **no** host peer: `@deepseek-ai/dsh-llm` was declared before
+    the line and is used through the structural seam, and
+    `@deepseek-ai/dsh-attachment` was never added because pixels are 0.8.0
+    material. Verify the statement is present and true after the docs pass; it
+    is the compatibility close the patch's name promises.
+14. This file after the tag: §1's head/tests rows, §3.1's 0.7.6 row, §0.7.6's
+    status line, §6's D7/standing paragraph, and ROADMAP's status head,
+    Patch-iterations row, and Phase 4 sentence — set to "released" with the
+    tag, the six release URLs, and the final counts, in the post-release docs
+    commit the acceptance names.
+
+Acceptance greps (all must be empty or exactly the stated value before the
+tag; each has to allow the *negated* forms, so they target the positive claim):
+
+```sh
+grep -rn "adds the weekly reflection\|the weekly reflection and the weekly review" \
+  CHANGELOG.md docs/NATIVE_PORT.md README.md README.zh.md                                      # empty
+grep -rn "both write day or week reflections" docs/CONFIGURATION.md                            # empty
+grep -rn --exclude=PATCH_PLAN.md "lands in 0.7.3" docs/                                        # empty
+grep -rn "schema version 7" docs/TOOLS.md                                                      # empty
+grep -c "PATH" src/panel-contract.ts                                                           # 18
+sed -n '/DAYFLOW_COMMAND_NAMES = \[/,/\] as const/p' src/commands.ts                           # five entries
+```
+
+The reflection rows are checked by reading, not only by grep: the 0.7.x close
+writes exactly one day reflection and no week reflection, so each "weekly
+reflection" hit left in the tree must be a negation ("no weekly reflection") or
+the manual `journal_reflection` action, never a claim about the close.
+
+**D. Phase 4 cutover rehearsal — one written checklist, no flipped default.**
+The deliverable is `docs/CUTOVER_REHEARSAL.md` plus its executable partner
+`npm run rehearsal` (`scripts/cutover-rehearsal.mjs`, spawned by
+`tests/cutover-rehearsal.test.ts`, so the suite exercises it; neither ships in
+the tarball). It is a rehearsal, not the cutover: the default `source: owned`
+flip is **not** part of 0.7.6. It is 0.8.0 (native preview), with 1.0.0 after a
+real week of capture without data loss (`NATIVE_PORT.md` §8 Phase 4). 0.7.6
+flips no default, and the file must say so in its first paragraph.
+
+Required contents (the acceptance checks each one exists):
+
+1. **Scope and consent.** Which steps are fixture-only (CI-safe: no screen
+   permission, no network, no model) and which need the owner present. Defaults:
+   `analysis.consent: 'local'` or `'none'`; `cloud` is **not** exercised without
+   D1 and the owner, and no screenshot, window title, or image leaves the
+   machine in the fixture run.
+2. **Fixture dry run (the executable part).** `npm run rehearsal` (after
+   `npm run build`; exit code 2 with a build hint when `lib/` is missing) works
+   inside one throwaway `mkdtemp` directory with a fresh journal,
+   `FakeCaptureProvider`, and a scripted analyser, then walks the native chain
+   (capture engine → analysis pipeline → day close → day insights → weekly lint
+   → weekly brief) and reopens the journal to prove nothing was lost. It prints
+   one PASS/FAIL row per check with `observed | expected`, then a count block:
+   screenshots, frame files (4 before analysis, 0 after `keepFramesDays: 0`),
+   activities, observations, `analysis_jobs`, standup entries, `briefs` with
+   `payload_json.memory_health`, reflections (day only, **no** week reflection),
+   review items inside the caps, `automation_runs` (including the `lint` row),
+   long-task sessions, and `memory_claims` — whose count must not move (the lint
+   never writes a claim) — plus the fake-adapter call count. The file records the
+   exact command, the date, and that run's counts. Idempotency is proven by the
+   existing suite (`automation-insights`, `briefs`, and `automation-lint` assert
+   a second close is `already-written` with no model call) rather than by a
+   second scripted pass.
+3. **Fresh-profile real rehearsal (owner present, opt-in).** A fresh profile
+   from a checkout with `capture.enabled: true` and `consent: 'local'` (or
+   `'none'` for capture-only); grant Screen Recording in System Settings when
+   macOS asks (the one step CI cannot do); one real day of capture; the
+   next-morning close at `automation.dailyAt` or `/dayflow-run-close`; then open
+   the panel. Record the permission state, frames captured, cards rendered, and
+   whether the close's model call happened. **Do not run real capture without
+   the owner at the machine and their explicit go-ahead for that motion**; if
+   they are unavailable, record "real-capture step: not run (owner
+   unavailable)" — the fixture part still makes the rehearsal useful for 0.8.0
+   planning, but it does not authorise a cutover.
+4. **Pass/fail checklist**, one row each with its pass criteria: permission
+   (route/panel reports granted; denied or revoked skips, never fails); frames
+   (first frame arrives, dedupe and retention behave, `keepFramesDays: 0`
+   deletes only after a successful analysis); cards (activities/observations
+   written for the day, replay a no-op, skipped windows terminal and visible);
+   standup and brief (one standup entry, one `briefs(kind='week')` with the
+   digest, no weekly reflection); day reflection (exactly one, written by the
+   insight pass); queue (proposals bounded by the caps, suppression honoured, no
+   memory claim written by automation — D9); lint (one
+   `automation_runs(job='lint', day=<Monday>)` row, proposals only, digest in
+   the brief, `memory_claims` untouched); restart (stop/start the host: same
+   close rows, no duplicate briefs, completed jobs not replayed); data loss (any
+   row count lower after the rehearsal than before is a **blocking finding for
+   0.8.0**, written down rather than explained away); default (a default profile
+   with capture off and consent `none` still runs nothing: no frames, no calls,
+   no close rows).
+5. **Recording format.** The file's record table carries one row per run:
+   date, commit, Node version, permission, frames, cards, brief, reflection,
+   proposals, restart-loss, verdict, plus operator, macOS version, the command
+   used, and a "deviations" paragraph. `Restart-loss` is "none" only when every
+   count matches before and after the reopen; anything else blocks 0.8.0. The
+   file ships in the tarball (`docs/` is already in `files`) and is linked from
+   the README's deep-documentation list.
+
+**E. Config-defaults audit — 0.7.0 → 0.7.5.** Measured with
+`git diff v0.7.0..v0.7.5 -- src/config.ts`: 47 insertions, 4 deletions — three
+new keys plus the `resolvePauseApps` → `resolveStringList` extraction. **No
+existing default changed**, and `cordis.patch.yml` is byte-identical between the
+two tags, so a fresh profile's bundle block is unchanged. The full audit is
+`docs/CUTOVER_REHEARSAL.md` §7's per-key table; this summary is the invariant to
+verify against it:
+
+| Key | Default | Range | Landed | Why it is safe / decision | Inert on a default profile? |
+| --- | --- | --- | --- | --- | --- |
+| `analysis.intervalMinutes` | 5 | 1–60 | 0.7.2 | cadence, no egress decision; the worker mounts only with capture + analysis + host `llm` | yes — capture is off |
+| `analysis.localProviders` | `[]` | provider ids | 0.7.1 | D1 safety: empty means no provider is trusted as `local` | yes — consent is `none` |
+| `automation.catchUpDays` | 2 | 1–30 | 0.7.4 | D4 bounded catch-up; a day older than the window is `skipped`, never fabricated | yes — automation does not mount |
+| every other key | unchanged from 0.7.0 | unchanged | 0.7.0 | — | `source: dayflow`, capture off, consent `none`, memory context budgeted |
+
+Acceptance for the audit: each new key is either an explicit owner decision
+(D1/D4) or a pure cadence/limit knob; no default changed; the resolved-defaults
+fixture (`tests/capture-state.test.ts`) agrees with the table; and the table
+(with the diff command and date) is recorded in `docs/CUTOVER_REHEARSAL.md` or
+the release checklist (it is already written into `docs/CUTOVER_REHEARSAL.md`
+§7; verify it against the diff and extend it only if a key is missing). A
+default change that is not explained is a **blocking finding for the release**,
+not for 0.8.0. The same pass confirms
+`git diff v0.7.5..HEAD -- package.json package-lock.json` is the version bump
+plus the `rehearsal` script line, and that the whole line added no dependency or
+peer: the `llm` peer was declared before 0.7.0 and
+`@deepseek-ai/dsh-attachment` was never added.
+
+**F. CI, package, and release gates.** No new job, dependency, or peer: the
+patch is docs and the version bump, and the existing suite runs it.
+
+- Local, before the release commit: `npm test` (493 at `81af8e3` plus the
+  rehearsal case, so the tag's own total is what the docs record),
+  `npm run typecheck`, `npm run check:package`, and `npm run rehearsal` exiting
+  0 with every check PASS — the same gates every patch uses, with the rehearsal
+  added because this patch owns its record.
+- On `main` and on the tag: `.github/workflows/ci.yml` runs macOS 15 with Node
+  22 (`NODE_OPTIONS=--experimental-sqlite`) and Node 24, each running
+  `npm test` and the `Check the package contents` step (`npm pack --dry-run
+  --json` + `scripts/check-package.mjs`). Both legs must be green.
+- The `release-check` job (tags only) refuses a tag that is not `v<package.json
+  version>`; `v0.7.6` must pass it. The five backfilled tags never ran it (CI
+  does not re-run for an old tag), which is why A.2 checks the same rule
+  locally.
+- Post-release record: the six release URLs, the `npm view` 404 output, the
+  `check:package` tarball file count next to 0.7.5's, and the two CI run URLs
+  (main commit and tag) go into the release checklist, whose summary rides the
+  post-release docs commit.
+
+**Acceptance.** The patch is done when every box holds and the evidence is in
+the release checklist; the post-release docs commit is the last step.
+
+- [ ] Six tags exist (`v0.7.1`–`v0.7.6`) and each has a GitHub Release whose
+      body is that version's CHANGELOG section, created with `--verify-tag`;
+      the five backfills are recorded with their URLs and dates in the release
+      checklist and summarised in the post-release docs commit.
+- [ ] `v0.7.6` was cut by `npm run release -- patch` (not by hand): the
+      `chore(release): v0.7.6` commit and annotated tag exist, and the
+      `release-check` job is green on the tag.
+- [ ] The version guard passes for all six tags: `git show v0.7.N:package.json`
+      names `0.7.N`.
+- [ ] npm state is unambiguous: `npm view dsh-plugin-dayflow version` is 404
+      **and** README/README.zh, ROADMAP and §6 D7 all say "tagged, not on the
+      npm registry" with `v0.7.6`; no publish happened without the owner's
+      written authorisation.
+- [ ] `npm run check:package` is green and the tarball contains `docs/`
+      (including `PATCH_PLAN.md`, `ROADMAP.md`, `CUTOVER_REHEARSAL.md`,
+      `NATIVE_PORT.md`), both READMEs, `CHANGELOG.md`, `skills/`, `lib/`, and
+      `cordis.patch.yml`; `tests/`, `scripts/`, and `.github/` are absent; file
+      count and size are recorded next to 0.7.5's.
+- [ ] The C greps are clean: no positive "weekly reflection"/"weekly review
+      pass" claim (only negations or the manual action), no "both write day or
+      week reflections", no "lands in 0.7.3", no "schema version 7" in
+      `TOOLS.md`, 18 panel paths, five command names; and the README/
+      ARCHITECTURE peer-cohort statement (no host peer added on the line) is
+      present and true.
+- [ ] `docs/CUTOVER_REHEARSAL.md` exists with the fixture run's date and the
+      counts per stage, the pass/fail checklist, the record table, and the "no
+      default flip" statement; `npm run rehearsal` exits 0 with every check PASS
+      on the release commit; any data-loss finding is recorded as blocking for
+      0.8.0.
+- [ ] The config-defaults audit is recorded with its diff command; no default
+      changed 0.7.0→0.7.5 beyond the three explained keys; no dependency or
+      peer changed on the line.
+- [ ] CI is green on both Node legs for the release commit and the tag; the
+      post-release docs status commit updates §1, §3.1, §0.7.6, §6, ROADMAP's
+      status head / Patch iterations / Phase 4 line, and the README status line
+      to "released".
+
+**Dependencies and owner decisions.** D7 (publish or stay tagged): **no
+answer**, so the safe default and the plan are "stay tagged, do not publish" —
+the release trail does not wait for it. D1 (whether cloud consent is exercised
+in the rehearsal): default **no**; the rehearsal uses `local` or `none`, and a
+`cloud` step would need the owner and the 3.6 copy in place. Everything else is
+mechanical: the release tool's version guard, the CHANGELOG parser, and
+`check:package` already exist.
+
+**Risks and rollback.** Publishing is the one irreversible action, so it is
+gated on a written owner decision and never runs unattended; the default path
+publishes nothing. A backfilled release with wrong notes is fixed by deleting
+and re-creating the **release** (`gh release delete`, then `gh release
+create`), never by moving the tag — a pushed tag is immutable, and the version
+guard plus the CHANGELOG parser make a wrong body unlikely. A release script
+that fails after the tag push prints its manual completion commands; finishing
+them is safer than re-running the bump, which would find the tag taken. Docs
+drift is the second risk, mitigated by the C greps and the post-release status
+commit. The rehearsal writes only temporary/fixture data by default; a real
+capture is owner-present, opt-in, and a data-loss finding blocks 0.8.0 rather
+than being explained away. Rollback for the docs themselves is a revert; a tag
+is forward-only (the spirit of R8 applied to releases).
 
 ## 4. Definition of Done (every patch)
 
@@ -1531,6 +1873,13 @@ patches; a patch's section adds only its own assertions.
 - [ ] `docs/ROADMAP.md` remain lines change only for work that actually landed.
 - [ ] The patch's own section here is updated if reality diverged (the plan is
       the record; silently diverging is how a plan becomes fiction).
+- [ ] Release closure (0.7.6 only): the six 0.7.x tags each have a GitHub
+      Release whose body is the CHANGELOG section; the npm state is either a 404
+      or an owner-authorised publish, and the READMEs say which; the cutover
+      rehearsal checklist and the config-defaults audit are on file; and the
+      release changed no plugin source (`src/`), schema, route, config key, or
+      default — its only executable additions are the repo-side rehearsal script
+      and test, which do not ship.
 
 ## 5. Sequencing rationale
 
@@ -1576,18 +1925,19 @@ because a decision can be taken at that point instead of before it.
 | --- | --- | --- | --- | --- |
 | D1 | **Analysis destination**: `none`, `local`, or `cloud` | Whether screen frames may leave the machine, and whose model reads them | `none`: capture and the analysis code ship, no frame leaves the machine, the panel says why. Dogfooding a real day waits for the answer | 0.7.1 (code), 0.7.2 (real runs) |
 | D2 | **Provider and model** for analysis | Cost, latency, and which vendor sees the frames | No implicit host default: `analysis.provider` + `analysis.model` must be set explicitly; empty means "not configured" and jobs are `skipped`. 0.7.1 shipped exactly this and 0.7.2's adapter sends the configured pair, so the decision is settled unless the owner wants host defaults | 0.7.1 (settled) |
-| D3 | **Daily budget**: calls and tokens | A runaway loop is a bill, not a bug | 120 calls / 200k tokens per day, shown in status and read from the jobs ledger; the call cap has been a gate since 0.7.1, 0.7.2 surfaces both numbers, and the token cap is still reported-only through 0.7.4 (a post-call gate stays a 0.8.0 candidate; 0.7.5 kept a single theme) | 0.7.2 |
+| D3 | **Daily budget**: calls and tokens | A runaway loop is a bill, not a bug | 120 calls / 200k tokens per day, shown in status and read from the jobs ledger; the call cap has been a gate since 0.7.1, 0.7.2 surfaces both numbers, and the token cap is still reported-only through 0.7.5 (a post-call gate stays a 0.8.0 candidate; 0.7.5 kept a single theme) | 0.7.2 |
 | D4 | **Catch-up window** after the machine was off | Closing ten missed days at once is noise and cost | Finalised as the new `automation.catchUpDays` key: an integer 1–30, default **2**, counting back from the due day; older days are marked `skipped`, never fabricated | 0.7.4 |
 | D5 | **Frame retention** after analysis | Debuggability versus leaving screenshots on disk | `keepFramesDays: 0` deletes a frame after its successful analysis; 1–7 days is the debugging alternative | 0.7.1 |
 | D6 | **Suppression management surface** | A hard-suppressed idea must be clearable somewhere | Agent-only in 0.7.x (`journal_review` unsuppress); a panel list is a later patch | 0.7.3 |
-| D7 | **npm publication** | Publishing is hard to undo | Stay "tagged, not on the npm registry" (the README already says so); publish only on explicit authorization with a reviewed `npm pack` | 0.7.6 |
+| D7 | **npm publication** | Publishing is hard to undo | **Unanswered as of this revision, so 0.7.6 does not publish.** Stay "tagged, not on the npm registry" (the README already says so); publish only on explicit authorization with a reviewed `npm pack`, and the 0.7.6 checklist keeps a publish as an optional step after the release trail | 0.7.6 |
 | D8 | **Lint finding destination** | A finding is only useful if it is seen, and only trustworthy if it is not auto-"fixed" | Weekly digest plus at most one proposal per claim per week; no automatic supersede or forget | 0.7.5 (landed) |
 | D9 | **Automatic memory writes** | The product rule is "the agent may notice, only the user may decide" | Automation proposes into the queue; claims are written only through the existing kept-item promotion path. 0.7.4 ships exactly this: its insight pass never writes a claim | 0.7.4 |
 
-**Where the decisions stand after 0.7.5, with 0.7.6 the only patch left.** D2 is settled
-as the explicit provider/model rule above; D5's landed behaviour is
-delete-after-success at `keepFramesDays: 0`, with the engine sweep as the
-fallback; D1 remains unanswered, which keeps the line inert by default
+**Where the decisions stand after 0.7.5, with 0.7.6 in progress as the only
+patch left.** D2 is settled as the explicit provider/model rule above; D5's
+landed behaviour is delete-after-success at `keepFramesDays: 0`, with the engine
+sweep as the fallback; D1 remains unanswered, which keeps the line inert by
+default
 (`consent: none`, capture off). D3's caps are configured and the call cap is
 enforced; 0.7.2 made the ledger visible (both call and token numbers) and left
 the token number reported-only, and 0.7.4 does not change that — a post-call
@@ -1598,10 +1948,13 @@ list in 0.7.x. **D4 and D9 are finalised by the 0.7.4 section:** catch-up is
 bounded by `automation.catchUpDays` (1–30, default 2) with older days `skipped`,
 and automation writes no memory claim — proposals only, through the existing
 kept promotion path. D8 (lint destination) was taken by 0.7.5's safe default and
-landed (proposals plus the weekly digest); D7 (publish) is taken at 0.7.6. The
-three analysis-ledger follow-ups (skipped-window catch-up, the token gate, the
-04:00 day tail) are **0.8.0 candidates by default** — the owner has not answered,
-and 0.7.5 intentionally kept one theme.
+landed (proposals plus the weekly digest); D7 (publish) has no answer, so
+0.7.6's safe default is **no publish** — the release trail is backfilled and the
+tarball checked without it, and a written authorisation would add a publish step
+(reviewed tarball, token), not change the plan. The three analysis-ledger
+follow-ups (skipped-window catch-up, the token gate, the 04:00 day tail) are
+**0.8.0 candidates by default** — the owner has not answered, and 0.7.5
+intentionally kept one theme.
 
 Two constraints that are not decisions: the privacy limitation copy from
 Roadmap 3.6 (a paused app's window is skipped, but nothing can tell what is
@@ -1630,7 +1983,9 @@ admitted, which is a 0.8.0 candidate — and if image admission is taken, the
    config-defaults diff.
 6. Cut the release with `npm run release -- patch`, which runs the suite again,
    moves the CHANGELOG entry, commits, tags, pushes, and creates the GitHub
-   Release.
+   Release. For 0.7.6, backfill the five older releases from the corrected
+   CHANGELOG **before** cutting the tag (§0.7.6 A); a tag is never re-cut, so a
+   missing release is added, not re-tagged.
 7. Update the status column here and, only for work that landed, the roadmap's
    remain lines.
 

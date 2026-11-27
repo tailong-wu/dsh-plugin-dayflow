@@ -11,8 +11,13 @@ the daily and weekly close, the insights pass, the host scheduler with
 `catchUpDays`, `/dayflow-run-close`, and the panel's close-state line and status
 route; **0.7.5 adds the scheduled weekly memory lint** — schema v10 (a `'lint'`
 job value for `automation_runs`), `automation/lint.ts`, and a memory-health
-digest in the weekly brief. Image admission and the briefs reading view remain
-for later phases.
+digest in the weekly brief. **The whole 0.7.x line is text-only**: a window
+travels as app / window-title / frame-hash metadata, never as pixels. Image
+admission and the briefs reading view remain for later phases; image admission
+(pixels plus the `@deepseek-ai/dsh-attachment` host service) is **0.8.0
+material**. The `source: owned` default flip is likewise not on this line —
+0.7.6 only rehearses its checklist (`docs/CUTOVER_REHEARSAL.md`), and the flip
+belongs to 0.8.0.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -101,8 +106,9 @@ Missing (the rest of the port):
 │            long_task_sessions                                                        │
 │                                                                                    │
 │  WeeklyClose (Monday 04:00)                                                          │
-│    ├─ weekly summary from the seven days                                              │
-│    └─ weekly reflection + review items + memory promotion rules                       │
+│    ├─ weekly brief from the seven days → one briefs row (kind 'week')                 │
+│    └─ weekly memory lint (0.7.5): review proposals + "Memory health" digest;          │
+│            a stored week brief is the compressed week record — no weekly reflection   │
 │                                                                                    │
 │  Panel (one entry, unchanged)                                                        │
 │    └─ reads owned store; shows capture status + pause; insights as today              │
@@ -121,6 +127,11 @@ Design rules:
   enabled, cloud image analysis needs its own explicit consent setting.
 - **The UI keeps one harness entry.** Capture status lives inside the existing
   Journal insights view; no second button, tab, or settings surface.
+- **Text only on the 0.7.x line; pixels are 0.8.0.** The image steps in the
+  diagram (`saveImage`, an image argument to `ctx.llm.stream`) describe the
+  post-cutover target: the shipped line sends app / window-title / frame-hash
+  metadata, so the host `attachments` service is not a peer of this release and
+  image admission stays a 0.8.0 candidate.
 
 ---
 
@@ -185,6 +196,8 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS analysis_jobs_day_idx ON analysis_jobs (day, window_start_ts);
+CREATE INDEX IF NOT EXISTS analysis_jobs_status_idx ON analysis_jobs (status);
 
 -- v9: automation bookkeeping, one row per (job, day) (0.7.4)
 CREATE TABLE IF NOT EXISTS automation_runs (
@@ -258,7 +271,12 @@ Migration order on the 0.7.x line: **v8** adds `analysis_jobs` (0.7.1),
 `automation_runs` so its `job` CHECK also accepts `'lint'` for the scheduled
 memory-lint job and adds the nullable `briefs.payload_json` column (0.7.5) — a
 rebuild inside one transaction, every v9 row copied, not a new table.
-Migrations are forward-only, one version per patch.
+Migrations are forward-only, one version per patch. The shapes above are the
+shipped ones: `src/journal.ts` is the source of truth, with the same columns,
+indexes, `CHECK` constraints, and `UNIQUE` keys (`analysis_jobs.job_key`,
+`automation_runs (job, day)`, `briefs (kind, period_key)`); the
+`briefs.payload_json` `ALTER` runs under a `tableHasColumn` guard inside the
+same v10 transaction.
 
 Native screenshot rows keep `source_id = 'native'` and a content-derived
 `source_key` (frame hash plus capture second), so the importer and the capture
@@ -285,9 +303,10 @@ activity.
       displays: 'main'           # main | all
     analysis:
       enabled: true              # requires capture.enabled
-      consent: 'none'            # 'none' | 'cloud' | 'local' — cloud sends images to the provider
+      intervalMinutes: 5         # worker tick, 1-60 (0.7.2)
+      consent: 'none'            # 'none' | 'cloud' | 'local'; 0.7.x sends text metadata, not images
       localProviders: []         # provider ids accepted as local under consent 'local'
-      provider: ''               # empty uses agentDefaultModel.currentSelection()
+      provider: ''               # empty blocks analysis as "needs provider"; no implicit agent default
       model: ''
       windowMinutes: 10         # frames grouped into one analysis window
       framesPerWindow: 3
@@ -298,10 +317,14 @@ activity.
       dailyAt: '04:00'           # day-close jobs run at the Dayflow boundary
       weeklyOn: 'monday'         # weekly close at the same boundary; the weekly memory lint runs as part of it
       catchUpOnStart: true
+      catchUpDays: 2             # bounded catch-up window, 1-30 (0.7.4)
 ```
 
 Everything defaults safe: `capture.enabled: false`, `analysis.consent: 'none'`.
-The panel shows why capture is not running and what to set.
+The scheduler mounts only with the analysis stack, so a capture-off profile
+runs no close and no lint. The panel shows why capture is not running and what
+to set; the full key list and defaults are in
+[CONFIGURATION.md](CONFIGURATION.md).
 
 ---
 
@@ -325,12 +348,16 @@ This is the part that has to be right before anything captures pixels.
   successful analysis; database rows keep only the hash and the model output.
   Files live under `$DSH_HOME/dayflow/frames/` with 0700 directories and 0600
   files.
-- **Nothing leaves the machine except the analysis call.** No uploads, no
-  telemetry, no remote URLs. The LLM request carries downscaled JPEGs only, and
-  the config records which provider saw them.
-- **The prompt states the frame is data, not instructions**, and the analyser
-  rejects output that is not the expected JSON object, so a hostile screen cannot
-  steer the pipeline.
+- **Nothing leaves the machine except the model call the user configured.** No
+  uploads, no telemetry, no remote URLs. On the 0.7.x line an analysis request
+  carries the frontmost app, window title, and frame hash as text — never
+  pixels — and the 0.7.4/0.7.5 close passes carry activity text only. Image
+  admission is 0.8.0 material; if it lands, the request would carry downscaled
+  JPEGs. The config records which provider saw the text, and only a `cloud`
+  consent lets it leave the Mac.
+- **The prompt states that screen content is data, not instructions**, and the
+  analyser rejects output that is not the expected JSON object, so a hostile
+  screen cannot steer the pipeline.
 - **Redaction limits are documented, not implied.** Skip rules are the only
   reliable protection; pixel-level redaction is out of scope for the first cut,
   and the docs say so plainly (same wording rule as the existing privacy copy).
@@ -342,15 +369,20 @@ This is the part that has to be right before anything captures pixels.
 - Capture cadence 45 s, skip idle > 2 min and duplicate frames (dHash distance
   below a threshold): roughly 300–600 stored frames for an 8-hour day.
 - Windows of 10 minutes with 3 representative frames: 40–60 analysis calls for a
-  full day. Each call sends 1–3 downscaled images (≤1024 px, JPEG q60) plus the
-  prompt; expect ~1.5–4k input tokens per call.
-- Default caps: 120 calls/day and 200k tokens/day, enforced per (day) in
-  `analysis_jobs`; when a cap is hit the pipeline pauses analysis for the day and
-  the panel says why.
-- Text-only jobs (daily brief, reflection, review proposals) run once per day and
-  once per week; they are cheap and capped by the same token ledger. The weekly
-  memory lint is local and read-only — it calls no model — so it adds no token
-  cost and its only cost is the proposals it writes into the review queue.
+  full day. On the 0.7.x line each call sends the metadata of up to
+  `analysis.framesPerWindow` representative frames (app, window title, frame
+  hash) plus the prompt; image admission — downscaled JPEGs at ≤1024 px, about
+  1.5–4k input tokens per call — is 0.8.0 material and would raise this
+  estimate.
+- Default caps: 120 calls/day and 200k tokens/day, read from `analysis_jobs`;
+  the call cap is enforced per day (the pipeline stops analysing and the status
+  line says why), while the token number is reported, not gated (a post-call
+  token gate is an 0.8.0 candidate).
+- Text-only close jobs run only when the scheduler is mounted: up to two calls
+  per closed day (the standup brief and the insights pass) and one per closed
+  week (the weekly brief). They are not part of the `analysis_jobs` call/token
+  ledger, which counts frame-analysis windows only; the weekly memory lint
+  calls no model at all, so its only cost is the proposals it files.
 - The capture loop is idle-cheap: one `screencapture` per interval, a resize +
   hash, and a write. Frame analysis runs off the capture path in its own timer.
 
@@ -481,7 +513,8 @@ its own: the worker ticks on `analysis.intervalMinutes`, the host's `llm` servic
 backs the calls, the status route and the panel analysis line report the ledger,
 and `/dayflow-analyze` triggers one tick. A default profile still analyses
 nothing — `analysis.consent: 'none'` blocks every call — and images are still
-metadata (app, window title, hash), not pixels.
+metadata (app, window title, hash), not pixels, on the whole 0.7.x line; image
+admission is 0.8.0 material.
 
 **Scope.** Frames become `activities` rows through `ctx.llm.stream`.
 
@@ -556,12 +589,14 @@ metadata (app, window title, hash), not pixels.
 - Tests stay zero-network: the host adapter and the worker run on fake streams
   and injected timers.
 
-**Also not in 0.7.2:** image admission and downscaling (the model sees app /
-window-title / hash metadata, not screen pixels), and a catch-up replay for
-windows a blocked tick marked `skipped`. Those rows are terminal, so turning
-consent on later does not re-queue them; replaying a day is a later patch, and
-the daily/weekly briefs plus the automation scheduler landed in 0.7.4's Phase 3
-slice.
+**Also not in 0.7.2 (and not on the 0.7.x line).** The deferred analysis-ledger
+items stay 0.8.0 candidates by default: image admission and downscaling (the
+model sees app / window-title / hash metadata, not screen pixels), a catch-up
+replay for windows a blocked tick marked `skipped` (those rows are terminal, so
+turning consent on later does not re-queue them), the token cap as a post-call
+gate (the number is reported, not enforced), and the 04:00 day tail (one bounded
+extra tick for the day that just ended). The daily/weekly briefs plus the
+automation scheduler landed in 0.7.4's Phase 3 slice.
 
 **Acceptance.** A scripted replay (30 stored frames + scripted model adapter,
 no network) yields deterministic activities and a rendered day view; replaying
@@ -598,8 +633,11 @@ behind the same analysis consent/provider/model gate and without any image:
   confidence ≥ 0.6), memory claims only as a **kept** promotion (never silently
   active), and task session matching through the existing `scanTaskHistory`
   logic followed by `attachTaskSession` (a low-confidence match becomes a
-  review item instead). The weekly close adds the weekly reflection and the
-  weekly review pass; the memory lint is the separate 0.7.5 pass below.
+  review item instead). The weekly close writes one stored week brief
+  (`briefs`, `kind = 'week'`) and adds **no** weekly reflection and **no**
+  weekly review pass: the stored week brief is the compressed week record, and a
+  weekly reflection is not scheduled on the 0.7.x line. The weekly memory lint
+  is the separate 0.7.5 pass below.
 - **Observable surface.** `/dayflow-run-close` (a manual trigger for testing and
   catch-up), the panel's compact close-state line, and
   `GET /api/dayflow/automation/status` (enabled/running, `dailyAt`, `weeklyOn`,
@@ -626,11 +664,12 @@ behind the same analysis consent/provider/model gate and without any image:
   NULL payload. Stored closes survive the rebuild, and both the old and the new
   job values are accepted afterwards; the migration asserts the row count before
   and after.
-- **Still not in 0.7.4 or 0.7.5:** image admission and downscaling (the model
-  sees app / window-title / hash metadata, not screen pixels), a catch-up replay
-  for analysis windows a blocked tick marked `skipped`, and a panel view for
-  reading the stored briefs — the memory-health digest lives with the brief, so
-  the panel's close-state line still shows only the schedule and the last close.
+- **Not on the 0.7.x line (0.8.0 candidates by default):** image admission and
+  downscaling (the model sees app / window-title / hash metadata, not screen
+  pixels), a catch-up replay for analysis windows a blocked tick marked
+  `skipped`, and a panel view for reading the stored briefs — the memory-health
+  digest lives with the brief, so the panel's close-state line still shows only
+  the schedule and the last close.
 
 **Acceptance.** Closing a synthetic day with a scripted model produces one
 standup entry, one brief, one reflection, ≤3 review items, and attaches
@@ -646,6 +685,13 @@ service), so a capture-off profile runs no close and no lint; once mounted,
 never calls a model.
 
 ### Phase 4 — Cutover and release (about 1 week)
+
+**Status: planned; the rehearsal is 0.7.6, the default flip is 0.8.0.** 0.7.6
+writes the cutover rehearsal checklist ([CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md)):
+a fixture-based dry run plus an optional real-capture day on a fresh profile,
+recorded pass/fail, with no default changed and no npm publish. Turning
+`source: owned` into the default for a fresh install remains **0.8.0** (native
+preview), with `1.0.0` after a real week of capture without data loss.
 
 **Scope.** Dayflow becomes optional, the native path is the default for new
 installs.

@@ -10,7 +10,8 @@ Ask your own work journal. This plugin gives [DeepSeek Harness](https://github.c
 (`dsh`) native tools, skills, and a Web panel over [Dayflow](https://github.com/JerryZLiu/Dayflow),
 the open-source Mac app that turns screen activity into a private timeline of what was on
 your screen and for how long. It reads either Dayflow's local database or a plugin-owned
-journal imported from it once, and nothing leaves the Mac.
+journal imported from it once, and sends nothing off the Mac unless you explicitly enable
+cloud analysis.
 
 > "What did I work on today?" · "Where did my screen time go this week?" · "Write my standup."
 
@@ -45,20 +46,23 @@ stayed. That is the whole dataset.
   linked or unlinked in the panel, with no agent turn. Details → [docs/PANEL.md](docs/PANEL.md).
 - **Quick capture**: three slash commands (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`), inline
   add rows in the insights view, and a post-add history scan → [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
+- **Five slash commands in total**: the three quick-capture ones plus `/dayflow-analyze` (one analysis tick)
+  and `/dayflow-run-close` (one day/week close).
 - **A budgeted memory context**: active long tasks and recent dated claims are injected under a hard
   1000-byte cap with a 60-second cache; nothing is injected when there is nothing worth saying.
 - **Native capture (preview)**: Phase 1 records frames into the owned journal, off by default; 0.7.1 added the
   analysis pipeline behind a consent gate, and 0.7.2 runs it on the host's model service with a status line in
   the panel. 0.7.4 adds the text-only automation: the day closes at 04:00 and the week on Monday, with
-  retries, a two-day catch-up window, and a standup, brief, reflection, review proposals, and task sessions
-  written into the owned journal — mounted with the analysis stack, and gated by `analysis.consent`,
+  retries, a two-day catch-up window, and a standup, the day's reflection, one weekly brief, review proposals,
+  and task sessions written into the owned journal (the stored week brief is the compressed week record; there
+  is no weekly reflection) — mounted with the analysis stack, and gated by `analysis.consent`,
   `analysis.provider`, and `analysis.model` → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
 - **Zero runtime dependencies** beyond `dsh`: SQLite comes from `node:sqlite`; Dayflow edits use the
   app's local Unix socket, while the owned journal has its own SQLite file.
 
 Deep documentation: [tools](docs/TOOLS.md) · [panel](docs/PANEL.md) · [quick capture](docs/QUICK_CAPTURE.md) ·
 [configuration](docs/CONFIGURATION.md) · [architecture](docs/ARCHITECTURE.md) · [native capture](docs/NATIVE_CAPTURE.md) ·
-[native port plan](docs/NATIVE_PORT.md) · [roadmap](docs/ROADMAP.md).
+[native port plan](docs/NATIVE_PORT.md) · [cutover rehearsal](docs/CUTOVER_REHEARSAL.md) · [roadmap](docs/ROADMAP.md).
 
 ## Requirements
 
@@ -69,10 +73,16 @@ Deep documentation: [tools](docs/TOOLS.md) · [panel](docs/PANEL.md) · [quick c
 | Node.js ≥ 22.5 | Node 22.5–22.12 and 23.0–23.3 need `--experimental-sqlite`; Node 22.13+ and 23.4+ (24 included) do not. |
 | `dsh` ≥ 0.2.0-rc.2 | Peers on the 0.2 line of the harness; `pnpm` on `PATH` is needed only for `dsh plugin add`. |
 
+The 0.7.x line added **no** host peer beyond that declared cohort: `@deepseek-ai/dsh-llm` was already a
+peer and is the only host service the analysis path calls, and `@deepseek-ai/dsh-attachment` is **not** a
+dependency because the whole line is text-only. Image admission, which would need that attachment service,
+is 0.8.0 material.
+
 ## Install
 
-No `0.7.0` release is on the registry yet. Until it is, install from a checkout — that
-builds the development line described here; once published, run `dsh plugin --profile web add dsh-plugin-dayflow`.
+No `0.7.x` release is on the registry yet (`v0.7.5` is tagged in this repository). Until one is,
+install from a checkout — that builds the development line described here; once published, run
+`dsh plugin --profile web add dsh-plugin-dayflow`.
 
 ### Desktop App
 
@@ -154,7 +164,7 @@ titles and neutral hosts; the full view reference and route list are in
 
 ## Owned journal, memory, and insights
 
-The plugin owns a second, portable SQLite journal (schema **v8** on the 0.7.1 line) alongside the Dayflow
+The plugin owns a second, portable SQLite journal (schema **v10** on the 0.7.5 line) alongside the Dayflow
 default. Import a Dayflow database once with `journal_import`, then point the profile at
 `source: owned`: the source is opened read-only, the import is idempotent, and the existing
 tools and panel keep their payloads.
@@ -173,7 +183,7 @@ the quick-capture shortcuts in [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
 
 ## Native capture (preview)
 
-Phase 0 and Phase 1 have landed: config, capture state (schema v7 before 0.7.1), a native macOS provider, and
+Phase 0 and Phase 1 have landed: config, capture state (schema v7 in 0.7.0), a native macOS provider, and
 the capture engine behind a default-off `capture.enabled`. The engine records frames into the owned journal on
 an interval, skips paused, locked, idle, and paused-app ticks, dedupes near-identical frames, and enforces
 retention. 0.7.1 added the analysis pipeline: a consent gate and an idempotent frames → `activities` /
@@ -194,9 +204,10 @@ model as app / window title / hash metadata rather than image bytes. Capture its
 
 0.7.4 adds the **text-only automation slice**: schema v9 (`automation_runs` and `briefs`), a scheduler that
 closes the Dayflow day at `automation.dailyAt` (04:00 by default) and the Monday-anchored week at
-`automation.weeklyOn`, and an insights pass that writes the day's **standup entry**, the weekly **brief**,
-day/week **reflections**, at most three **review proposals**, kept **memory claims** only when the evidence is
-durable, and the matching **task sessions**. It mounts with the analysis stack — the same
+`automation.weeklyOn`, and an insights pass that writes the day's **standup entry**, the day **reflection**, one
+weekly **brief** (the stored week brief is the compressed week record; there is no weekly reflection or weekly
+review pass), at most three **review proposals**, kept **memory claims** only when the evidence is durable, and
+the matching **task sessions**. It mounts with the analysis stack — the same
 `capture.enabled` + `analysis.enabled` + host model service gate as the worker — so a default profile (capture
 off) runs no close jobs; once mounted, a close needs a `cloud`/`local` consent plus an explicit provider and
 model, and is recorded `skipped` with no model call otherwise. A failed close retries up to the two-attempt
@@ -268,11 +279,12 @@ default, and the capture/analysis/automation blocks are in
 ```sh
 npm install
 npm run build                # TypeScript → lib/, plus the client bundle
-npm test                     # build, type-check, and run the test suite
+npm test                     # build, type-check, and run the 494-test suite
 npm run typecheck            # type-check sources and tests together
 npm run smoke                # read this Mac's real Dayflow database
 npm run native:smoke         # capture provider only; writes nothing
 npm run native:engine-smoke  # capture engine against a temporary journal
+npm run rehearsal            # fixture-only Phase 4 cutover dry run (no screen, no network)
 npm run demo                 # rebuild the panel stills and GIFs
 ```
 

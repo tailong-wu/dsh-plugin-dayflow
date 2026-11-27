@@ -29,7 +29,7 @@ when a profile needs to share or back up the imported journal.
 
 ## Analysis and automation configuration
 
-Both blocks are validated at load time. On the 0.7.2 line `analysis` runs on its
+Both blocks are validated at load time. Since 0.7.2, `analysis` runs on its
 own: when `capture.enabled` and `analysis.enabled` are both on and the host's
 model service is available, the plugin starts an analysis worker that ticks
 every `analysis.intervalMinutes` and turns stored frames into
@@ -49,13 +49,15 @@ and `analysis.enabled` on and the host's model service available, the same gate
 as the analysis worker — so a profile without native capture runs no closes;
 once mounted, a close needs `analysis.consent` set to `cloud` or `local`, an
 explicit `analysis.provider`, and an `analysis.model`, and is recorded
-`skipped` without a model call until then. A close writes the day's
-standup entry (`daily_standup_entries`), the weekly close adds a weekly brief
-(`briefs`), and both write day or week reflections, at most a few review
-proposals, and matching long-task sessions; memory claims are written only
-through a **kept** promotion, never silently made active. A failed close retries
-up to the run's two-attempt cap, and a missed close older than the
-`automation.catchUpDays` window is recorded as `skipped` rather than replayed.
+`skipped` without a model call until then. The day close writes the day's
+standup entry (`daily_standup_entries`), the day's reflection, at most a few
+review proposals, and matching long-task sessions; the weekly close writes
+exactly one stored week brief (`briefs`, `kind = 'week'`) — the compressed week
+record — and adds no weekly reflection and no weekly review pass. Memory claims
+are written only through a **kept** promotion, never silently made active. A
+failed close retries up to the run's two-attempt cap, and a missed close older
+than the `automation.catchUpDays` window is recorded as `skipped` rather than
+replayed.
 `/dayflow-run-close` runs one close by hand through the same idempotent store,
 and the panel's close-state line plus `GET /api/dayflow/automation/status`
 report the schedule and the last stored closes. Defaults are shown.
@@ -91,7 +93,7 @@ service) runs no lint either.
 | `analysis.windowMinutes` | `10` | Minutes of frames grouped into one analysis window (1–60). |
 | `analysis.framesPerWindow` | `3` | Representative frames sent per window (1–5). |
 | `analysis.maxCallsPerDay` | `120` | Hard cap on analysis calls for one day (1–1000). |
-| `analysis.dailyTokenBudget` | `200000` | Daily token budget reported in the status/panel ledger (1000–2000000). It is recorded and shown in 0.7.2; hard enforcement lands in 0.7.3. |
+| `analysis.dailyTokenBudget` | `200000` | Daily token budget reported in the status/panel ledger (1000–2000000). The number is recorded and shown; it is not a gate on the 0.7.x line (the per-day call cap is). A post-call token gate stays a 0.8.0 candidate. |
 
 | Key | Default | Meaning |
 | --- | --- | --- |

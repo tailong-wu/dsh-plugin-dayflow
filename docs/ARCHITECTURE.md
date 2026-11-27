@@ -39,29 +39,38 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   module the `journal_review` tool uses — so both paths combine the item with
   its task or memory claim identically. The 0.7.4 automation adds a third writer
   path through the same module: the scheduler and its insights pass write the
-  day's `daily_standup_entries`, the daily/weekly `briefs`, the day/week
-  reflections, review proposals, kept memory claims, matched task sessions, and
-  one `automation_runs` row per attempted close. That path is gated by the
-  analysis consent/provider/model, not by Dayflow's edit switch. The 0.7.5
-  weekly memory lint reuses that path but only as a **proposal writer**: inside
-  the weekly close it calls `lintMemoryClaims` and files review proposals — it
-  never writes, supersedes, or forgets a `memory_claims` row — and the digest it
-  returns is rendered into that week's `briefs` body and `payload_json`.
-- **Native analysis (0.7.1 foundation, no worker yet).** When a caller invokes
-  it, `analyse/pipeline.ts` reads one Dayflow day's native `screenshots` rows
+  day's `daily_standup_entries`, the weekly `briefs` row (`kind = 'week'`), the
+  day reflection, review proposals, kept memory claims, matched task sessions,
+  and one `automation_runs` row per attempted close. The weekly close writes
+  exactly that one stored week brief: it adds no weekly reflection and no weekly
+  review pass, so a stored week brief is the compressed week record. That path
+  is gated by the analysis consent/provider/model, not by Dayflow's edit switch.
+  The 0.7.5 weekly memory lint reuses that path but only as a **proposal
+  writer**: inside the weekly close it calls `lintMemoryClaims` and files review
+  proposals — it never writes, supersedes, or forgets a `memory_claims` row — and
+  the digest it returns is rendered into that week's `briefs` body and
+  `payload_json`.
+- **Native analysis (0.7.1 pipeline, 0.7.2 worker, text-only on 0.7.x).**
+  `analyse/pipeline.ts` reads one Dayflow day's native `screenshots` rows
   (04:00–04:00), groups them into windows (`analysis.windowMinutes`, at most
   `framesPerWindow` representative frames), runs the pure consent gate, builds
-  the strict-JSON prompt, calls the injected analyser (a fake in tests; the host
-  `llm` adapter is wired in 0.7.2), validates the single JSON object, and writes
-  `activities` + `observations` with `source_id = 'native'` and a deterministic
-  window key (`analysis:<job key>`, per-frame keys for observations) in one
-  journal transaction. `analysis_jobs` (schema v8) records
-  each window so replaying the same frames is a no-op. With
+  the strict-JSON prompt, calls the analyser (the host `ctx.llm` adapter in
+  production, a scripted fake in tests), validates the single JSON object, and
+  writes `activities` + `observations` with `source_id = 'native'` and a
+  deterministic window key (`analysis:<job key>`, per-frame keys for
+  observations) in one journal transaction. `analysis_jobs` (schema v8) records
+  each window so replaying the same frames is a no-op. `analyse/worker.ts` ticks
+  on `analysis.intervalMinutes` only when `capture.enabled` and
+  `analysis.enabled` are on and the host model service is available;
+  `analyse/status.ts` backs `GET /api/dayflow/analysis/status` and the panel's
+  analysis line, and `/dayflow-analyze` runs one manual tick. With
   `capture.keepFramesDays: 0` a successful window's frame files are deleted and
   its `screenshots.file_path` is cleared, while the row, its key, and its hash
-  stay; the engine's retention sweep is the fallback for frames no job took.
-  Real provider/image calls, the worker timer, and the status route land in
-  0.7.2 — today the path is exercised only by fake-adapter tests.
+  stay; the engine's retention sweep is the fallback for frames no job took. It
+  stays inert on a default profile (`analysis.consent: 'none'` blocks every
+  call), and the whole 0.7.x line is text-only: the model receives the
+  frontmost app, window title, and frame hash as metadata, never pixels. Image
+  admission is 0.8.0 material.
 - **Categories** live in the app's preferences
   (`teleportlabs.com.Dayflow`, key `colorCategories`), not in SQLite. They are
   read with `defaults export` and parsed from the plist.
@@ -193,7 +202,7 @@ end.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 493 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
+npm test            # 494 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, cutover rehearsal, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps
@@ -218,7 +227,11 @@ Two other groups of scripts are documented where their subject is:
   Node 22.13+ and 23.4+ (24 included) do not.
 - `dsh` ≥ 0.2.0-rc.2: the plugin peers on the 0.2 line of the harness. Supported
   DSH releases are `0.2.0-rc.2` and `0.2.1-rc.2` (declared in
-  `dsh.compatibility.dshReleases`).
+  `dsh.compatibility.dshReleases`). The 0.7.x line added **no** host peer beyond
+  that declared cohort: `@deepseek-ai/dsh-llm` was already declared and is the
+  only host service the analysis path calls, and `@deepseek-ai/dsh-attachment`
+  is not a dependency because the line is text-only. Image admission, which
+  needs that attachment service, is 0.8.0 material.
 - `pnpm` on `PATH` is only needed for `dsh plugin add`; a linked development
   install does not need it.
 

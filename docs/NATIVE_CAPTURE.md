@@ -1,31 +1,37 @@
-# Native capture (Phase 1)
+# Native capture (Phases 1–3)
 
 [← Back to README](../README.md)
 
-> **Status:** Phase 0/1 and the text-only analysis slice are **landed** on the
-> `0.7.x` line: the owned journal is at schema version 8 with `capture_state` and
-> `analysis_jobs`, plus the capture provider, the capture engine, the analysis
-> pipeline behind its consent gate, the analysis worker (`0.7.2`), the
-> capture/analysis status routes, and the two compact panel lines. Capture and
-> analysis are still off/inert by default: with `analysis.consent: none` (the
-> default) the worker runs no model call, and with no configured
+> **Status:** Phases 0–3 are **landed** on the `0.7.x` line. The owned journal is
+> at schema **v10**: `capture_state` (v7), `analysis_jobs` (v8), and the v9
+> `automation_runs` + `briefs` tables widened by v10 (`job = 'lint'`,
+> `briefs.payload_json`). This page covers the capture provider and engine, the
+> text-only analysis pipeline and its worker (`0.7.2`), the scheduled day/week
+> closes and insights pass (`0.7.4`), and the weekly memory lint (`0.7.5`); the
+> panel has three compact status lines (capture, analysis, close state). Capture
+> and analysis are still off/inert by default: with `analysis.consent: 'none'`
+> (the default) the worker runs no model call, and with no configured
 > `analysis.provider`/`model` it records `provider-unset`/`model-unset` skips.
-> The rest of Phase 2–4 (image admission, cards and briefs, cutover) is planned
-> in [NATIVE_PORT.md](NATIVE_PORT.md).
+> Image admission (pixels) is **0.8.0 material**; the cutover default flip is
+> also 0.8.0 — see [NATIVE_PORT.md](NATIVE_PORT.md) and
+> [CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md).
 
 The plugin can record its own screen activity instead of only reading what the
 Dayflow app captured. **Phase 1 is the capture engine**: it records frames into
 the owned journal. `0.7.1` added the analysis foundation and `0.7.2` makes it
 operable: an interval worker calls the pipeline, a status route and a panel line
-show what it is doing, and `/dayflow-analyze` runs one manual tick. The call is
-text-only — app, window title, and the frame hash; no image is ever sent.
-Everything below is off by default.
+show what it is doing, and `/dayflow-analyze` runs one manual tick. `0.7.4`
+closes the day and week on a scheduler, and `0.7.5` adds the weekly memory lint.
+Every model call is text-only: the analysis call sends the frontmost app, window
+title, and frame hash, and the closes send activity text; no image is ever sent
+on the 0.7.x line. Everything below is off by default.
 
 - **Capture is off by default.** Setting `capture.enabled: true` starts the
   engine with the plugin. The engine does not depend on the panel, so it runs
   with `panel: false` too. The `capture` block carries the knobs below; the
-  `analysis` block configures the `0.7.2` worker and pipeline, and the
-  `automation` block is validated but unused.
+  `analysis` block configures the worker and pipeline, and the `automation`
+  block configures the scheduled closes and the weekly lint (the scheduler
+  mounts only with the analysis stack).
 - **The engine records on an interval.** Every `capture.intervalSeconds` it
   checks the persisted pause flag, whether the screen is locked or the display
   asleep, the idle gate (`capture.idleSeconds`), and `capture.pauseApps`, then
@@ -56,19 +62,35 @@ Everything below is off by default.
   consent, worker state, job counts, and today's call/token ledger; the insights
   view shows it as one compact line under the capture line, and
   `/dayflow-analyze` runs one manual tick. The per-day call cap is enforced by
-  the pipeline; the token budget is recorded and shown, with hard enforcement
-  landing in `0.7.3`.
+  the pipeline; the token budget is recorded and shown, not a gate on the 0.7.x
+  line (a post-call token gate stays a 0.8.0 candidate).
+- **The day and week close themselves (0.7.4, lint 0.7.5).** With the analysis
+  stack mounted, a host scheduler closes the day at `automation.dailyAt` and the
+  Monday-anchored week at `automation.weeklyOn`, writing a standup entry
+  (`daily_standup_entries`), the day reflection, review proposals, matched task
+  sessions, and one stored week brief (`briefs`, `kind = 'week'`). The weekly
+  close also runs the read-only memory lint first and renders its digest into
+  that brief; both are proposals-only — automation never writes, supersedes, or
+  forgets a memory claim. `/dayflow-run-close` triggers one close by hand and
+  the panel's close-state line reports the schedule and the last closes. There is
+  no weekly reflection and no briefs-reading view on the 0.7.x line. Keys and
+  gates are in [CONFIGURATION.md](CONFIGURATION.md); the route is in
+  [PANEL.md](PANEL.md).
 - **Status and pause are wired.** `GET /api/dayflow/capture/status` reports the
   capture and analysis switches, the macOS Screen Recording permission, today's
   native frame count, and the persisted pause flag; `POST
-  /api/dayflow/capture/pause` writes that flag into `capture_state` (schema
-  version 8). The Journal insights view shows it as one compact capture line —
+  /api/dayflow/capture/pause` writes that flag into `capture_state`. The Journal
+  insights view shows it as one compact capture line —
   off, on, paused, or permission needed — with a Pause/Resume button when
   capture is configured on.
-- **What does not happen yet:** no image admission (text-only), no skipped-job
-  catch-up when consent is turned on later, no native cards in the Dayflow
-  backend's timeline, no briefs, and no automation. Those are later `0.7.x`
-  patches or `0.8.0` (image), listed in [PATCH_PLAN.md](PATCH_PLAN.md).
+- **Not on the 0.7.x line (0.8.0 candidates by default):** image admission and
+  downscaling (the model receives app / window-title / hash metadata, never
+  pixels), a catch-up replay for analysis windows a blocked tick marked
+  `skipped` (those rows are terminal), the token cap as a post-call gate, the
+  04:00 day tail, the `source: owned` default flip, and a panel view for the
+  stored briefs. Native cards live only in the owned backend's timeline, not in
+  the Dayflow backend's; the plan is in [NATIVE_PORT.md](NATIVE_PORT.md) and
+  [PATCH_PLAN.md](PATCH_PLAN.md).
 - **Nothing is written by a status read.** With no journal, the status route
   answers zeros and does not create the file; only the pause write and the
   engine open it.

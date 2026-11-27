@@ -1,18 +1,24 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
 > Status: **0.7.5 is the current head**, tagged `v0.7.5` on 2026-11-27 (commit
-> `f117cdc`), not on the npm registry, and without a GitHub Release
-> (`gh release list` still ends at the older `v0.5.1`). 0.7.0 (`v0.7.0`,
-> `45a7e42`) remains the **phase baseline**: it closed the read
-> surface and landed native capture Phase 0/1. `main` is the **0.7.x patch
-> line**: 0.7.1–0.7.5 have landed (the analysis foundation, the
+> `f117cdc`); `main` is `81af8e3`, the commit that reconciled this roadmap and
+> the patch plan with the tagged tree. The line is not on the npm registry, and
+> no 0.7.x tag has a GitHub Release yet (`gh release list` still ends at the
+> older `v0.5.1`). 0.7.0 (`v0.7.0`, `45a7e42`) remains the **phase baseline**:
+> it closed the read surface and landed native capture Phase 0/1. `main` is the
+> **0.7.x patch line**: 0.7.1–0.7.5 have landed (the analysis foundation, the
 > worker/status/panel line that made it visible, the interactive insights panel,
 > the day that closes itself, then the scheduled memory lint and its digest),
-> and 0.7.6 remains planned as the **release and compatibility close** — the
-> last patch of the line; the line is summarised in *Patch iterations (0.7.x)*
-> below. The 0.6.0 release (tagged `v0.6.0`) shipped the **read path** of
-> Phases 1+2 only — the owned schema, its forward migration, the Dayflow
-> importer, and the owned read backend; 0.7.0 is the increment that closed the
+> and **0.7.6 is in progress** as the **release and compatibility close** — the
+> last patch of the line, finalised in [PATCH_PLAN.md](PATCH_PLAN.md) §0.7.6 as
+> an executable checklist (backfill the five GitHub Releases, npm decision with
+> no publication by default, docs reconciliation, the cutover rehearsal in
+> `docs/CUTOVER_REHEARSAL.md` and its `npm run rehearsal` fixture run, the
+> config-defaults audit, and the release gates); the line is summarised in
+> *Patch iterations (0.7.x)* below. The 0.6.0 release (tagged `v0.6.0`) shipped
+> the **read path** of Phases 1+2 only — the owned schema, its forward
+> migration, the Dayflow importer, and the owned read backend; 0.7.0 is the
+> increment that closed the
 > rest of the read surface, put the journal's memory layer in place, and landed
 > native capture Phase 0/1.
 >
@@ -123,16 +129,20 @@
 > analysis-ledger follow-ups 0.7.2 left behind (skipped-window catch-up, the
 > token cap as a gate, the 04:00 day tail — re-triaged and now **0.8.0
 > candidates by default**, deliberately outside 0.7.4 and 0.7.5), image
-> admission (pixels need a host attachment peer; a 0.8.0 candidate, not on the
-> 0.7.x line), the Phase 4 cutover, **release closure (0.7.6**: npm decision,
-> GitHub Releases for `v0.7.1`–`v0.7.6`, docs reconciliation, cutover
-> rehearsal), and Phase 5. Phase 5 and everything after it remain proposals.
-> Last revised: 2026-11-27 (0.7.5 landed as the current head at `f117cdc` and
-> recorded in [`PATCH_PLAN.md`](PATCH_PLAN.md) — schema v10, the weekly memory
-> lint + digest, 493 tests, 18 routes and 5 commands unchanged; 0.7.6 is the
-> remaining release/compatibility close), with the three analysis-ledger
-> follow-ups carried as **0.8.0 candidates by default** and the analysis
-> contract text-only for the whole line).
+> admission (pixels need a host attachment peer; **0.8.0 material**, not on the
+> 0.7.x line), the Phase 4 cutover (**0.7.6 rehearses it only; flipping the
+> `source: owned` default is 0.8.0**, and 1.0.0 after a real captured week),
+> **release closure (0.7.6, in progress**: GitHub Releases backfilled for
+> `v0.7.1`–`v0.7.5` plus `v0.7.6` cut by the release tool, the npm decision —
+> unpublished by default under D7, docs reconciliation, the cutover rehearsal,
+> the config-defaults audit, the release gates), and Phase 5. Phase 5 and
+> everything after it remain proposals. Last revised: 2026-11-27 (0.7.5 remains
+> the current head at `f117cdc`; 0.7.6 is in progress, finalised as an
+> executable release-close checklist in [`PATCH_PLAN.md`](PATCH_PLAN.md) —
+> release trail, docs, rehearsal, npm default no-publish, config audit, gates —
+> measured on `81af8e3`: 493 tests, 18 routes, 5 commands, schema v10), with the
+> three analysis-ledger follow-ups carried as **0.8.0 candidates by default**
+> and the analysis contract text-only for the whole line).
 
 ## Where this starts
 
@@ -631,6 +641,17 @@ weekly brief — schema v10, and no claim is ever written by it (D8/D9). With it
 phase 4's ingest/query/lint maintenance loop is complete on the 0.7.x line; the
 remaining phase-4 work is the cutover, not the lint.
 
+**The cutover, and what 0.7.6 does about it.** The Phase 4 default (`source:
+owned` when capture is enabled and no Dayflow database exists) is **not** on the
+0.7.x line. 0.7.6 rehearses it — `npm run rehearsal` walks the fixture chain
+(capture → analysis → day close → day insights → weekly lint → weekly brief →
+reopen) and `docs/CUTOVER_REHEARSAL.md` carries the pass/fail checklist and the
+record table (permission, frames, cards, standup, brief, reflection, queue,
+restart with no data loss); the fixture run needs no screen permission, network,
+or model. It flips nothing: the default flip is **0.8.0** (native preview), with
+**1.0.0** after a real captured week without data loss, per `NATIVE_PORT.md` §8
+Phase 4.
+
 ### Native port — capture and analysis inside the harness
 
 The owner selected the full port (option C): move Dayflow's own capture →
@@ -678,9 +699,11 @@ runs nothing. That patch also adds `GET /api/dayflow/automation/status` (route
 set 18) and `/dayflow-run-close`. **0.7.5** added the scheduled weekly memory
 lint and its digest (schema v10, proposals only, no claim writes) as part of the
 weekly close, so the text-only automation slice now covers the whole maintenance
-loop; the release close is 0.7.6, and the Phase 4 cutover is rehearsed there but
-belongs to the next minor line; image admission (pixels) is not on this line
-(0.8.0 candidate). The phasing above (Phase 5 and later) is untouched by this
+loop; **0.7.6** is the release close — it backfills the five missing releases,
+reconciles the docs, and rehearses the Phase 4 cutover in
+`docs/CUTOVER_REHEARSAL.md` — but it flips no default: the `source: owned` flip
+is 0.8.0 (native preview), and 1.0.0 follows a real captured week. Image
+admission (pixels) is not on this line (0.8.0 candidate). The phasing above (Phase 5 and later) is untouched by this
 line until the native path lands.
 
 ### Phase 5 — Personalization that acts
@@ -703,7 +726,8 @@ it remains a proposal.
 0.7.0 closed the long development line; `main` moved to small tagged patches so
 every change is reviewable, testable, and revertible on its own. **0.7.1–0.7.5
 have landed** (0.7.5's tagged tree is the baseline for the next patch), and
-**0.7.6 remains planned** as the release and compatibility close. The execution
+**0.7.6 is in progress** as the release and compatibility close, finalised as an
+executable checklist in [`PATCH_PLAN.md`](PATCH_PLAN.md) §0.7.6. The execution
 plan is
 [`PATCH_PLAN.md`](PATCH_PLAN.md): it carries each patch's deliverables at file
 level, the acceptance assertions, the owner decisions and safe defaults, and the
@@ -715,8 +739,8 @@ risks and rollback. One line each:
 | 0.7.2 | Analysis visible: worker timer, text-only host `llm` adapter, analysis status route and panel line, budget ledger, `/dayflow-analyze`; no schema change | Native port Phase 2 | landed |
 | 0.7.3 | Interactive insights: decide review items and attach/detach task sessions in the panel — three POST routes, one shared decision module, no schema change or model call; panel routes 14 → 17, 425 tests | Phase 3.5 / 3.7 remain | landed |
 | 0.7.4 | The day closes itself: schema v9 `automation_runs` + `briefs`, daily standup and weekly brief, a daily insight pass (reflection, ≤3 proposals at ≥0.6 confidence, high-confidence task sessions), and the scheduler with `automation.catchUpDays` (1–30, default 2); panel routes 17 → 18, `/dayflow-run-close`, 477 tests | Native port Phase 3 | landed |
-| 0.7.5 | Scheduled memory lint and the weekly digest: schema v10 (`automation_runs` accepts `lint`, plus `briefs.payload_json`), a weekly advisory pass that proposes at most one item per claim per week through the existing queue rules and never writes a claim, and a Memory-health paragraph in the weekly brief; no route, command, tool, or entry change (18 routes, 5 commands), 493 tests | Phase 4 lint remain | landed |
-| 0.7.6 | Release and compatibility close: docs/CHANGELOG (including the `[0.7.4]` weekly-close sentence), GitHub Releases (backfilling `v0.7.1`–`v0.7.5`), npm decision, cutover rehearsal | Release closure / Phase 4 | planned |
+| 0.7.5 | Scheduled memory lint and the weekly digest: schema v10 (`automation_runs` accepts `lint`, plus `briefs.payload_json`), a weekly advisory pass that proposes at most one item per claim per week through the existing queue rules and never writes a claim, and a Memory-health paragraph in the weekly brief; no route, command, tool, or entry change (18 routes, 5 commands), 493 tests | Phase 4 lint remainder | landed |
+| 0.7.6 | **in progress** — Release and compatibility close: GitHub Releases for all six 0.7.x tags (`v0.7.1`–`v0.7.5` backfilled from the corrected CHANGELOG, `v0.7.6` cut by the release tool), npm settled without publishing by default (D7 unanswered), docs reconciliation (the `[0.7.4]` weekly-close sentence, the v8/v9/v10 numbering, README command/reflection claims, CONFIGURATION/TOOLS/PANEL/ARCHITECTURE), `docs/CUTOVER_REHEARSAL.md` plus the repo-side `npm run rehearsal` fixture run and its test (neither ships), the 0.7.0→0.7.5 config-defaults audit, and both CI legs + `check:package` green; no plugin-source, schema, route, config, or default change | Release closure / Phase 4 rehearsal | in progress |
 
 Ordering note: the interactive panel (0.7.3) landed **before** the automation
 that fills the review queue (0.7.4), because a queue whose only decision path is
@@ -733,6 +757,13 @@ about missed **close jobs** (`automation_runs`) and is bounded by
 admission stays a 0.8.0 candidate (it needs a host attachment peer plus a vision
 contract), so the analysis contract stays text-only on this line.
 
+**Deferred, all 0.8.0 candidates by default:** skipped-window catch-up, the
+token cap as a post-call gate, and the 04:00 day tail (the three analysis-ledger
+follow-ups), image admission (pixels plus the attachment peer), the briefs
+reading view, and the Phase 4 `source: owned` default flip. None is scheduled on
+the 0.7.x line; the decisions are taken when 0.8.0 is scoped, and 0.7.6 only
+rehearses the cutover.
+
 ## What this deliberately does not do
 
 - **No screen recording by default.** The owner-selected native port is the one
@@ -744,7 +775,7 @@ contract), so the analysis contract stays text-only on this line.
 - **No reimplementation of Dayflow's AI pipeline outside the native port.** The
   plugin does not need to turn screenshots into cards if the cards arrive by
   import or by the agent writing what it did. The native port's analysis phase
-  (0.7.1–0.7.4, text-only on the whole 0.7.x line) is the deliberate exception,
+  (0.7.1–0.7.5, text-only on the whole 0.7.x line) is the deliberate exception,
   and it goes through `ctx.llm.stream()` with one strict JSON contract, not a
   rebuilt provider zoo.
 - **No card-stack review as the centre.** It stays available and defaults to off

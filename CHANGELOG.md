@@ -58,8 +58,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (distillation/loop/improvement, confidence ≥ 0.6), memory claims only as a
   kept promotion (never silently active), and the matching long-task sessions
   through `scanTaskHistory` + `attachTaskSession` (a low-confidence match becomes
-  a review item); the weekly close adds the weekly reflection, the weekly review
-  pass, and the memory lint summary.
+  a review item); the weekly close writes exactly one stored week brief
+  (`briefs`, `kind = 'week'`) — the compressed week record — and adds no weekly
+  reflection and no weekly review pass (a weekly reflection is not scheduled on
+  the 0.7.x line; the stored week brief is the record). The scheduled weekly
+  memory lint and its digest landed later, in 0.7.5, and are described in the
+  section above.
 - `/dayflow-run-close`: one manual close through the same idempotent store, for
   testing and catch-up.
 - `GET /api/dayflow/automation/status` and the panel's **close-state line**: the
