@@ -1007,8 +1007,9 @@ owner, not on engineering:**
 ## Suggested first cut
 
 *Historical: this was the advice before any of it shipped. Phases 1+2 landed in
-0.6.0 and 3.5 in 0.7.0, the 0.8 line closed at 0.8.4, and 0.9.0 (the month/week
-goal and rating surfaces) has landed too, so the current order of work is the
+0.6.0 and 3.5 in 0.7.0, the 0.8 line closed at 0.8.4, and the 0.9 line closed at
+`v0.9.1` (0.9.0's month/week goal and rating surfaces and 0.9.1's close-history
+surface), so the current order of work is the
 1.0.0 prerequisites and the five owner questions, not this list; it stays because
 the reasoning still explains why the early work was sequenced that way.*
 
@@ -1058,8 +1059,8 @@ cap (at most three proposals a day at confidence ≥ 0.6, inside the store's own
 five-a-day cap) and the decisions listed in [PATCH_PLAN.md](PATCH_PLAN.md) §6
 and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §6. D10 and D11 were the two new
 owner decisions the 0.8 line needed; with D1/D2 also unanswered, all four sit
-on the 1.0.0 line — the open 0.9.x line is decision-free and needs none of them
-— and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G lists them with the
+on the 1.0.0 line — the closed 0.9.x line was decision-free and needed none of
+them — and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G lists them with the
 release each unblocks (1.0.0 for the cutover, a later line for image
 admission).
 
