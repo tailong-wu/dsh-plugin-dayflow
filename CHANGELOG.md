@@ -6,6 +6,42 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-11-27
+
+### Added
+
+- The 0.7.3 interactive insights panel: open review items are decided and
+  long-task sessions attached or detached in the panel, with no agent turn.
+  Three host routes back it — `POST /api/dayflow/review`
+  (`{id, decision, note?, forever?, confirm: true}` →
+  `{review: {item, task?, memory?}}`), `POST /api/dayflow/tasks/attach`
+  (`{id, day, minutes, note?, activity_ids?, confirm: true}` → `{task}`), and
+  `POST /api/dayflow/tasks/detach` (`{id, day, confirm: true}` → `{task}`) —
+  bringing the panel to 17 host Fetch routes (8 `GET`, 9 `POST`). All three
+  require `confirm: true`; an unknown id answers 404, and a malformed body or an
+  already-decided item answers 400.
+- `src/review-actions.ts`: the decision combination the `journal_review` tool had
+  inlined is extracted into `applyReviewDecision`, which decides the item and, in
+  the same write, creates the long task for an accepted task proposal or the
+  dated memory claim for a kept distillation or loop. The tool and the new
+  decide route both call it, so a click and a tool call leave identical state.
+- Each waiting review item in the **Journal insights** view now carries a
+  decision row: **Keep** for a distillation or loop, **Accept** for an
+  improvement or task proposal, plus **Discard** (the negative `discard` or
+  `reject` decision for that kind) and **Don't suggest again**. The last asks
+  one inline question — **Hide this for good?** with **Confirm** / **Cancel**,
+  no browser dialog — and only then stores the hard suppression; a plain
+  discard stays soft and may return with materially new evidence. In the task
+  row, each linked day sits under **Linked** with its own **Unlink**, which
+  detaches the session and leaves the day's activities untouched. Buttons
+  disable while a write is in flight, a failed write shows an inline error
+  without removing the item, and the loading/error/empty copy is in both
+  languages.
+- No schema change and no model or LLM dependency: the panel still writes
+  through the owned journal's existing write path, and it adds no second view,
+  tab, or header button — the single entry point is unchanged. Clearing a hard
+  suppression remains an agent-only action in 0.7.x.
+
 ## [0.7.2] - 2026-11-27
 
 ### Added
@@ -442,7 +478,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.6.0...v0.7.0
