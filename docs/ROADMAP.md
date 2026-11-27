@@ -1,7 +1,7 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: **0.9.0 is the current head and the 0.9.x line's one patch.** `v0.9.0` is
-> an annotated tag whose tree is **544** green tests, schema **v10**, **18** panel
+> Status: **0.9.1 is the current head and the 0.9.x line's two patches close it.**
+> `v0.9.1` is an annotated tag whose tree is **557** green tests, schema **v10**, **18** panel
 > routes (9 `GET` + 9 `POST`), **5** slash commands, 23 tools, 8 skills, and no new
 > host peer; the previous line closed at `v0.8.4` (537 tests) and its two
 > owner-gated slots stay deferred. The 0.8 line's tags
@@ -38,10 +38,11 @@
 > cells and the week columns, read-only, with no
 > schema, configuration key, route, command, tool, skill, default, host peer, or
 > model call — the line stays at 18 routes, 5 commands, and schema v10. **0.9.1
-> is a candidate, not a promise** — docs/README parity, only if 0.9.0's own docs
-> pass leaves a real gap; by default the line ends at `v0.9.0` (the 0.9.0 docs
-> pass updated README/README.zh, PANEL, ARCHITECTURE, CHANGELOG, this roadmap,
-> and [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md), so no drift is known). The `dsh
+> has landed** with the close-history surface: one additive `closes` list on the
+> insights payload (the last stored history the native port recorded as missing)
+> and one read-only Close history block in the existing view, with no new route,
+> schema, command, or model call. The earlier docs-parity 0.9.1 candidate was
+> withdrawn because the 0.9.0 docs pass left no drift. The `dsh
 > dayflow import` CLI is **not on 0.9**; it is recommended for the cutover line,
 > beside the no-Dayflow runbook. **Owner-gated work does not enter 0.9:** image
 > admission (D1/D2/D11), the cutover (D10 plus a real week), any npm publish
@@ -809,9 +810,10 @@ new test cases are recorded in
 ## 0.9.x iterations
 
 The 0.8.x line is closed and the 0.9.x line is open. **0.9.0 — month/week goal
-and rating surfaces — has landed** (`v0.9.0`, 544 tests); **0.9.1 is a candidate,
-not a promise** (docs/README parity, only if 0.9.0's own docs pass left a real
-gap; none is known, so the line is ready to be declared closed at `v0.9.0`). Its
+and rating surfaces — has landed** (`v0.9.0`, 544 tests); **0.9.1 — the
+close-history surface — has landed too** (`v0.9.1`, 557 tests), making the stored
+day/week/lint close history readable in the existing insights view. The earlier
+docs-parity candidate for 0.9.1 was withdrawn; the line closes at `v0.9.1`. Its
 execution plan is
 [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md): patch-level deliverables, acceptance at
 the assertion level, the frozen-contract rule (only values in `PanelDay`'s
@@ -821,24 +823,23 @@ rule that owner-gated work does not enter 0.9. One line each:
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
 | 0.9.0 | Month/week goal and rating surfaces: the month and week payloads fill `PanelDay.goal`/`ratings` from the same readers the day route uses, and the client renders them read-only — a goal marker and rating dots in the month cell and the week column, the goal summary and review marks in the day hover card; no schema, config key, route, command, tool, skill, default, host peer, or model call; 18 routes and 5 commands unchanged | Phase 3 goal/rating read surfaces (the last stored-data panel gap) | **landed** — `v0.9.0` (`d0f9b5a`), GitHub Release Latest, 544 tests (537 → +7); shipped shape and deviations in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 |
-| 0.9.1 | Docs/README parity: README/README.zh, the "what remains" list, and the compatibility statement reconciled with the tagged tree; docs and release artefacts only | Release/closure hygiene | **candidate, not scheduled** — 0.9.0's docs pass updated every current-tree count and both languages in the same commit, so no drift is known; the line is recommended to close at `v0.9.0` |
+| 0.9.1 | Close-history surface: the recent scheduled closes the automation already records (day close, week close, weekly memory lint) join the existing insights payload as one additive `closes` list, and the existing view gains one read-only Close history block; no new route, schema, config key, command, tool, skill, peer, write path, or model call | Native port Phase 3 remainder / §1 Missing (close-history surface) | **landed** — `v0.9.1`, 557 tests (544 → +13); shipped shape in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.1 |
 
 Order rationale: 0.9.0 went first and landed because it was the only remaining
 decision-free item with a real user-visible payoff — the data and the wire types
 already exist, so it is a renderer plus an equality test, not new behaviour — and
-it closed the last stored-data gap the panel had. 0.9.1 exists only to absorb
-drift found after 0.9.0's tag, and none is known. The `dsh dayflow import` CLI is
-deliberately **not** on this line: it is a new entry point (5 → 6 commands) whose
-acceptance belongs beside the cutover's no-Dayflow runbook. The line stops at
-0.9.0 — or after 0.9.1 only if docs drift is later found — because everything
-further needs the owner or is a new write/entry surface; the 0.8.4 close's own
+it closed the last stored-data gap the panel had. 0.9.1 closed the last stored
+history the native port recorded as missing, still with no route or decision.
+The `dsh dayflow import` CLI is deliberately **not** on this line: it is a new
+entry point (5 → 6 commands) whose acceptance belongs beside the cutover's
+no-Dayflow runbook. The line stops at 0.9.1 because everything further needs the
+owner or is a new write/entry surface; the 0.8.4 close's own
 advice was "ship the decision-free month/week goal and rating surfaces as 0.9.0
 and stop there."
 
 **The line's tags at this revision:** **`v0.9.0`** (2026-11-27, commit
-`d0f9b5a`, cut by `npm run release -- patch`, GitHub Release **Latest**). No
-`v0.9.1` is scheduled: with the 0.9.0 docs pass complete, the line's exit
-condition is met and it is recommended to close at one tag.
+`d0f9b5a`) and **`v0.9.1`** (the line's close, with a GitHub Release as
+**Latest**). No 0.9.2 is scheduled: the line's exit condition is met.
 
 **The 0.9.0 record (kept as landed history).** Tag `v0.9.0` on `d0f9b5a`, GitHub
 Release Latest, 544 green tests (537 at 0.8.4, so +7 in 2 files: two panel route

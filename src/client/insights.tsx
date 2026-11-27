@@ -47,6 +47,12 @@
  * expands in place to the full body — the weekly brief's closing
  * "Memory health: …" paragraph included. The section adds no button, no second
  * view, and no entry point beyond pressing a row, and it never calls a model.
+ *
+ * After the briefs, a slimmer read-only Close history lists the recent
+ * automation closes — the job, the day or week it works on, its localized
+ * status, the attempt count when it was retried, the stored updated date, and a
+ * one-line excerpt of a failure or skip reason. It is display-only and adds no
+ * button, tab, or header entry of its own.
  * @module dsh-plugin-dayflow/client/insights
  */
 
@@ -57,6 +63,7 @@ import type {
   PanelAutomationStatus,
   PanelBriefSummary,
   PanelCaptureStatus,
+  PanelCloseSummary,
   PanelInsights,
   PanelReviewItem,
   PanelTaskScanResponse,
@@ -76,7 +83,7 @@ import {
   scanTaskHistory,
   setCapturePaused,
 } from './data.js';
-import { formatClock, formatDuration, formatShare, panelLanguage, shortDate, weekdayLabels } from './format.js';
+import { formatClock, formatDuration, formatShare, panelLanguage, shortDate, weekdayLabels, weekRangeLabel } from './format.js';
 import type { Translate } from './format.js';
 import type { Phase } from './types.js';
 
@@ -259,7 +266,8 @@ function isBlank(data: PanelInsights): boolean {
     data.review.length === 0 &&
     data.memory.length === 0 &&
     data.reflections.length === 0 &&
-    data.briefs.length === 0
+    data.briefs.length === 0 &&
+    data.closes.length === 0
   );
 }
 
@@ -277,6 +285,25 @@ function isBlank(data: PanelInsights): boolean {
 function briefDate(updatedAt: string, t: Translate): string {
   const match = /^(\d{4}-\d{2}-\d{2})/.exec(updatedAt);
   return match === null ? updatedAt : shortDate(match[0], t);
+}
+
+/**
+ * The Sunday key of the week whose Monday is `monday`.
+ *
+ * The host stores a week close against its Monday only; the row shows the whole
+ * week through {@link weekRangeLabel}, which needs the Sunday as well. A value
+ * without a leading day passes through unchanged rather than being guessed at.
+ * @param monday - the stored Monday day key.
+ * @returns the Sunday day key, or the input when it is not a day key.
+ */
+function weekEndOf(monday: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(monday);
+  if (match === null) return monday;
+  const start = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 12);
+  const month = String(end.getMonth() + 1).padStart(2, '0');
+  const day = String(end.getDate()).padStart(2, '0');
+  return `${end.getFullYear()}-${month}-${day}`;
 }
 
 /** The dot that separates two facts on one row. */
@@ -569,13 +596,98 @@ function BriefRow(props: { brief: PanelBriefSummary; t: Translate }): ReactNode 
 }
 
 /**
+ * The localized badge for one close job.
+ * @param job - the stored job name.
+ * @param t - the bound translator.
+ * @returns `Day close`, `Week close`, `Lint`, or the raw name for a future job.
+ */
+function closeJobLabel(job: PanelCloseSummary['job'], t: Translate): string {
+  switch (job) {
+    case 'day_close':
+      return t('closeDay');
+    case 'week_close':
+      return t('closeWeek');
+    case 'lint':
+      return t('closeLint');
+    default:
+      return job;
+  }
+}
+
+/**
+ * The localized word for one close status.
+ * @param status - the stored run status.
+ * @param t - the bound translator.
+ * @returns the localized status, or the raw value for a future status.
+ */
+function closeStatusLabel(status: PanelCloseSummary['status'], t: Translate): string {
+  switch (status) {
+    case 'pending':
+      return t('closeStatusPending');
+    case 'running':
+      return t('closeStatusRunning');
+    case 'complete':
+      return t('closeStatusComplete');
+    case 'failed':
+      return t('closeStatusFailed');
+    case 'skipped':
+      return t('closeStatusSkipped');
+    default:
+      return status;
+  }
+}
+
+/**
+ * One close in the read-only Close history list.
+ *
+ * The row is display-only: a job badge, the day the close works on (a week close
+ * shows its whole week), a localized status word, the attempt count when the
+ * close was retried, and the stored updated date. A stored error or skip reason
+ * folds to one truncated line whose title and label carry the full message, so a
+ * long failure never breaks the narrow sidebar. Failed and skipped rows tint the
+ * status word amber instead of adding a banner; the row itself stays flat.
+ * @param props - the close and the translator.
+ * @returns the row, with its one-line error underneath when the host stored one.
+ */
+function CloseHistoryRow(props: { close: PanelCloseSummary; t: Translate }): ReactNode {
+  const { close, t } = props;
+  const week = close.job === 'week_close';
+  const day = week ? weekRangeLabel(close.day, weekEndOf(close.day), t) : shortDate(close.day, t);
+  const updated = briefDate(close.updated_at, t);
+  const error = close.error?.trim() ?? '';
+
+  return (
+    <li className={`dfp-close-row is-${close.status}`}>
+      <div className="dfp-close-head">
+        <span className="dfp-close-job">{closeJobLabel(close.job, t)}</span>
+        <span className="dfp-close-day">{day}</span>
+        <span className={`dfp-close-status is-${close.status}`}>{closeStatusLabel(close.status, t)}</span>
+        {close.attempts > 1 && <span className="dfp-close-attempts">{t('closeAttempts', { count: close.attempts })}</span>}
+        <span className="dfp-insights-date dfp-close-updated" title={t('closeUpdated', { date: updated })}>
+          {updated}
+        </span>
+      </div>
+      {error !== '' && (
+        <p
+          className="dfp-close-error"
+          title={t('closeError', { message: error })}
+          aria-label={t('closeError', { message: error })}
+        >
+          {error}
+        </p>
+      )}
+    </li>
+  );
+}
+
+/**
  * One titled block with its count, its own empty message, its rows, and an
  * optional add row that stays reachable even when the block is empty.
  * @param props - the block's title, item count, empty copy, rows, and add row.
  * @returns the section.
  */
 function Section(props: {
-  tone: 'tasks' | 'review' | 'memory' | 'reflections' | 'briefs';
+  tone: 'tasks' | 'review' | 'memory' | 'reflections' | 'briefs' | 'closes';
   title: string;
   count: number;
   empty: string;
@@ -1134,6 +1246,9 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   const maxTaskMinutes = Math.max(1, ...(data?.tasks.map((task) => task.total_minutes) ?? []));
   // The host caps and orders the briefs; the section renders them as read.
   const briefs = data?.briefs ?? [];
+  // The closes ride the same payload, newest first; the section renders them as
+  // read.
+  const closes = data?.closes ?? [];
 
   // Each add writes the owned journal directly, then refreshes the whole view so
   // the new row and its section count arrive together with no local merge.
@@ -1437,6 +1552,19 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
             <ul className="dfp-insights-list">
               {briefs.map((brief) => (
                 <BriefRow key={`${brief.kind}:${brief.period_key}`} brief={brief} t={t} />
+              ))}
+            </ul>
+          </Section>
+
+          <Section
+            tone="closes"
+            title={t('closeHistory')}
+            count={closes.length}
+            empty={t('closeNoHistory')}
+          >
+            <ul className="dfp-insights-list">
+              {closes.map((close) => (
+                <CloseHistoryRow key={`${close.job}:${close.day}:${close.updated_at}`} close={close} t={t} />
               ))}
             </ul>
           </Section>

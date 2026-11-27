@@ -17,6 +17,7 @@ import type {} from '@deepseek-ai/dsh-client-connection';
 import { readDatabase } from './tools/shared.js';
 import { buildAnalysisStatus } from './analyse/status.js';
 import type { AnalysisStatusPayload } from './analyse/status.js';
+import { readPanelCloses } from './automation/read.js';
 import { countScreenshotsForDay, readCaptureState, writeCaptureState } from './capture/state.js';
 import { readPanelBriefs } from './briefs/read.js';
 import { journalCategories, withJournal, withJournalWrite } from './journal.js';
@@ -511,13 +512,13 @@ export function buildPanelWeek(runtime: ToolRuntime, date?: string): PanelWeek {
  * Build the Insights payload from the owned journal.
  *
  * A missing journal is not an error: it is the shape of a fresh install, so the
- * answer is five empty lists and the file is never created by a read.
+ * answer is six empty lists and the file is never created by a read.
  * @param runtime - the plugin runtime.
- * @returns the journal's tasks, review queue, memory claims, reflections, and
- *   stored day/week briefs.
+ * @returns the journal's tasks, review queue, memory claims, reflections,
+ *   stored day/week briefs, and recent automation closes.
  */
 export function buildPanelInsights(runtime: ToolRuntime): PanelInsights {
-  const empty: PanelInsights = { tasks: [], review: [], memory: [], reflections: [], briefs: [] };
+  const empty: PanelInsights = { tasks: [], review: [], memory: [], reflections: [], briefs: [], closes: [] };
   if (!existsSync(runtime.config.journalPath)) return empty;
   return withJournal(runtime.config.journalPath, (db) => ({
     // The list carries the day-by-day sessions too, so the panel can offer one
@@ -541,6 +542,10 @@ export function buildPanelInsights(runtime: ToolRuntime): PanelInsights {
     // Same connection as the rest of the payload: the briefs read is one more
     // query on the journal this call already opened, never a second open.
     briefs: readPanelBriefs(db),
+    // The close history is read from the same ledger the scheduler writes, on
+    // the same connection: the additive 0.9.1 list, newest closes first. A
+    // malformed ledger row is a database error, not a silently shorter history.
+    closes: readPanelCloses(db),
   }));
 }
 

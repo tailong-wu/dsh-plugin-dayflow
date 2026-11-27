@@ -30,7 +30,11 @@ the Phase 4 `source: owned` default flip as 0.8.3; both are **formally deferred
 to the next line**, owner-gated (image admission on D1/D2/D11, the flip on D10
 with 1.0.0 after a real week of capture without data loss). 0.7.6 only
 rehearsed the cutover checklist (`docs/CUTOVER_REHEARSAL.md`), and no 0.8.x
-release flips it.
+release flips it. The 0.9.x line stays text-only too: **0.9.1 lands the
+close-history surface** — the insights payload gains an additive `closes` list
+and the existing Journal insights view gains a read-only **Close history**
+block — with no new route (the panel stays at 18 host Fetch routes), tab,
+button, configuration key, schema change, host peer, or model call.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -57,6 +61,9 @@ Already reusable:
   renders month/week/day from whichever backend is active.
 - The insight journal: long tasks, review queue, dated memory, reflections, the
   budgeted memory context, and the Journal insights panel view.
+- The close-history surface (0.9.1): the Journal insights view reads the most
+  recent closes the automation recorded from `automation_runs` in a read-only
+  **Close history** block, inside the existing insights payload.
 - Phase 0 capture groundwork: a `screencapture` provider with a lazily compiled
   Swift metadata helper (frontmost app, window title, idle seconds) and a local
   smoke script; the `capture` / `analysis` / `automation` config skeleton with
@@ -84,11 +91,6 @@ Missing (the rest of the port):
 - Image preprocessing (downscale) and image admission for analysis; dedupe and
   retention already run in the capture engine, and the shipped line sends app /
   window title / hash metadata rather than pixels.
-- A close-history surface: failed and skipped closes are recorded in
-  `automation_runs` and summarised on the status line, but there is no view of
-  the history itself. (The briefs reading view that used to be listed here
-  landed in 0.8.1: the stored day and week briefs are readable in the panel's
-  insights view — see Phase 3 below.)
 - The owned store as the default source for a fresh install (deferred to the
   next line, owner-gated D10), and the first-run walkthrough (Phase 4).
 
@@ -712,9 +714,10 @@ was on screen.
 ### Phase 3 — Cards, briefs, and insights automation (about 1 week)
 
 **Status: the text-only automation slice is complete (0.7.4); the scheduled
-weekly memory lint landed in 0.7.5, and the stored briefs became readable in
-the panel in 0.8.1.** The day and week close themselves now, behind the same
-analysis consent/provider/model gate and without any image:
+weekly memory lint landed in 0.7.5, the stored briefs became readable in the
+panel in 0.8.1, and the close history in 0.9.1.** The day and week close
+themselves now, behind the same analysis consent/provider/model gate and without
+any image:
 
 - **Schema v9.** Two additive tables — `automation_runs` (one row per attempted
   day/week close: period, status, attempts, error, timestamps, so a re-run is a
@@ -748,7 +751,10 @@ analysis consent/provider/model gate and without any image:
   `GET /api/dayflow/automation/status` (enabled/running, `dailyAt`, `weeklyOn`,
   `catchUpDays`, the last day/week close, and the next close time), and — since
   0.8.1 — the read-only **Briefs** block in the Journal insights view that
-  renders the stored briefs from the additive `briefs` field.
+  renders the stored briefs from the additive `briefs` field. Since 0.9.1 the
+  same view also ends with a read-only **Close history** block, which renders
+  the most recent closes from the additive `closes` field (new
+  `src/automation/read.ts`, `readPanelCloses` / `listPanelCloses`).
 - **Scheduled memory lint (`src/automation/lint.ts`, 0.7.5).** As part of the
   weekly close, a read-only pass over the dated claims (`lintMemoryClaims`, the
   same check `journal_memory` `action: "lint"` exposes) turns each finding into
@@ -783,13 +789,30 @@ analysis consent/provider/model gate and without any image:
   **`Memory health: …`** digest shows inside the expanded brief body. The change
   adds no route (the panel stays at 18 host Fetch routes), tab, button,
   configuration key, schema change, or host peer.
+- **Close-history reading view (0.9.1).** The closes the automation records are
+  now readable where the rest of the journal is: `GET /api/dayflow/insights`
+  gains an additive `closes: PanelCloseSummary[]` field, and the insights view
+  ends with **Briefs** and then a read-only **Close history** block. New
+  `src/automation/read.ts` exports `readPanelCloses` / `listPanelCloses`: they
+  read the existing `automation_runs` rows newest-updated first (ties by row
+  id), map each row to `{job, day, status, attempts, error?, updated_at}`,
+  clamp a stored error to 500 characters, and cap the list at 10 (the reader
+  accepts a 1–20 limit). A missing journal answers `[]` and creates no file; no
+  model is called. Each row shows the job badge, the day or the week's range,
+  the localized status, the attempt count when a close needed more than one,
+  the error summary, and the updated date; failed and skipped entries carry one
+  restrained warning tone. The block is read-only — no retry, re-run, add row,
+  or decision row — and the change adds no route (the panel stays at 18 host
+  Fetch routes), tab, button, configuration key, schema change, host peer, or
+  model call.
 - **Still deferred after 0.8.4 (moved to the next line):** image admission and
   downscaling (the model sees app / window-title / hash metadata, not screen
   pixels; owner-gated D1/D2/D11) and the Phase 4 default flip (D10). The
-  close-state line still shows only the schedule and the last close, and a
-  failed/skipped close history has no view of its own. (0.8.0 closed this
-  bullet's other item: configuration-caused analysis skips now replay within
-  today and yesterday.)
+  close-state line still shows only the schedule and the last close, but the
+  failed/skipped history it summarises now has its own read-only view: 0.9.1
+  landed the **Close history** block above. (0.8.0 closed this bullet's other
+  item: configuration-caused analysis skips now replay within today and
+  yesterday.)
 
 **Acceptance.** Closing a synthetic day with a scripted model produces one
 standup entry, one brief, one reflection, ≤3 review items, and attaches
@@ -910,9 +933,12 @@ additive `briefs` field on the existing payload plus a read-only expandable
 block, and still no new route, tab, button, configuration key, schema change, or
 model call. 0.8.4 closed the line with documentation, test, and release-trail
 reconciliation only — no source, schema, route, command, tool, skill,
-configuration, or dependency change. Phase 4 is the cutover, deferred to the
-next line and owner-gated (D10; `1.0.0` after a real week of capture without
-data loss).
+configuration, or dependency change. 0.9.1 then added the close-history reading
+view: an additive `closes` field on the existing insights payload plus a
+read-only **Close history** block, with no new route (the panel stays at 18 host
+Fetch routes), button, configuration key, schema change, or model call. Phase 4
+is the cutover, deferred to the next line and owner-gated (D10; `1.0.0` after a
+real week of capture without data loss).
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three
 parallel workstreams, plus one real week of dogfooding before `1.0.0`.

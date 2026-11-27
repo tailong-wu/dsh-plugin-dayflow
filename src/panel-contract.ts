@@ -9,11 +9,13 @@
  */
 
 import type { AnalysisStatusPayload } from './analyse/status.js';
+import type { PanelCloseSummary } from './automation/read.js';
 import type { PanelBriefSummary } from './briefs/read.js';
 import type { MemoryClaimPayload } from './memory.js';
 import type { ReviewItemPayload } from './review.js';
 import type { LongTaskPayload } from './tasks.js';
 
+export type { PanelCloseSummary } from './automation/read.js';
 export type { PanelBriefMemoryHealth, PanelBriefSummary } from './briefs/read.js';
 
 /** One timeline card, as the panel renders it. */
@@ -175,6 +177,13 @@ export interface PanelInsights {
    * An old client ignores it, and a fresh install answers an empty list.
    */
   briefs: PanelBriefSummary[];
+  /**
+   * The most recent scheduled closes (day close, week close, memory lint),
+   * newest `updated_at` first; the additive 0.9.1 field. An old client ignores
+   * it, a fresh install answers an empty list, and a close's JSON payload and
+   * row id never reach the wire.
+   */
+  closes: PanelCloseSummary[];
 }
 
 /** Body the panel sends to add one long task. */

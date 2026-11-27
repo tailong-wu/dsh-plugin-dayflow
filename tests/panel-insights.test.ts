@@ -5,7 +5,7 @@
  * and grow that journal.
  *
  * The builder must be read-only in the strongest sense: a fresh install (no
- * journal file) yields five empty lists without creating the file, and repeated
+ * journal file) yields six empty lists without creating the file, and repeated
  * reads leave the journal byte-for-byte unchanged.
  *
  * These tests use disposable journals under a temporary directory; they never
@@ -234,13 +234,20 @@ function analysisConfig(overrides: Partial<ResolvedConfig['analysis']> = {}): Re
   return { ...makeRuntime('/nonexistent/dayflow/chunks.sqlite').config.analysis, ...overrides };
 }
 
-test('a missing journal answers five empty lists without creating the journal', async () => {
+test('a missing journal answers six empty lists without creating the journal', async () => {
   const journalPath = journalFile('missing');
   assert.equal(existsSync(journalPath), false);
   const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
 
   const insights = buildPanelInsights(runtime);
-  assert.deepEqual(insights, { tasks: [], review: [], memory: [], reflections: [], briefs: [] });
+  assert.deepEqual(insights, {
+    tasks: [],
+    review: [],
+    memory: [],
+    reflections: [],
+    briefs: [],
+    closes: [],
+  });
   assert.equal(existsSync(journalPath), false, 'a read must not create the journal');
 
   const response = await fetchInsights(fakeHost(runtime));
@@ -253,6 +260,7 @@ test('a missing journal answers five empty lists without creating the journal', 
     memory: [],
     reflections: [],
     briefs: [],
+    closes: [],
   });
   assert.equal(existsSync(journalPath), false, 'serving the route must not create the journal');
 });
@@ -294,6 +302,59 @@ test('the insights payload carries the stored briefs, and an empty journal answe
   const fresh = buildPanelInsights(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath: freshPath }));
   assert.deepEqual(fresh.briefs, []);
   assert.equal(existsSync(freshPath), false, 'reading briefs must not create the journal');
+});
+
+test('the insights payload carries the recent closes, and an empty journal answers []', () => {
+  const journalPath = journalFile('closes-payload');
+  const db = openJournal(journalPath);
+  try {
+    db.prepare(
+      `INSERT INTO automation_runs (job, day, status, attempts, error, payload_json, created_at, updated_at)
+       VALUES ('day_close', '2026-11-20', 'complete', 1, NULL, NULL, '2026-11-21 04:00:00', '2026-11-21 04:00:00'),
+              ('week_close', '2026-11-16', 'failed', 2, 'provider unavailable', NULL,
+               '2026-11-23 06:00:00', '2026-11-23 06:00:00'),
+              ('lint', '2026-11-21', 'skipped', 0, 'no memory claims', NULL,
+               '2026-11-22 06:00:00', '2026-11-22 06:00:00')`,
+    ).run();
+  } finally {
+    db.close();
+  }
+
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const insights = buildPanelInsights(runtime);
+  assert.ok(Array.isArray(insights.closes), 'closes is always an array');
+  // Newest updated_at first; the summary carries no id, payload, or created_at.
+  assert.deepEqual(insights.closes, [
+    {
+      job: 'week_close',
+      day: '2026-11-16',
+      status: 'failed',
+      attempts: 2,
+      error: 'provider unavailable',
+      updated_at: '2026-11-23 06:00:00',
+    },
+    {
+      job: 'lint',
+      day: '2026-11-21',
+      status: 'skipped',
+      attempts: 0,
+      error: 'no memory claims',
+      updated_at: '2026-11-22 06:00:00',
+    },
+    {
+      job: 'day_close',
+      day: '2026-11-20',
+      status: 'complete',
+      attempts: 1,
+      updated_at: '2026-11-21 04:00:00',
+    },
+  ]);
+
+  // No journal is a fresh install: an empty array, and no file is created.
+  const freshPath = journalFile('closes-fresh');
+  const fresh = buildPanelInsights(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath: freshPath }));
+  assert.deepEqual(fresh.closes, []);
+  assert.equal(existsSync(freshPath), false, 'reading closes must not create the journal');
 });
 
 test('the insights payload maps active tasks, open review items, active claims, and reflections', () => {
@@ -532,6 +593,11 @@ test('the insights route coexists with the other panel routes and answers JSON',
        VALUES ('week', '2026-11-16', 'Week of 2026-11-16', 'The route carries the brief.', 'native',
                'automation:week:2026-11-16')`,
     ).run();
+    // And the recent automation closes, read from the ledger on the same GET.
+    db.prepare(
+      `INSERT INTO automation_runs (job, day, status, attempts, error, created_at, updated_at)
+       VALUES ('day_close', '2026-11-24', 'complete', 1, NULL, '2026-11-25 04:00:00', '2026-11-25 04:00:00')`,
+    ).run();
   } finally {
     db.close();
   }
@@ -591,6 +657,9 @@ test('the insights route coexists with the other panel routes and answers JSON',
   assert.equal(payload.briefs.length, 1, 'the one GET carries the stored brief');
   assert.equal(payload.briefs[0]?.kind, 'week');
   assert.equal(payload.briefs[0]?.period_key, '2026-11-16');
+  assert.equal(payload.closes.length, 1, 'the one GET carries the ledger close');
+  assert.equal(payload.closes[0]?.job, 'day_close');
+  assert.equal(payload.closes[0]?.status, 'complete');
 });
 
 test('a corrupt journal answers a JSON error instead of a payload', async () => {

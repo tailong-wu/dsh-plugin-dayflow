@@ -1351,6 +1351,10 @@ export const PANEL_CSS = `
   --dfp-accent: color-mix(in srgb, var(--dsw-static-blue-500) 55%, var(--dsw-static-green-500));
 }
 
+.dfp-insights-section.is-closes {
+  --dfp-accent: color-mix(in srgb, var(--dsw-static-amber-500) 42%, var(--dsw-static-blue-500));
+}
+
 .dfp-insights-section-head {
   display: flex;
   align-items: center;
@@ -1645,6 +1649,108 @@ export const PANEL_CSS = `
     order: 3;
     flex-basis: 100%;
   }
+}
+
+/* The read-only Close history list. One compact head per run — job badge, the
+ * day or week it covers, the status word, the retry count, and the stored
+ * updated date — with a stored failure or skip reason folded to one line
+ * underneath. The row is display-only: no hover target, no button. */
+
+.dfp-close-row {
+  padding: 8px 12px 9px 14px;
+}
+
+.dfp-close-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.dfp-close-job {
+  flex: none;
+  height: 17px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--dfp-accent) 13%, transparent);
+  color: color-mix(in srgb, var(--dfp-accent) 78%, var(--dsw-alias-label-primary));
+  font-size: 10px;
+  line-height: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* The day or week label takes the free width and may wrap on a docked sidebar
+ * instead of pushing the status and date off the row. */
+.dfp-close-day {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11.5px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.dfp-close-status {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10.5px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+/* A running or pending close stays neutral; only a completed close is green,
+ * and a failed or skipped one takes the restrained amber warning. */
+.dfp-close-status.is-running {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dfp-close-status.is-complete {
+  color: color-mix(in srgb, var(--dsw-static-green-500) 72%, var(--dsw-alias-label-primary));
+}
+
+.dfp-close-status.is-failed,
+.dfp-close-status.is-skipped {
+  color: var(--dsw-static-amber-600);
+}
+
+.dfp-close-row.is-failed,
+.dfp-close-row.is-skipped {
+  background: color-mix(in srgb, var(--dsw-static-amber-500) 5%, transparent);
+}
+
+.dfp-close-attempts {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10px;
+  line-height: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dfp-close-updated {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+/* The stored failure or skip reason shown as one line; the full text stays in
+ * the element's title and label, so a long message never widens the panel. */
+.dfp-close-error {
+  overflow: hidden;
+  margin: 4px 0 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dfp-close-row.is-failed .dfp-close-error,
+.dfp-close-row.is-skipped .dfp-close-error {
+  color: var(--dsw-static-amber-600);
 }
 
 /* The ToDo-style add row under an editable section. */

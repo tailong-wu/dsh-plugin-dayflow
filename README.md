@@ -17,7 +17,7 @@ cloud analysis.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.9.0` is tagged in this repository (the npm registry still
+> **Status:** `v0.9.1` is tagged in this repository (the npm registry still
 > answers `404`, so no publish authorization has been taken — owner decision D7). `v0.8.0` was the
 > analysis-ledger follow-ups, `v0.8.1` the briefs reading view; the planned `0.8.2` image admission and
 > `0.8.3` Phase 4 cutover are formally deferred to the next line, owner-gated (D1/D2/D10/D11), and
@@ -168,8 +168,9 @@ entry point off entirely.
   and reflections blocks take a line of your own, and review items are decided in place
   while task sessions can be unlinked — no agent turn. The view also reads the stored day
   and week **briefs** — collapsed rows you expand, with the weekly brief's memory-health
-  digest inside the body — read-only, and still one tab, one header button, and 18 host
-  Fetch routes.
+  digest inside the body — and the recent **close history** of the scheduled day close,
+  week close, and weekly lint, each with its status, attempts, and error: all read-only,
+  and still one tab, one header button, and 18 host Fetch routes.
 
 ![One day open in the panel](docs/day.en.png)
 
@@ -312,7 +313,7 @@ default, and the capture/analysis/automation blocks are in
 ```sh
 npm install
 npm run build                # TypeScript → lib/, plus the client bundle
-npm test                     # build, type-check, and run the 544-test suite
+npm test                     # build, type-check, and run the 557-test suite
 npm run typecheck            # type-check sources and tests together
 npm run smoke                # read this Mac's real Dayflow database
 npm run native:smoke         # capture provider only; writes nothing

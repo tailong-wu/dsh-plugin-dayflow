@@ -253,7 +253,7 @@ tests above describe:
   is the only `package.json` change.
 
 Every 0.8.x release is text-only and adds no host peer or runtime dependency.
-The tagged tree runs **544** tests, serves **18** host Fetch routes (nine `GET`
+The tagged tree runs **557** tests, serves **18** host Fetch routes (nine `GET`
 and nine `POST`), registers **5** slash commands and **23** tools (17 with
 `edits: false`), ships **8** skills, and keeps owned schema **v10**. Nothing is
 on the npm registry: the line is tagged in the repository and the registry
@@ -264,7 +264,7 @@ answers 404 (no publish authorization, owner decision D7).
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 544 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, cutover rehearsal, bundle
+npm test            # 557 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, cutover rehearsal, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

@@ -86,13 +86,16 @@ card placed at its time and tinted with its category colour.
 - The panel's month/week switch has a third view, **Journal insights**: it lists
   what the agent has learned — active long tasks (with progress and stalled
   marks), the open review queue, recent date-stamped memory claims, stored
-  day/week reflections, and the stored day and week **briefs** (read-only; see
-  [Briefs in the panel](#briefs-in-the-panel)). It is a view inside the panel,
-  not a second tab or button, so the plugin keeps one entry. The task, memory,
-  and reflection blocks also take an inline add, and a newly added task can be
-  offered a history scan (see [Quick capture](QUICK_CAPTURE.md)); the review
-  queue has no add row — its items are the agent's proposals — but each one can
-  be decided in place, and a task session can be unlinked (see below).
+  day/week reflections, the stored day and week **briefs** (read-only; see
+  [Briefs in the panel](#briefs-in-the-panel)), and the recent **close history**
+  of the scheduled closes (read-only; see
+  [Close history in the panel](#close-history-in-the-panel)). It is a view
+  inside the panel, not a second tab or button, so the plugin keeps one entry.
+  The task, memory, and reflection blocks also take an inline add, and a newly
+  added task can be offered a history scan (see
+  [Quick capture](QUICK_CAPTURE.md)); the review queue has no add row — its
+  items are the agent's proposals — but each one can be decided in place, and a
+  task session can be unlinked (see below).
 - Above those sections sit three quiet status lines. The first is the native
   capture strip (permission, today's frame count, Pause/Resume). The second
   reports the **analysis worker** as read-only: off, waiting for consent, a
@@ -184,10 +187,44 @@ card placed at its time and tinted with its category colour.
 - When nothing has been stored yet the block keeps its quiet **No briefs yet**
   line — a default profile shows an empty Briefs section, exactly like the other
   blocks, and reading it makes no model call.
-- This is the line's last surface change: `v0.8.1` added the block, the planned
-  `0.8.2` image admission and `0.8.3` Phase 4 cutover are deferred to the next
-  line (owner-gated), and `v0.8.4` is a release close with no panel change — so
-  the panel keeps its one entry, three views, and 18 host Fetch routes.
+- That was the 0.8.x line's last panel change: `v0.8.1` added the block, the
+  planned `0.8.2` image admission and `0.8.3` Phase 4 cutover are deferred to
+  the next line (owner-gated), and `v0.8.4` is a release close with no panel
+  change — so the panel keeps its one entry, three views, and 18 host Fetch
+  routes.
+
+### Close history in the panel
+
+- The **Close history** block sits at the end of the **Journal insights** view,
+  after **Briefs**. It is the reading view for the closes the automation already
+  records — the scheduled day close, the Monday-anchored week close, and the
+  weekly memory lint — so a failure or a skip inside the catch-up window is
+  inspectable instead of showing only on the close-state line.
+- Each entry is one row: a job badge (**Day close**, **Week close**, or
+  **Lint**), the close's period (the day itself, or the week's date range for a
+  week close), the status, the attempt count when the close needed more than one
+  (for example `2 attempts`), the error summary when one was recorded, and the
+  updated date (a short date whose tooltip reads `Updated Nov 27`). The error is
+  one truncated line; the full message stays in its `Error: …` title and
+  accessible label.
+- Status copy is localized and the tone stays quiet: **Complete** uses the
+  normal green status tone, **Failed** and **Skipped** share one restrained
+  amber warning tone — a coloured row, never an error banner — and a **Running**
+  or **Pending** close stays neutral grey.
+- The block is **read-only**. It has no add row, no retry or re-run button, no
+  decision row, and no entry of its own, so the view keeps its existing controls
+  and the plugin keeps its single entry point.
+- The entries arrive inside the existing `GET /api/dayflow/insights` answer as
+  the additive `closes` field (`job`, `day`, `status`, `attempts`, optional
+  `error`, `updated_at`), so the panel adds no request: still **18 host Fetch
+  routes** — nine `GET` and nine `POST` — with no tab, header button, or
+  settings page, and no model call.
+- The list is bounded and ordered: most recently updated first (ties by row id,
+  newest first), at most ten entries. A missing journal answers `[]` and creates
+  no file, so a default profile reads an empty list without writing to disk.
+- When nothing has been recorded yet the block keeps its quiet **No closes
+  recorded yet.** line — a default profile shows an empty Close history section,
+  exactly like the other blocks, and reading it makes no model call.
 
 ### Automation status
 
@@ -229,8 +266,9 @@ card placed at its time and tinted with its category colour.
   [Native capture](NATIVE_CAPTURE.md)). Together with the icon route
   below, those are the panel's host Fetch routes — eighteen in all, nine `GET`
   and nine `POST`. The insights answer carries every section of the view, the
-  additive `briefs` list included, in that one response, so the Briefs block
-  adds no request. It never touches the database itself.
+  additive `briefs` and `closes` lists included, in that one response, so the
+  Briefs and Close history blocks add no request. It never touches the database
+  itself.
 - The three new writes require `confirm: true` in the body — the same guard the
   `journal_review` tool uses — and answer with the store's own payload:
   - `POST /api/dayflow/review` takes

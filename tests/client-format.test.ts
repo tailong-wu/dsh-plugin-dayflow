@@ -425,6 +425,84 @@ test('the read-only briefs copy exists in both dictionaries', () => {
   assert.equal(zhT('briefUpdated', { date: '11月26日' }), '更新于 11月26日');
 });
 
+test('the read-only close history copy exists in both dictionaries', () => {
+  // Every label the Close history section under the briefs renders; the two
+  // dictionaries share the key set, so a missing language fails above.
+  const fixed = [
+    'closeHistory',
+    'closeNoHistory',
+    'closeDay',
+    'closeWeek',
+    'closeLint',
+    'closeStatusComplete',
+    'closeStatusFailed',
+    'closeStatusSkipped',
+    'closeStatusRunning',
+    'closeStatusPending',
+  ];
+  for (const key of fixed) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+    assert.doesNotMatch(EN[key] ?? '', /\{\w+\}/, `English copy for ${key} has no placeholder`);
+    assert.doesNotMatch(ZH[key] ?? '', /\{\w+\}/, `Chinese copy for ${key} has no placeholder`);
+  }
+  // The section titles and the empty state stay distinct from the briefs copy,
+  // so a user never sees the two read-only lists named the same.
+  assert.equal(enT('closeHistory'), 'Close history');
+  assert.equal(zhT('closeHistory'), '收盘记录');
+  assert.equal(enT('closeNoHistory'), 'No closes recorded yet.');
+  assert.equal(zhT('closeNoHistory'), '还没有收盘记录');
+  assert.notEqual(EN['closeHistory'], EN['briefsSection']);
+  assert.notEqual(ZH['closeHistory'], ZH['briefsSection']);
+  // The three jobs keep distinct labels so a row names what closed.
+  assert.equal(enT('closeDay'), 'Day close');
+  assert.equal(enT('closeWeek'), 'Week close');
+  assert.equal(enT('closeLint'), 'Lint');
+  assert.equal(zhT('closeDay'), '日收盘');
+  assert.equal(zhT('closeWeek'), '周收盘');
+  assert.equal(zhT('closeLint'), '检查');
+  // The five run states keep their own labels: a pending or running row must
+  // never read as a finished one.
+  const statuses = [
+    'closeStatusPending',
+    'closeStatusRunning',
+    'closeStatusComplete',
+    'closeStatusFailed',
+    'closeStatusSkipped',
+  ];
+  for (const dictionary of [EN, ZH]) {
+    assert.equal(
+      new Set(statuses.map((key) => dictionary[key])).size,
+      statuses.length,
+      'close status labels stay distinct',
+    );
+  }
+  assert.equal(enT('closeStatusComplete'), 'Complete');
+  assert.equal(enT('closeStatusFailed'), 'Failed');
+  assert.equal(enT('closeStatusSkipped'), 'Skipped');
+  assert.equal(enT('closeStatusRunning'), 'Running');
+  assert.equal(enT('closeStatusPending'), 'Pending');
+  assert.equal(zhT('closeStatusComplete'), '已完成');
+  assert.equal(zhT('closeStatusFailed'), '失败');
+  assert.equal(zhT('closeStatusSkipped'), '已跳过');
+  assert.equal(zhT('closeStatusRunning'), '进行中');
+  assert.equal(zhT('closeStatusPending'), '等待中');
+  // The retry count and the stored date are the row's data carries; both
+  // dictionaries must interpolate them so neither leaks a raw `{…}`.
+  for (const dictionary of [EN, ZH]) {
+    assert.match(dictionary['closeAttempts'] ?? '', /\{count\}/);
+    assert.match(dictionary['closeUpdated'] ?? '', /\{date\}/);
+    // The full error rides the title/label around the truncated line.
+    assert.match(dictionary['closeError'] ?? '', /\{message\}/);
+  }
+  assert.equal(enT('closeAttempts', { count: 2 }), '2 attempts');
+  assert.equal(zhT('closeAttempts', { count: 2 }), '2 次尝试');
+  assert.equal(enT('closeUpdated', { date: 'Nov 27' }), 'Updated Nov 27');
+  assert.equal(zhT('closeUpdated', { date: '11月27日' }), '更新于 11月27日');
+  assert.equal(enT('closeError', { message: 'model timed out' }), 'Error: model timed out');
+  assert.equal(zhT('closeError', { message: 'model timed out' }), '错误：model timed out');
+});
+
 test('the review decision and session unlink copy exists in both dictionaries', () => {
   // Every label the interactive review queue and the task session row render;
   // the two dictionaries share the key set, so a missing language fails here.
