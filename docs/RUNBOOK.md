@@ -20,7 +20,7 @@ git tag --list | wc -l                        # 22
 npm test                                      # tests 583 · pass 583 · fail 0 (builds first; 557 at v0.9.2)
 npm run typecheck                             # exit 0, no output
 npm run rehearsal                             # REHEARSAL PASS: 20/20 checks passed
-npm run check:package                         # check-package: ok · 146 files · 2.52 MB packed · 3.90 MB unpacked
+npm run check:package                         # check-package: ok · 152 files · 2.59 MB packed · 4.10 MB unpacked (the count grows as docs land)
 J="${DSH_HOME:-$HOME/.dsh}/dayflow/journal.sqlite"; test -f "$J" && sqlite3 "$J" 'SELECT version FROM schema_version;'  # 10 once it exists
 ```
 

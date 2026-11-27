@@ -399,7 +399,7 @@ unpacked and audited, was byte-identical to what the dry run described:
 | `shasum` (sha1) | `7524e587cba3bdada872e37bef37adaa8b3c443d` |
 | `integrity` (sha512) | `sha512-4YC9YnTTrykbbvzFIwhqlnrUQHhSt9vyhxIR0kZyFbLkJHWsCz/pQeAdvWp+PopIoSDWedcV6g2HuKPCJjFDlQ==` |
 | Forbidden paths | none (`src/`, `tests/`, `scripts/`, `node_modules/`, `.test-build/`, `.github/`, `out/`, `*.tgz`, `*.map`, `*.tsbuildinfo`, non-declaration `.ts` all zero) |
-| Secret scan | none (`sk-…`, `ghp_…`, `AKIA…`, private-key blocks, `_authToken`, `Bearer <token>` all absent; `apiKeyEnv` appears as a reference name only; `FIXTURE_LLM_SECRET` appears only in prose in the docs) |
+| Secret scan | none (`sk-…`, `ghp_…`, `AKIA…`, private-key blocks, `_authToken`, `Bearer <token>` absent as credentials; `apiKeyEnv` and the placeholders appear as reference names/prose in the docs, including this page, which is itself shipped — re-scan at the cut and record the expected prose hits; `FIXTURE_LLM_SECRET` appears only in prose) |
 | Real `npm pack` vs dry run | byte size 2,688,502 identical; the 150-entry file list is identical |
 
 These hashes are for the `0.9.2`-labelled current tree and **will change at the
