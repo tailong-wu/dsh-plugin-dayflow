@@ -125,7 +125,7 @@ card placed at its time and tinted with its category colour.
   which that proposal fingerprint is dropped on sight. A plain **Discard** is
   *soft*: the agent may propose the same idea again only when the evidence is
   materially new — a different source day, a confidence jump, or more
-  occurrences. Clearing a hard suppression stays agent-only in 0.7.x (the
+  occurrences. Clearing a hard suppression stays agent-only (the
   `journal_review` unsuppress action), so the panel deliberately has no
   suppression-management surface.
 - **Task sessions can be unlinked.** The history scan still previews, and
@@ -164,6 +164,10 @@ card placed at its time and tinted with its category colour.
 - When nothing has been stored yet the block keeps its quiet **No briefs yet**
   line — a default profile shows an empty Briefs section, exactly like the other
   blocks, and reading it makes no model call.
+- This is the line's last surface change: `v0.8.1` added the block, the planned
+  `0.8.2` image admission and `0.8.3` Phase 4 cutover are deferred to the next
+  line (owner-gated), and `v0.8.4` is a release close with no panel change — so
+  the panel keeps its one entry, three views, and 18 host Fetch routes.
 
 ### Automation status
 

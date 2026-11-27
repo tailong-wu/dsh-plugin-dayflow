@@ -50,7 +50,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   proposals — it never writes, supersedes, or forgets a `memory_claims` row — and
   the digest it returns is rendered into that week's `briefs` body and
   `payload_json`.
-- **Native analysis (0.7.1 pipeline, 0.7.2 worker, 0.8.0 ledger gates).**
+- **Native analysis (0.7.1 pipeline, 0.7.2 worker, 0.8.0 ledger gates, 0.8.1 briefs reading view).**
   `analyse/pipeline.ts` reads one Dayflow day's native `screenshots` rows
   (04:00–04:00), groups them into windows (`analysis.windowMinutes`, at most
   `framesPerWindow` representative frames), runs the pure consent gate, builds
@@ -70,7 +70,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   stays inert on a default profile (`analysis.consent: 'none'` blocks every
   call), and the whole shipped line is text-only: the model receives the
   frontmost app, window title, and frame hash as metadata, never pixels; image
-  admission remains owner-gated later in the 0.8.x line. Since 0.8.0 the same
+  admission is deferred to the next line (owner-gated D1/D2/D11). Since 0.8.0 the same
   ledger is money-bounded and self-healing, with no schema change: the day's
   recorded `input_tokens + output_tokens` (summed from `analysis_jobs`) is
   compared with `analysis.dailyTokenBudget` before a window starts and again
@@ -174,6 +174,7 @@ src/
   briefs/         text-only day and week briefs written by the close (0.7.4)
     daily.ts      standup/daily brief from the day's activities → daily_standup_entries
     weekly.ts     seven-day rollup → briefs
+    read.ts       listPanelBriefs: the additive insights payload behind the panel's read-only Briefs block (0.8.1)
   automation/     the scheduled day/week close (0.7.4), plus the weekly lint (0.7.5)
     store.ts      automation_runs state machine: idempotent closes, bounded retries, skipped rows
     consent.ts    the automation pass reuses the analysis consent/provider/model gate
@@ -230,6 +231,34 @@ soft-deleted card, `System` time, and metadata with apps and distractions. The
 bridge tests run a real Unix socket server, so the protocol is exercised end to
 end.
 
+## Release line
+
+The 0.8.x line is closed at `v0.8.4`, and its shape is what the modules and
+tests above describe:
+
+- `v0.8.0` — analysis-ledger follow-ups: the token budget is a post-call gate,
+  configuration-caused skips replay within today and yesterday, and the 04:00
+  boundary gets one bounded day tail. No schema, route, command, tool, skill,
+  configuration key, or default change.
+- `v0.8.1` — briefs reading view: the insights payload gains the additive
+  `briefs` list, and the panel renders it as a read-only, expandable block.
+- `0.8.2` (planned, **deferred to the next line**) — image admission. The owner
+  has not answered D1/D2/D11, so every shipped release stays text-only.
+- `0.8.3` (planned, **deferred to the next line / 1.0.0 prerequisite**) — the
+  Phase 4 cutover; only the rehearsal exists ([CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md)),
+  and the owner has not answered D10.
+- `v0.8.4` — release close: documentation, release-trail verification, and the
+  explicit deferral above. No plugin source, schema, route, command, tool,
+  skill, configuration key, default, or dependency change; the package version
+  is the only `package.json` change.
+
+Every 0.8.x release is text-only and adds no host peer or runtime dependency.
+The tagged tree runs **537** tests, serves **18** host Fetch routes (nine `GET`
+and nine `POST`), registers **5** slash commands and **23** tools (17 with
+`edits: false`), ships **8** skills, and keeps owned schema **v10**. Nothing is
+on the npm registry: the line is tagged in the repository and the registry
+answers 404 (no publish authorization, owner decision D7).
+
 ## Development
 
 ```sh
@@ -260,12 +289,14 @@ Two other groups of scripts are documented where their subject is:
   Node 22.13+ and 23.4+ (24 included) do not.
 - `dsh` ≥ 0.2.0-rc.2: the plugin peers on the 0.2 line of the harness. Supported
   DSH releases are `0.2.0-rc.2` and `0.2.1-rc.2` (declared in
-  `dsh.compatibility.dshReleases`). The 0.7.x and 0.8.0 lines added **no** host
-  peer beyond that declared cohort: `@deepseek-ai/dsh-llm` was already declared
-  and is the only host service the analysis path calls, and
-  `@deepseek-ai/dsh-attachment` is not a dependency because the line is
-  text-only. Image admission, which would need that attachment service, remains
-  owner-gated later in the 0.8.x line.
+  `dsh.compatibility.dshReleases`). The 0.7.x and 0.8.x lines added **no** host
+  peer beyond that declared cohort and no runtime dependency: `@deepseek-ai/dsh-llm`
+  was already declared and is the only host service the analysis path calls, and
+  `@deepseek-ai/dsh-attachment` is not a dependency because every shipped
+  release is text-only, and no 0.8.x release adds a runtime dependency: across
+  0.8.0–0.8.4 `package.json` differs only in the package version. Image
+  admission, which would need that attachment service, is deferred to the next
+  line (owner-gated D1/D2/D11).
 - `pnpm` on `PATH` is only needed for `dsh plugin add`; a linked development
   install does not need it.
 

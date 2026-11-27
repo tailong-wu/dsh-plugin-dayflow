@@ -17,8 +17,12 @@ cloud analysis.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.8.1` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
-> README describes — install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status:** the 0.8.x line is closed at `v0.8.4` (tagged in this repository; the npm registry still
+> answers `404`, so no publish authorization has been taken — owner decision D7). `v0.8.0` was the
+> analysis-ledger follow-ups, `v0.8.1` the briefs reading view; the planned `0.8.2` image admission and
+> `0.8.3` Phase 4 cutover are formally deferred to the next line, owner-gated (D1/D2/D10/D11), and
+> `v0.8.4` is the release close. Install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and
+> [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
 
@@ -57,8 +61,10 @@ stayed. That is the whole dataset.
   and task sessions written into the owned journal (the stored week brief is the compressed week record; there
   is no weekly reflection). 0.8.0 closes the analysis-ledger follow-ups — the token budget is now a post-call
   gate, configuration-caused skips replay within today and yesterday, and the 04:00 boundary gets one bounded
-  day-tail run. All of it is mounted with the analysis stack and gated by `analysis.consent`,
-  `analysis.provider`, and `analysis.model` → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
+  day-tail run. 0.8.1 makes the stored day and week briefs readable in the insights view (see the panel
+  section below), and 0.8.4 is the release close: documentation, test, and release-trail work only — no plugin
+  source, schema, route, configuration, or default change. All of it is mounted with the analysis stack and
+  gated by `analysis.consent`, `analysis.provider`, and `analysis.model` → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
 - **Zero runtime dependencies** beyond `dsh`: SQLite comes from `node:sqlite`; Dayflow edits use the
   app's local Unix socket, while the owned journal has its own SQLite file.
 
@@ -75,15 +81,18 @@ Deep documentation: [tools](docs/TOOLS.md) · [panel](docs/PANEL.md) · [quick c
 | Node.js ≥ 22.5 | Node 22.5–22.12 and 23.0–23.3 need `--experimental-sqlite`; Node 22.13+ and 23.4+ (24 included) do not. |
 | `dsh` ≥ 0.2.0-rc.2 | Peers on the 0.2 line of the harness; `pnpm` on `PATH` is needed only for `dsh plugin add`. |
 
-The 0.7.x and 0.8.0 lines added **no** host peer beyond that declared cohort: `@deepseek-ai/dsh-llm` was
+The 0.7.x and 0.8.x lines added **no** host peer beyond that declared cohort: `@deepseek-ai/dsh-llm` was
 already a peer and is the only host service the analysis path calls, and `@deepseek-ai/dsh-attachment` is
-**not** a dependency because the line is text-only. Image admission, which would need that attachment service,
-remains owner-gated later in the 0.8.x line.
+**not** a dependency because every shipped release is text-only. No 0.8.x release adds a runtime
+dependency either: across 0.8.0–0.8.4 `package.json` differs only in the package version. Image
+admission, which would need that attachment service, is deferred to the next line (owner-gated
+D1/D2/D11).
 
 ## Install
 
-No `0.8.x` release is on the registry yet (`v0.8.1` is tagged in this repository). Until one is,
-install from a checkout — that builds the development line described here; once published, run
+Nothing is on the npm registry yet — the package name answers `404` — though `v0.8.0`, `v0.8.1`, and
+the `v0.8.4` release close are tagged in this repository. Install from a checkout: that builds the
+development line described here. After the owner authorises an npm release (D7), run
 `dsh plugin --profile web add dsh-plugin-dayflow`.
 
 ### Desktop App
@@ -169,7 +178,7 @@ titles and neutral hosts; the full view reference and route list are in
 
 ## Owned journal, memory, and insights
 
-The plugin owns a second, portable SQLite journal (schema **v10** on the 0.7.5 line) alongside the Dayflow
+The plugin owns a second, portable SQLite journal (schema **v10**, unchanged since 0.7.5) alongside the Dayflow
 default. Import a Dayflow database once with `journal_import`, then point the profile at
 `source: owned`: the source is opened read-only, the import is idempotent, and the existing
 tools and panel keep their payloads.

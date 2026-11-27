@@ -1,70 +1,76 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: **0.8.1 has landed and is the current head; the 0.8.2 patch is the next
-> progress.** `v0.8.0` is an annotated tag on commit `f4191b9`, which is `main`
-> HEAD and the commit that closed the patch (the same commit carries the `0.8.0`
-> package version), with a GitHub Release marked **Latest**; that tree is
-> **521** green tests, schema **v10**, **18** panel routes, **5** slash commands,
-> 23 tools, 8 skills, and no new host peer. The 0.7.x line is closed: its last
-> tag is `v0.7.6` (commit `007c287`) and all seven tags `v0.7.0`–`v0.7.6` have
-> GitHub Releases; 0.7.0 (`v0.7.0`, `45a7e42`) remains the **phase baseline**.
-> 0.8.0 closed the three analysis-ledger follow-ups the 0.7 line deliberately
-> left open (the token budget as a post-call gate, transient-skip catch-up
-> bounded to yesterday, and the 04:00 day tail). Image admission and the Phase 4
-> cutover remain **owner-gated**. Phase 4 is still **rehearsed only** —
-> `docs/CUTOVER_REHEARSAL.md` and `npm run rehearsal` walk the fixture chain
-> (20/20 checks passed at `v0.7.6`, and 0.8.0 changed no input it exercises),
-> and no `source: owned` default has been flipped. The package is still **not on
-> the npm registry** (D7 unanswered), so every release here is a tag and a
-> GitHub Release only.
+> Status: **0.8.1 has landed and is the current head; the 0.8.x line is closing at
+> its release-close patch.** `v0.8.1` is an annotated tag on commit `af002c3`,
+> which is `main` HEAD and the commit that closed the patch, with a GitHub
+> Release marked **Latest**; that tree is **537** green tests, schema **v10**,
+> **18** panel routes (9 `GET` + 9 `POST`), **5** slash commands, 23 tools, 8
+> skills, and no new host peer. `v0.8.0` (`f4191b9`) is the line's first shipped
+> patch (the analysis-ledger follow-ups); the 0.8.x line's tags are exactly
+> **`v0.8.0`, `v0.8.1`, `v0.8.4`** once the close is cut. **0.8.2 (image
+> admission) and 0.8.3 (Phase 4 cutover) are formally deferred to the next
+> line:** the owner has not answered D1/D2/D10/D11, so the slots never started,
+> do not ship, and are not renumbered; **0.8.4 (release close) has landed**
+> and flipped nothing (the status became "landed" when `v0.8.4` was cut — the
+> tagged tree records the close as in progress, as `v0.7.6`'s did). The 0.7.x
+> line is closed: its last tag is `v0.7.6` (commit
+> `007c287`) and all seven tags `v0.7.0`–`v0.7.6` have GitHub Releases; 0.7.0
+> (`v0.7.0`, `45a7e42`) remains the **phase baseline**. Phase 4 is still
+> **rehearsed only** — `docs/CUTOVER_REHEARSAL.md` and `npm run rehearsal` walk
+> the fixture chain (20/20 checks at `v0.7.6`, re-run green on the `v0.8.1`
+> tree), and no `source: owned` default has been flipped. The package is still
+> **not on the npm registry** (D7 unanswered), so every release here is a tag
+> and a GitHub Release only.
 >
-> **Measured on the `v0.8.0` tree:** 521 tests green (494 on the closed 0.7.6
-> tree — 0.8.0 added 27), schema **v10**, **18** panel routes, **5** slash
-> commands, 23 tools, 8 skills, no new host peer. The 0.7 line's own record is
-> [`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history) and the per-patch table in
-> *Patch iterations (0.7.x, line closed)* below; the 0.8 line's is
-> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md).
+> **Measured on the `v0.8.1` tree:** 537 tests green (521 on `v0.8.0`, 494 on
+> the closed `v0.7.6` tree — 0.8.1 added 16 in 3 files), schema **v10**, **18**
+> panel routes, **5** slash commands, 23 tools, 8 skills, no new host peer. The
+> 0.7 line's own record is [`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history) and
+> the per-patch table in *Patch iterations (0.7.x, line closed)* below; the 0.8
+> line's is [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md).
 >
 > **0.8.x line.** The execution plan is
-> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md), and the order is:
+> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md), and the landed/deferred map is:
 > **0.8.0 — analysis ledger follow-ups** (**landed**, `v0.8.0`/`f4191b9`,
-> GitHub Release Latest, 521 tests: the token budget as a post-call gate with a
-> pre-call already-spent guard, transient-skip catch-up bounded to today and
-> yesterday, and the 04:00 day tail behind the `analysis_tail_checked_on`
-> checkpoint; no schema, route, command, config key, or default change);
-> **0.8.1 — briefs reading view** (**landed**: the additive `briefs` array
-> on the insights payload and one read-only, expandable section in the existing
+> 521 tests: the token budget as a post-call gate with a pre-call already-spent
+> guard, transient-skip catch-up bounded to today and yesterday, and the 04:00
+> day tail behind the `analysis_tail_checked_on` checkpoint; no schema, route,
+> command, config key, or default change);
+> **0.8.1 — briefs reading view** (**landed**, `v0.8.1`/`af002c3`, 537 tests:
+> the additive `briefs` array on the insights payload, one read module
+> (`src/briefs/read.ts`), and one read-only expandable section in the existing
 > panel view; no new route, tab, or model call);
-> **0.8.2 — image admission** (**owner-gated** on D1/D2/D11: pixels through a
-> host attachment/vision contract, the 3.6 `privacy_apps` redaction list, and
-> the limitation copy; `includeImages: false` and fully inert until answered);
-> **0.8.3 — Phase 4 cutover** (**owner-gated** on D10 plus a real captured week:
-> `source: owned` becomes the default for a fresh capture-enabled profile with
-> no Dayflow database, the first-run walkthrough lands, and 1.0.0 follows a real
-> week without data loss); and
-> **0.8.4 — release close** (GitHub Releases for every shipped tag, the npm
-> decision with no publication by default, docs reconciliation, and explicit
-> deferral of any slot the owner did not unblock).
-> 0.8.0 shipped without an owner answer and 0.8.1 needs none either; 0.8.2/0.8.3
-> are scoped in the plan but do not start until their gates are met; the version
-> slots are semantic, so an unanswered slot is deferred rather than renumbered.
+> **0.8.2 — image admission** (**deferred to the next line**: D1/D2/D11
+> unanswered; pixels through a host attachment/vision contract, the 3.6
+> `privacy_apps` redaction list, and the limitation copy stay scoped in the plan
+> and are not a 0.8 promise);
+> **0.8.3 — Phase 4 cutover** (**deferred to the next line / 1.0.0
+> prerequisite**: D1/D2/D10 unanswered; `source: owned` does not become the
+> default and the first-run walkthrough is not built on 0.8); and
+> **0.8.4 — release close** (**landed**: a GitHub Release for every shipped
+> tag, the npm decision with no publication by default, docs reconciliation, the
+> deferred slots named, and the next line's prerequisites recorded).
+> 0.8.1 shipped without an owner answer; the two gated slots never started; the
+> version slots are semantic, so an unanswered slot is deferred rather than
+> renumbered, and the line stays text-only with `source: dayflow` as its default.
 >
 > **What remains after this line:** the owned-journal write path (the editing
 > tools still go through Dayflow), the `dsh dayflow import` CLI, the month/week
 > panel goal and rating surfaces, the `review.cards` switch (the plugin never
 > had a card stack, so the switch has no surface), task tagging from the
 > summarization prompt, automatic activity attribution, embeddings, and Phase 5.
-> 1.0.0 follows the cutover and a real captured week without data loss. Phase 5
-> and everything after it remain proposals.
+> 1.0.0 follows the deferred cutover and a real captured week without data loss;
+> the owner decisions it needs are in
+> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G. Phase 5 and everything
+> after it remain proposals.
 >
-> Last revised: 2026-11-27, against `v0.8.0` (`f4191b9`): eight tags
-> (`v0.7.0`–`v0.7.6`, `v0.8.0`) and eight GitHub Releases, 0.8.0's three ledger
-> follow-ups landed with the gate order
-> *idempotency → calls pre-call → token-already-spent pre-call guard → call →
-> post-call token gate*, the briefs reading view finalised as **0.8.1**
-> (in progress), image admission as **0.8.2** and the cutover as **0.8.3**
-> (both owner-gated), and the analysis contract still **text-only** until
-> D1/D2/D11 are answered.
+> Last revised: 2026-11-27, against `v0.8.1` (`af002c3`): nine tags on the
+> 0.7.x/0.8.x range (`v0.7.0`–`v0.7.6`, `v0.8.0`, `v0.8.1`) and nine GitHub
+> Releases there (18 tags and 17 Releases across the whole repository, with
+> `v0.6.0` the known tag-without-release gap); 0.8.0's three ledger follow-ups
+> and 0.8.1's briefs reading view landed; image admission (0.8.2) and the
+> cutover (0.8.3) are deferred to the next line; 0.8.4 closes the line; the
+> analysis contract is still **text-only** until D1/D2/D11 are answered.
 
 ## Where this starts
 
@@ -414,10 +420,12 @@ the analysis line instead of a redaction list — two locale keys: the text-only
 disclosure, plus the cloud-only "the metadata leaves the Mac" sentence. 0.7.4's
 close jobs send activity text only (never frames or window titles) behind that
 same consent, so this status does not change. The `privacy_apps` list is **not**
-on the 0.7.x line; it becomes required with image admission, which is scheduled
-as **0.8.2** and owner-gated on D1/D2/D11 in
-[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md). Until it ships, the analysis contract
-stays text-only.
+on the 0.7.x line and is **not** on the 0.8.x line either: it was scoped for
+image admission as **0.8.2**, but the owner did not answer D1/D2/D11, so the slot
+is **deferred to the next line**
+([`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.2). The analysis contract stays
+**text-only**, and no `privacy_apps` list, `includeImages` key, or attachment
+peer exists in the tagged tree.
 
 ### Phase 3.7 — Long-horizon task tracking
 
@@ -572,10 +580,12 @@ when capture is enabled and no Dayflow database exists) is **not** on the
 reopen), passed **20/20**, and `docs/CUTOVER_REHEARSAL.md` carries the pass/fail
 checklist and the record table (permission, frames, cards, standup, brief,
 reflection, queue, restart with no data loss); the fixture run needs no screen
-permission, network, or model. It flipped nothing. The real cutover is
+permission, network, or model. It flipped nothing. The real cutover was scoped as
 **0.8.3**, **owner-gated** on D10 plus a real captured week on a fresh profile
-with no data loss; **1.0.0** follows that week, per `NATIVE_PORT.md` §8 Phase 4
-and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.3. A capture-only cutover
+with no data loss; the owner did not answer D1/D2/D10, so the slot is **deferred
+to the next line** and is now the **1.0.0 prerequisite**
+([`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.3 and §0.8.4 G). **1.0.0**
+follows that week, per `NATIVE_PORT.md` §8 Phase 4. A capture-only cutover
 (`consent: none`) is a narrower variant the owner may choose instead.
 
 ### Native port — capture and analysis inside the harness
@@ -632,12 +642,13 @@ tool, skill, config key, or default change (521 tests): the token budget is a
 post-call gate with a pre-call already-spent guard and `budget-tokens` skips, a
 repaired consent or provider replays today's and yesterday's transient skips,
 and the 04:00 boundary runs one bounded yesterday tail behind the
-`analysis_tail_checked_on` checkpoint. The remaining native work is scheduled in
+`analysis_tail_checked_on` checkpoint. The remaining native work is recorded in
 [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md): **0.8.1** is the briefs reading view
-(in progress), **0.8.2** admits images (owner-gated; the only patch that makes
-the contract non-text), and **0.8.3** is the cutover itself (owner-gated), with
-`1.0.0` after a real captured week. The phasing above (Phase 5 and later) is
-untouched by this line until the native path lands.
+(**landed**, `v0.8.1`, 537 tests), **0.8.2** would have admitted images and
+**0.8.3** would have been the cutover itself (both are now **deferred to the next
+line** — the line stays text-only and no default flips), and **0.8.4** closes the
+line; `1.0.0` follows the deferred cutover and a real captured week. The phasing
+above (Phase 5 and later) is untouched by this line until the native path lands.
 
 ### Phase 5 — Personalization that acts
 
@@ -704,52 +715,55 @@ kept as single-theme patches, and **landed in 0.8.0** because they needed no
 owner answer. 0.7.4's own catch-up is about missed **close jobs**
 (`automation_runs`) and is bounded by `automation.catchUpDays`; it is not a
 replay of analysis-ledger skips. Image admission (pixels need a host attachment
-peer plus a vision contract) and the Phase 4 `source: owned` default flip carry
-into **0.8.2** and **0.8.3**, both owner-gated. The analysis contract stays
-text-only until the owner answers D1/D2/D11.
+peer plus a vision contract) and the Phase 4 `source: owned` default flip were
+scoped as **0.8.2** and **0.8.3**, both owner-gated; the owner did not answer
+D1/D2/D10/D11, so both are **deferred to the next line**, and the 0.8 analysis
+contract stays text-only. The cutover, not the lint, is the remaining Phase 4
+work.
 
-**Deferred from this line, now landed or scheduled:** the three analysis-ledger
-follow-ups **landed in 0.8.0**; the briefs reading view is **0.8.1** (in
-progress); image admission is **0.8.2** (owner-gated); and the Phase 4
-`source: owned` default flip is **0.8.3** (owner-gated on D10 plus a real week).
-None was in a 0.7.x patch; 0.7.6 only rehearsed the cutover. The 0.8.x plan is
-[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md).
+**Deferred from the 0.7.x line, now landed or deferred again:** the three
+analysis-ledger follow-ups **landed in 0.8.0**; the briefs reading view
+**landed in 0.8.1**; image admission (**0.8.2**) and the Phase 4 `source: owned`
+default flip (**0.8.3**, owner-gated on D10 plus a real week) are **deferred to
+the next line** — the owner did not answer D1/D2/D10/D11, so neither carries a
+0.8 tag. None was in a 0.7.x patch; 0.7.6 only rehearsed the cutover. The 0.8.x
+plan is [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md).
 
 ## 0.8.x iterations
 
-The 0.7.x line is closed and this is the current line. **0.8.0 has landed and
-0.8.1 has landed.** Its execution plan is
+The 0.7.x line is closed and this line is closing. **0.8.0 and 0.8.1 have
+landed; 0.8.2 and 0.8.3 are deferred to the next line; 0.8.4 is the line's
+release close, in progress.** Its execution plan is
 [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md): patch-level deliverables, acceptance
-at the assertion level, the gates and owner decisions, and the version-slot rule
-(an unanswered owner-gated slot is deferred in 0.8.4, not renumbered). One line
-each:
+at the assertion level, the gates and owner decisions, the version-slot rule (an
+unanswered owner-gated slot is deferred in 0.8.4, not renumbered), and the next
+line's prerequisites (§0.8.4 G). One line each:
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.8.0 | Analysis ledger follow-ups: the token budget becomes a post-call gate (with a pre-call already-spent guard), transient skips replay inside today and yesterday, and the 04:00 boundary gets a one-shot day tail behind the `analysis_tail_checked_on` checkpoint; no schema, route, command, config key, or model change | Native port Phase 2 remainder / analysis ledger | **landed** — `v0.8.0` (`f4191b9`), GitHub Release Latest, 521 tests (494 → +27) |
-| 0.8.1 | Briefs reading view: the stored day/week briefs join the existing insights payload (an additive `briefs` array on `/api/dayflow/insights`), one read module (`src/briefs/read.ts`), one read-only expandable section in the existing view; no new route, tab, or model call; 537 tests | Phase 3 standup/brief surface | **landed** |
-| 0.8.2 | Image admission (**owner-gated**: D1/D2/D11): an optional host attachment/vision contract, the `privacy_apps` redaction list, the 3.6 limitation copy, `includeImages: false` by default; the line is text-only until it ships | Native port Phase 2 image slice / 3.6 | planned — gated (owner has not answered) |
-| 0.8.3 | Phase 4 cutover (**owner-gated**: D10 plus a real captured week): `source: owned` default for a fresh capture-enabled profile, the first-run walkthrough; 1.0.0 follows the real week | Native port Phase 4 | planned — gated (owner has not answered) |
-| 0.8.4 | Release close: a release for every shipped tag, the npm decision with no publish by default, docs reconciliation, and explicit deferral of unshipped slots; flips nothing | Release closure | planned (after 0.8.1–0.8.3 or their deferral) |
+| 0.8.0 | Analysis ledger follow-ups: the token budget becomes a post-call gate (with a pre-call already-spent guard), transient skips replay inside today and yesterday, and the 04:00 boundary gets a one-shot day tail behind the `analysis_tail_checked_on` checkpoint; no schema, route, command, config key, or model change | Native port Phase 2 remainder / analysis ledger | **landed** — `v0.8.0` (`f4191b9`), GitHub Release (Latest until 0.8.1), 521 tests (494 → +27) |
+| 0.8.1 | Briefs reading view: the stored day/week briefs join the existing insights payload (an additive `briefs` array on `/api/dayflow/insights`), one read module (`src/briefs/read.ts`), one read-only expandable section in the existing view; no new route, tab, or model call; 537 tests (521 → +16) | Phase 3 standup/brief surface | **landed** — `v0.8.1` (`af002c3`), GitHub Release Latest, 537 tests |
+| 0.8.2 | Image admission: an optional host attachment/vision contract, the `privacy_apps` redaction list, the 3.6 limitation copy, `includeImages: false` by default; scope kept, no config key/schema/peer shipped | Native port Phase 2 image slice / 3.6 | **deferred to the next line** — D1/D2/D11 unanswered; never started; no 0.8 tag |
+| 0.8.3 | Phase 4 cutover: `source: owned` default for a fresh capture-enabled profile, the first-run walkthrough, the real week | Native port Phase 4 / 1.0.0 prerequisite | **deferred to the next line / 1.0.0 prerequisite** — D1/D2/D10 unanswered; no default flipped; no 0.8 tag |
+| 0.8.4 | Release close: a release for every shipped tag, the npm decision with no publish by default, docs reconciliation, the deferred slots named, and the next line's prerequisites recorded; flips nothing | Release closure | **landed** (`v0.8.4`) — the line's last patch |
 
 Order rationale: 0.8.0 went first and shipped — decision-free, it paid the three
 debts 0.7.2 left and made the money ledger honest before anything could flip a
-default; 0.8.1 is the decision-free visible win that makes 0.7.4/0.7.5's stored
-output readable; the owner-gated 0.8.2/0.8.3 follow in the roadmap's order, with
-the default flip last among the functional patches; 0.8.4 closes the line and
-flips nothing. 0.8.0 shipped and 0.8.1 ships under the safe defaults of
-[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §6; 0.8.2 and 0.8.3 do not start until
-their gates are met, and an unanswered gate means the line still closes at 0.8.4
-with the slot deferred. 0.8.0 was tagged whole, so the pre-tag renumbering
+default; 0.8.1 came second and shipped — the decision-free visible win that makes
+0.7.4/0.7.5's stored output readable; the owner-gated 0.8.2/0.8.3 were to follow
+in the roadmap's order, with the default flip last among the functional patches,
+but the owner did not answer and both are deferred rather than renumbered; 0.8.4
+closes the line and flips nothing. The line's tags are exactly `v0.8.0`,
+`v0.8.1`, and `v0.8.4`. 0.8.0 was tagged whole, so the pre-tag renumbering
 window is closed; from the first tag of the line, slots are deferred rather than
 renumbered.
 
 **The 0.8.0 record (kept as landed history).** Tag `v0.8.0` (`f4191b9`), GitHub
-Release Latest, 521 green tests, schema v10, 18 routes, 5 commands. It shipped
-the three ledger follow-ups in the plan's implementation order — token gate,
-then catch-up, then day tail — with one addition the plan did not have: a
-pre-call token-already-spent guard between the call gate and the call, so a
-later run or the day tail cannot spend a second crossing call. The catch-up
+Release Latest at the time, 521 green tests, schema v10, 18 routes, 5 commands.
+It shipped the three ledger follow-ups in the plan's implementation order —
+token gate, then catch-up, then day tail — with one addition the plan did not
+have: a pre-call token-already-spent guard between the call gate and the call,
+so a later run or the day tail cannot spend a second crossing call. The catch-up
 landed as a bounded worker-level pass in the new `src/analyse/skips.ts`
 (`TRANSIENT_SKIP_REASONS`, `isTransientSkipReason`,
 `replaySkippedAnalysisWindows`) covering today and yesterday, not as a relaxed
@@ -761,6 +775,51 @@ was needed; the analysis status payload gained the additive `tokenBudgetExhauste
 field and the panel one amber state. No schema, route, command, tool, skill,
 config key, peer, or default changed, and the line stays text-only. The full
 deviation list is in [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.0.
+
+**The 0.8.1 record (kept as landed history).** Tag `v0.8.1` (`af002c3`), GitHub
+Release Latest, 537 green tests (521 at 0.8.0), schema v10, 18 routes (9 GET + 9
+POST), 5 commands, 23 tools, 8 skills, npm still 404. The briefs reading view
+landed as one additive payload field plus one read module plus one read-only
+section: `PanelInsights.briefs: PanelBriefSummary[]`; `src/briefs/read.ts`'s
+`listPanelBriefs` (and the `readPanelBriefs` reader the payload path uses) merge
+`briefs` rows with native `daily_standup_entries`, normalise standups to day
+entries, de-duplicate per `(kind, period_key)` with the stored brief winning,
+sort newest-period-first, cap at 10, answer `[]` for a missing or unreadable
+journal without creating it, and degrade a malformed payload instead of throwing;
+the panel's insights view gains one expandable Briefs block after reflections,
+with no tab, button, route, config key, schema version, host peer, or model call.
+The six deviations from the plan's sketch (the type's home, the extra
+`readPanelBriefs` export, the clock-free `now`, the plain-`body` standup
+fallback, the button/`aria-controls` row, and the seven locale keys) and the 16
+new test cases are recorded in
+[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.1.
+
+## Next line (1.0.0 / 0.9.x)
+
+The line closes without a functional default change: 0.8.4 is docs and release
+artefacts only, and nothing after it is committed by this roadmap. The next line
+starts from `v0.8.4` and is gated on the owner, not on engineering:
+
+1. **1.0.0 prerequisites (all required):** a real captured week on the owned
+   default (capture on, `source: owned`, Dayflow closed, zero data loss across
+   restarts, recorded in `docs/CUTOVER_REHEARSAL.md`); **D10** explicit
+   authorisation to flip the default; **D1/D2** answered for an analysed week
+   (or the capture-only variant with `consent: none`); **D11** image admission
+   decided (1.0.0 can ship text-only on a "not now"); **D7** npm publication
+   decided (1.0.0 is the natural first publish, but it is a separate reviewed
+   step and changes no tag); and the first-run/rollback runbook exercised.
+2. **0.9.x, decision-free only.** If the owner does not unblock the cutover, the
+   next line may take only patches that need no answer — the month/week panel
+   goal and rating surfaces (read-only over stored data), docs/README parity, and
+   the `dsh dayflow import` CLI once a line is actually opened — or the project
+   may pause: the journal is readable, the briefs are visible, and everything
+   else on the remaining list is either gated or a new write/entry surface.
+3. **Not without the owner:** image admission (D1/D2/D11), the cutover default
+   flip (D10), any npm publish (D7), and the owned-journal write path.
+4. **The first action of the next round:** put the five questions (D10, D1, D2,
+   D11, D7) in front of the owner as one short list; the full recommendation,
+   with the three branches (pause, decision-free 0.9.0, or a cutover-driven
+   1.0.0), is in [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G.
 
 ## What this deliberately does not do
 
@@ -775,8 +834,9 @@ deviation list is in [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.0.
   import or by the agent writing what it did. The native port's analysis phase
   (0.7.1–0.8.0, text-only through the line so far) is the deliberate exception,
   and it goes through `ctx.llm.stream()` with one strict JSON contract, not a
-  rebuilt provider zoo. 0.8.0/0.8.1 stay text-only too; pixels arrive only in
-  the owner-gated 0.8.2.
+  rebuilt provider zoo. 0.8.0/0.8.1 stay text-only too; pixels would arrive only
+  in the owner-gated 0.8.2, which is **deferred to the next line**, so the 0.8
+  line ships text-only with no attachment peer.
 - **No card-stack review as the centre.** It stays available and defaults to off
   (3.5). The review that matters is the distillation, loop, and improvement
   queue.
@@ -827,8 +887,9 @@ deviation list is in [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.0.
 
 *Historical: this was the advice before any of it shipped. Phases 1+2 landed in
 0.6.0 and 3.5 in 0.7.0, so the current order of work is the 0.8.x patch line
-above, not this list; it stays because the reasoning still explains why the
-early work was sequenced that way.*
+above (now closing at its release close) and then the next line's prerequisites,
+not this list; it stays because the reasoning still explains why the early work
+was sequenced that way.*
 
 If only one thing is built next, build **phase 1 + phase 2**: the owned schema
 and the importer. They are unglamorous, they do not change a single user-visible
@@ -874,8 +935,10 @@ and `memoryContext: false` switches it off), so what remains open is whether
 that default should stay on; question 4 is made concrete by 0.7.4's automation
 cap (at most three proposals a day at confidence ≥ 0.6, inside the store's own
 five-a-day cap) and the decisions listed in [PATCH_PLAN.md](PATCH_PLAN.md) §6
-and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §6 (D10 and D11 are the two new
-owner decisions this line needs).
+and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §6. D10 and D11 were the two new
+owner decisions this line needed; with D1/D2 also unanswered, all four now sit
+on the next line, and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G lists
+them with the release each unblocks (1.0.0 or a 0.9.x image slice).
 
 ## References and credits
 

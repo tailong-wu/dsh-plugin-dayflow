@@ -19,13 +19,18 @@ change to a cap value; a default profile still makes no call. **0.8.1 lands the
 briefs reading view**: the insights payload gains an additive `briefs` list and
 the existing Journal insights view gains a read-only, expandable **Briefs**
 block — with no new route (the panel stays at 18 host Fetch routes), tab,
-button, configuration key, schema change, host peer, or model call. **The whole
-shipped line is text-only**: a window travels as app / window-title / frame-hash
-metadata, never as pixels. Image admission — pixels plus the
-`@deepseek-ai/dsh-attachment` host service — remains for a later phase; it and
-the `source: owned` default flip are **owner-gated later in the 0.8.x line**,
-not 0.8.0 or 0.8.1 — 0.7.6 only rehearses the cutover checklist
-(`docs/CUTOVER_REHEARSAL.md`), and neither release flips it.
+button, configuration key, schema change, host peer, or model call. The line is
+closed at **0.8.4**, the release close: documentation, test, and release-trail
+reconciliation only — no plugin source, schema, route, command, tool, skill,
+configuration key, default, or dependency change, and nothing on the npm
+registry. **The whole shipped line is text-only**: a window travels as app /
+window-title / frame-hash metadata, never as pixels. Image admission — pixels
+plus the `@deepseek-ai/dsh-attachment` host service — was planned as 0.8.2, and
+the Phase 4 `source: owned` default flip as 0.8.3; both are **formally deferred
+to the next line**, owner-gated (image admission on D1/D2/D11, the flip on D10
+with 1.0.0 after a real week of capture without data loss). 0.7.6 only
+rehearsed the cutover checklist (`docs/CUTOVER_REHEARSAL.md`), and no 0.8.x
+release flips it.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -84,8 +89,8 @@ Missing (the rest of the port):
   the history itself. (The briefs reading view that used to be listed here
   landed in 0.8.1: the stored day and week briefs are readable in the panel's
   insights view — see Phase 3 below.)
-- The owned store as the default source for a fresh install, and the first-run
-  walkthrough (Phase 4).
+- The owned store as the default source for a fresh install (deferred to the
+  next line, owner-gated D10), and the first-run walkthrough (Phase 4).
 
 ---
 
@@ -141,10 +146,10 @@ Design rules:
   Journal insights view; no second button, tab, or settings surface.
 - **Text only on the shipped line; pixels are owner-gated.** The image steps in
   the diagram (`saveImage`, an image argument to `ctx.llm.stream`) describe the
-  target if image admission is approved. 0.8.0 and 0.8.1 remain text-only: the
-  plugin sends app / window-title / frame-hash metadata, so the host
+  target if image admission is approved. 0.8.0 through 0.8.4 remain text-only:
+  the plugin sends app / window-title / frame-hash metadata, so the host
   `attachments` service is still not a peer of the shipped line and image
-  admission is an owner-gated later patch in the 0.8.x line.
+  admission is deferred to the next line (owner-gated D1/D2/D11).
 
 ---
 
@@ -319,7 +324,7 @@ activity.
     analysis:
       enabled: true              # requires capture.enabled
       intervalMinutes: 5         # worker tick, 1-60 (0.7.2)
-      consent: 'none'            # 'none' | 'cloud' | 'local'; 0.7.x sends text metadata, not images
+      consent: 'none'            # 'none' | 'cloud' | 'local'; the shipped line sends text metadata, not images
       localProviders: []         # provider ids accepted as local under consent 'local'
       provider: ''               # empty blocks analysis as "needs provider"; no implicit agent default
       model: ''
@@ -366,10 +371,10 @@ This is the part that has to be right before anything captures pixels.
 - **Nothing leaves the machine except the model call the user configured.** No
   uploads, no telemetry, no remote URLs. On the shipped line an analysis request
   carries the frontmost app, window title, and frame hash as text — never
-  pixels — and the 0.7.4/0.7.5 close passes carry activity text only. Image
-  admission is owner-gated later in the 0.8.x line; if it lands, the request
-  would carry downscaled JPEGs. The config records which provider saw the text,
-  and only a `cloud` consent lets it leave the Mac.
+  pixels — and the 0.7.4–0.8.4 close passes carry activity text only. Image
+  admission is deferred to the next line (owner-gated D1/D2/D11); if it lands,
+  the request would carry downscaled JPEGs. The config records which provider
+  saw the text, and only a `cloud` consent lets it leave the Mac.
 - **The prompt states that screen content is data, not instructions**, and the
   analyser rejects output that is not the expected JSON object, so a hostile
   screen cannot steer the pipeline.
@@ -387,8 +392,8 @@ This is the part that has to be right before anything captures pixels.
   full day. On the shipped line each call sends the metadata of up to
   `analysis.framesPerWindow` representative frames (app, window title, frame
   hash) plus the prompt; image admission — downscaled JPEGs at ≤1024 px, about
-  1.5–4k input tokens per call — is owner-gated later in the 0.8.x line and
-  would raise this estimate.
+  1.5–4k input tokens per call — is deferred to the next line (owner-gated
+  D1/D2/D11) and would raise this estimate.
 - The 0.8.0 day tail adds at most one extra bounded run per day boundary: it
   re-reads yesterday's stored frames, spends only yesterday's remaining budgets,
   and skips already-complete windows by job key.
@@ -546,7 +551,7 @@ replays configuration-caused skips within today and yesterday, and adds the
 04:00 day tail. A default profile still analyses nothing —
 `analysis.consent: 'none'` blocks every call — and images are still metadata
 (app, window title, hash), not pixels, on the whole shipped line; image
-admission remains owner-gated later in the 0.8.x line.
+admission is deferred to the next line (owner-gated D1/D2/D11).
 
 **Scope.** Frames become `activities` rows through `ctx.llm.stream`.
 
@@ -681,14 +686,17 @@ changed default.
   `analysis.consent: 'none'` (or capture off) stops every call the patch can
   make.
 
-**Still deferred after 0.8.1.** The analysis-ledger debts are closed and the
-briefs reading view landed in 0.8.1, so what remains is owner-gated rather than
-scheduled by default: image admission and downscaling (the model sees app /
-window-title / hash metadata, not screen pixels) and the Phase 4 `source: owned`
-default flip are **owner-gated later in the 0.8.x line**. The daily/weekly
-briefs plus the automation scheduler landed in 0.7.4's Phase 3 slice, the weekly
-lint in 0.7.5, the ledger follow-ups above in 0.8.0, and the panel's reading view
-for the stored briefs in 0.8.1.
+**Still deferred after 0.8.4.** The analysis-ledger debts are closed (0.8.0),
+the briefs reading view landed (0.8.1), and 0.8.4 is the release close; what
+remains is owner-gated rather than scheduled by default and has moved to the
+next line: image admission and downscaling (the model sees app / window-title /
+hash metadata, not screen pixels; D1/D2/D11) and the Phase 4 `source: owned`
+default flip (D10, with 1.0.0 after a real week of capture without data loss).
+They were planned as 0.8.2 and 0.8.3 and are not implemented on the 0.8.x line.
+The daily/weekly briefs plus the automation scheduler landed in 0.7.4's Phase 3
+slice, the weekly lint in 0.7.5, the ledger follow-ups above in 0.8.0, the
+panel's reading view for the stored briefs in 0.8.1, and 0.8.4 only reconciles
+the docs and the release trail.
 
 **Acceptance.** A scripted replay (30 stored frames + scripted model adapter,
 no network) yields deterministic activities and a rendered day view; replaying
@@ -775,12 +783,13 @@ analysis consent/provider/model gate and without any image:
   **`Memory health: …`** digest shows inside the expanded brief body. The change
   adds no route (the panel stays at 18 host Fetch routes), tab, button,
   configuration key, schema change, or host peer.
-- **Still deferred after 0.8.1:** image admission and downscaling (the model
-  sees app / window-title / hash metadata, not screen pixels), owner-gated later
-  in the 0.8.x line. The close-state line still shows only the schedule and the
-  last close, and a failed/skipped close history has no view of its own. (0.8.0
-  closed this bullet's other item: configuration-caused analysis skips now
-  replay within today and yesterday.)
+- **Still deferred after 0.8.4 (moved to the next line):** image admission and
+  downscaling (the model sees app / window-title / hash metadata, not screen
+  pixels; owner-gated D1/D2/D11) and the Phase 4 default flip (D10). The
+  close-state line still shows only the schedule and the last close, and a
+  failed/skipped close history has no view of its own. (0.8.0 closed this
+  bullet's other item: configuration-caused analysis skips now replay within
+  today and yesterday.)
 
 **Acceptance.** Closing a synthetic day with a scripted model produces one
 standup entry, one brief, one reflection, ≤3 review items, and attaches
@@ -797,13 +806,15 @@ never calls a model.
 
 ### Phase 4 — Cutover and release (about 1 week)
 
-**Status: planned; the rehearsal is 0.7.6 and 0.8.0 does not flip the default.**
-0.7.6 writes the cutover rehearsal checklist
-([CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md)): a fixture-based dry run plus an
-optional real-capture day on a fresh profile, recorded pass/fail, with no default
-changed and no npm publish; 0.8.0 is the ledger patch, not the cutover. Turning
-`source: owned` into the default for a fresh install remains **owner-gated later
-in the 0.8.x line**, with `1.0.0` after a real week of capture without data loss.
+**Status: rehearsed only; deferred to the next line.** 0.7.6 wrote the cutover
+rehearsal checklist ([CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md)): a
+fixture-based dry run plus an optional real-capture day on a fresh profile,
+recorded pass/fail, with no default changed and no npm publish. 0.8.0 was the
+ledger patch and 0.8.1 the briefs reading view, not the cutover; the planned
+0.8.3 Phase 4 slot is **formally deferred to the next line** because the owner
+has not answered D10, and 0.8.4 closes the line without flipping the default.
+Turning `source: owned` into the default for a fresh install stays owner-gated
+(D1/D2/D10), with `1.0.0` after a real week of capture without data loss.
 
 **Scope.** Dayflow becomes optional, the native path is the default for new
 installs.
@@ -817,8 +828,8 @@ installs.
 - CI: fake-provider tests on the existing macOS runner; real capture only in
   `scripts/native-smoke.mjs` locally.
 - Release: fold into the unreleased development line if this lands soon,
-  otherwise as the 0.8.x native-preview line and `1.0.0` once capture has run on
-  a real week without data loss.
+  otherwise as the next line's native-preview work, with `1.0.0` once capture
+  has run on a real week without data loss.
 
 **Acceptance.** On a fresh profile with Dayflow closed: install → grant
 permission → capture runs → a day appears in the panel → next morning the standup,
@@ -897,7 +908,11 @@ day tail — without adding a schema, route, command, tool, skill, or configurat
 key; 0.8.1 made the stored day/week briefs readable in the insights view — an
 additive `briefs` field on the existing payload plus a read-only expandable
 block, and still no new route, tab, button, configuration key, schema change, or
-model call. Phase 4 is the cutover, owner-gated later in the 0.8.x line.
+model call. 0.8.4 closed the line with documentation, test, and release-trail
+reconciliation only — no source, schema, route, command, tool, skill,
+configuration, or dependency change. Phase 4 is the cutover, deferred to the
+next line and owner-gated (D10; `1.0.0` after a real week of capture without
+data loss).
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three
 parallel workstreams, plus one real week of dogfooding before `1.0.0`.

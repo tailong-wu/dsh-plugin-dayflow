@@ -5,20 +5,22 @@
 
 This is the written checklist for Native port **Phase 4 — Cutover and release**
 ([NATIVE_PORT.md §8](NATIVE_PORT.md#phase-4--cutover-and-release-about-1-week)),
-executed in 0.7.6. It rehearses the moment the owned journal becomes the source
-of truth on a fresh profile — **without flipping any default in this release**.
+executed in 0.7.6 and unchanged through the 0.8.x line, which is closed at
+`v0.8.4`. It rehearses the moment the owned journal becomes the source of truth
+on a fresh profile — **without flipping any default**.
 
 The rehearsal has three steps: a fixture-based dry run that anyone can run
 (`npm run rehearsal`), an optional real-capture day that needs the owner at the
 machine and Screen Recording permission, and the rollback path. Any data loss
-observed in step 1 or step 2 is a **blocking finding for 0.8.0**, not something
-to note and move on.
+observed in step 1 or step 2 is a **blocking finding for the cutover**, not
+something to note and move on.
 
-**What does not happen in 0.7.6.** `source: owned` does **not** become the
-default for a fresh install — that is 0.8.0 (native preview), with 1.0.0 after a
-real week of capture without data loss. Nothing is published to npm: the line
-stays "tagged here, not yet on the npm registry" until the owner takes that
-decision. No image is admitted; the whole 0.7.x line is text-only.
+**What this is not.** `source: owned` does **not** become the default for a
+fresh install: the planned 0.8.3 cutover slot is formally deferred to the next
+line (owner-gated D10), and 1.0.0 still needs a real week of capture without
+data loss. Nothing is on npm: the line is tagged in this repository, the
+registry answers 404, and the owner's publish authorization (D7) is not taken.
+No image is admitted; every shipped release, 0.7.x through 0.8.4, is text-only.
 
 ---
 
@@ -54,7 +56,7 @@ Run from the repository root, on the Node version the profile uses (Node ≥ 22.
 ```sh
 npm install
 npm run build            # the rehearsal loads the built lib/
-npm test                 # full suite: build, type-check, tests
+npm test                 # build, type-check, 537 tests
 npm run check:package    # the packed file list a profile would install
 ```
 
@@ -68,6 +70,12 @@ npm run native:engine-smoke   # engine against a temp journal/frames dir; needs
 `npm run rehearsal` needs `npm run build` first (or `npm test`, which builds).
 If `lib/` is missing or unloadable it prints a `npm run build` hint and exits
 with code 2 instead of doing anything else.
+
+The tree this checklist is written against (the `v0.8.4` release close) runs
+**537** tests, serves **18** host Fetch routes (nine `GET` and nine `POST`),
+registers **5** slash commands and **23** tools (17 with `edits: false`), ships
+**8** skills, and keeps owned schema **v10**. The rehearsal and its fixture do
+not change any of those numbers, so a run that moves one of them is a finding.
 
 ## 3. Step 1 — Fixture-based dry run (`npm run rehearsal`)
 
@@ -184,8 +192,8 @@ job and status (`day_close`, `week_close`, `lint`) — the fixture prints only t
 completed-job label and the lint row, so these are the numbers unique to a real
 day.
 
-Any lost or duplicated row across the restart is a **blocking finding for
-0.8.0**. If the day produced nothing (no frames, or a gated analysis), record
+Any lost or duplicated row across the restart is a **blocking finding for the
+cutover**. If the day produced nothing (no frames, or a gated analysis), record
 why — a gated run is a valid rehearsal result only when the gate's reason is the
 expected one.
 
@@ -216,8 +224,8 @@ schema change is fixed forward rather than downgraded.
 ## 6. Rehearsal record
 
 Copy one row per run. `Restart-loss` is "none" only when every count matches
-before and after the reopen; anything else blocks 0.8.0. `Verdict` is PASS when
-every check row is PASS and the restart delta is zero. Record the operator and
+before and after the reopen; anything else blocks the cutover. `Verdict` is
+PASS when every check row is PASS and the restart delta is zero. Record the operator and
 the macOS version beside the table, and add a short **deviations** paragraph
 (what differed from the expected column, and why) so the next run does not
 rediscover it.
@@ -234,7 +242,10 @@ Deviations: ____________________________________________________________
 ### Recorded fixture run — 2026-11-27
 
 The first dry run on the 0.7.6 worktree (source identical to `81af8e3`; only
-docs, the rehearsal script, and its test were uncommitted) printed:
+docs, the rehearsal script, and its test were uncommitted) printed the
+following. The script and its fixture are unchanged since that run, including
+on the `v0.8.1` tree (537 tests) that the release close was built from, so the
+20/20 checks and the 13/13 restart baseline still apply:
 
 ```text
 journal.schema 10 · capture permission granted
@@ -251,15 +262,18 @@ REHEARSAL PASS: 20/20 checks passed
 This is the baseline a later run is compared against: the counts per stage, the
 zero `memory_claims` delta, and the 13/13 restart comparison.
 
-## 7. Config defaults audit (0.7.0 → 0.7.5)
+## 7. Config defaults audit (0.7.0 → 0.8.4)
 
-Diff of `git show v0.7.0:src/config.ts` against `src/config.ts`: **no existing
-default changed on the line**. Three keys were added — `analysis.intervalMinutes`
-(0.7.2), `analysis.localProviders` (0.7.1), and `automation.catchUpDays` (0.7.4)
-— and both blocks moved from "validated but unused" to wired, which is why every
-row below is either an explicit owner decision or inert on a default profile.
+Diff of `git show v0.7.0:src/config.ts` against `src/config.ts` at the `v0.8.4`
+release close: **no existing default changed on the line**. Three keys were
+added on the 0.7.x line — `analysis.intervalMinutes` (0.7.2),
+`analysis.localProviders` (0.7.1), and `automation.catchUpDays` (0.7.4) — and
+both blocks moved from "validated but unused" to wired; **the 0.8.x line added
+no key and changed no default**, and 0.8.4 only bumps the package version. That
+is why every row below is either an explicit owner decision or inert on a
+default profile.
 
-| Key | 0.7.0 default | 0.7.5 default | Changed? | Classification |
+| Key | 0.7.0 default | 0.8.4 default | Changed? | Classification |
 | --- | --- | --- | --- | --- |
 | `capture.enabled` | `false` | `false` | no | **owner decision** — capture is opt-in; default-inert (nothing records) |
 | `capture.intervalSeconds` | `45` | `45` | no | default-inert (capture off) |
@@ -276,7 +290,7 @@ row below is either an explicit owner decision or inert on a default profile.
 | `analysis.windowMinutes` | `10` | `10` | no | default-inert (no consent/capture) |
 | `analysis.framesPerWindow` | `3` | `3` | no | default-inert (no consent/capture) |
 | `analysis.maxCallsPerDay` | `120` | `120` | no | **owner decision D3** (call cap, enforced); default-inert |
-| `analysis.dailyTokenBudget` | `200000` | `200000` | no | **owner decision D3** (reported, not gated on 0.7.x); default-inert |
+| `analysis.dailyTokenBudget` | `200000` | `200000` | no | **owner decision D3**; default-inert — reported on 0.7.x, a post-call gate since 0.8.0, default unchanged |
 | `analysis.intervalMinutes` | _absent_ | `5` | **added (0.7.2)** | default-inert — only read when the worker runs |
 | `analysis.localProviders` | _absent_ | `[]` | **added (0.7.1)** | default-inert — empty accepts no provider under `local` |
 | `automation.enabled` | `true` | `true` | no | default-inert — mounts only with the analysis stack (`capture.enabled` + `analysis.enabled` + host model service) |
@@ -287,12 +301,35 @@ row below is either an explicit owner decision or inert on a default profile.
 
 Top-level keys (`source`, `databasePath`, `journalPath`, `agentSocket`, `edits`,
 `skills`, `panel`, `icons`, `memoryContext`, `allowInstall`, `searchLimit`) kept
-the same defaults across the line; `source` still defaults to `dayflow` and is
-**not** flipped by this release.
+the same defaults across the 0.7.x–0.8.x lines; `source` still defaults to
+`dayflow` and is **not** flipped by any 0.8.x release.
 
 ## 8. What this rehearsal does not cover
 
-- Image admission / pixels: not on the 0.7.x line (0.8.0 material).
-- The `source: owned` default flip and first-run walkthrough: 0.8.0.
-- npm publication: a separate owner decision; the rehearsal does not publish.
+- Image admission / pixels: deferred to the next line (owner-gated D1/D2/D11);
+  every shipped release is text-only.
+- The `source: owned` default flip and first-run walkthrough: deferred to the
+  next line (owner-gated D10) and a 1.0.0 prerequisite.
+- npm publication: not taken — the package is tagged in the repository, the
+  registry answers 404, and publishing is a separate owner decision (D7).
 - A multi-day/real-week dogfood run: the 1.0.0 bar, not this checklist.
+
+## 9. 0.8.x line close record (`v0.8.4`)
+
+The cutover checklist above is the Phase 4 rehearsal; it never shipped the
+cutover. This is the release record for the line that deferred it:
+
+| Release | Theme | State |
+| --- | --- | --- |
+| `v0.8.0` | analysis-ledger follow-ups: post-call token gate, transient-skip catch-up within today/yesterday, 04:00 day tail | tagged; GitHub Release note |
+| `v0.8.1` | briefs reading view: additive `PanelInsights.briefs`, `listPanelBriefs`, read-only expandable panel block | tagged; GitHub Release note |
+| `0.8.2` (planned) | image admission | **deferred to the next line** — owner has not answered D1/D2/D11; not implemented |
+| `0.8.3` (planned) | Phase 4 cutover | **deferred to the next line / 1.0.0 prerequisite** — owner has not answered D10; only the rehearsal above exists |
+| `v0.8.4` | release close: docs reconciliation, release-trail verification, deferred items made explicit, npm left at 404 | tagged in this repository |
+
+The tagged tree is the rehearsal's baseline: **537** tests, **18** host Fetch
+routes (nine `GET`, nine `POST`), **5** slash commands, **23** tools (17 with
+`edits: false`), **8** skills, owned schema **v10**, no host peer or dependency
+added by the line, and no npm artifact. The next line starts from a real week of
+capture without data loss, the owner's image-admission answer, the owned-default
+flip decision (D10), and npm publish authorization (D7).

@@ -116,6 +116,17 @@ tail failure is logged and isolated from today's outcome. None of this adds a
 schema, route, command, or configuration key, and a default profile still calls
 nothing.
 
+The 0.8.x line adds no configuration key and changes no default after 0.8.0.
+0.8.1 is an additive insights payload plus a read-only panel block; 0.8.2 (image
+admission) and 0.8.3 (the Phase 4 cutover) are formally deferred to the next
+line (owner-gated D1/D2/D10/D11); and 0.8.4 is the release close. There is
+therefore still no key for pixels or for a `source: owned` default: `source`
+keeps defaulting to `dayflow`, `analysis.consent` keeps `none`, and the shipped
+line adds no host peer (`@deepseek-ai/dsh-llm` was already declared;
+`@deepseek-ai/dsh-attachment` is not a dependency because the line is
+text-only), no runtime dependency, and no schema, route, command, tool, or
+skill. The package version is the only `package.json` change on 0.8.4.
+
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `analysis.enabled` | `true` | Run the frame analyser (also needs capture enabled). |

@@ -17,8 +17,10 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.8.1` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
-> ——请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
+> **状态：** 0.8.x 线已在 `v0.8.4` 收口（仓库已打 tag；npm registry 仍然返回 `404`，即尚未取得发布授权——owner 决策 D7）。
+> `v0.8.0` 是 analysis ledger 的收尾，`v0.8.1` 是 briefs 阅读视图；原计划的 `0.8.2` 图像 admit（image admission）
+> 与 `0.8.3` Phase 4 cutover 正式推迟到下一线（owner-gated，D1/D2/D10/D11），`v0.8.4` 是 release close。
+> 请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
 
@@ -50,8 +52,10 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   周收盘在周一，失败重试、默认补收盘 2 天，并把 standup、当日反思、一条周 brief、回顾提案和任务 session
   写入自有日志（存下的 week brief 就是压缩后的周记录，没有 weekly reflection）。0.8.0 收掉 analysis
   ledger 的三个缺口——token 预算变成调用后的硬门禁、配置原因导致的 skip 可在今天/昨天内重放、04:00 边界
-  补一次有界的 day-tail run。这些功能随 analysis 栈挂载，并受 `analysis.consent`、`analysis.provider`、
-  `analysis.model` 门禁。→ [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
+  补一次有界的 day-tail run。0.8.1 让已保存的 day/week briefs 可在洞察视图里阅读（见下方 Web 面板一节），
+  0.8.4 是 release close：只做文档、测试与发布记录对账——不改插件源码、schema、路由、配置或默认值。这些功能随
+  analysis 栈挂载，并受 `analysis.consent`、`analysis.provider`、`analysis.model` 门禁。
+  → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
 - **除 `dsh` 外零运行时依赖**：SQLite 来自 `node:sqlite`；Dayflow 编辑走应用的本地 Unix socket，自建日志则写自己的 SQLite 文件。
 
 深入文档（英文）：[工具](docs/TOOLS.md) · [面板](docs/PANEL.md) · [快速记录](docs/QUICK_CAPTURE.md) ·
@@ -67,14 +71,16 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 | Node.js ≥ 22.5 | Node 22.5–22.12 与 23.0–23.3 需要 `--experimental-sqlite`；Node 22.13+ 与 23.4+（含 24）无需该参数。 |
 | `dsh` ≥ 0.2.0-rc.2 | 插件声明的 peer 范围是 harness 0.2 系列；只有 `dsh plugin add` 需要 `PATH` 里有 `pnpm`。 |
 
-0.7.x 与 0.8.0 线**都没有**在声明范围之外新增 host peer：`@deepseek-ai/dsh-llm` 本来就是已声明的
-peer，也是分析路径唯一调用的 host 服务；整条线保持 text-only，所以 `@deepseek-ai/dsh-attachment`
-**不是**依赖。需要该附件服务的图像 admit（image admission）属于后续 0.8.x 的 owner-gated 补丁。
+0.7.x 与 0.8.x 线**都没有**在声明范围之外新增 host peer：`@deepseek-ai/dsh-llm` 本来就是已声明的
+peer，也是分析路径唯一调用的 host 服务；所有已交付的版本都保持 text-only，所以 `@deepseek-ai/dsh-attachment`
+**不是**依赖。0.8.x 线也没有新增任何运行时依赖——各版本之间只有 package 版本号不同。需要该附件服务的
+图像 admit（image admission）已推迟到下一线（owner-gated，D1/D2/D11）。
 
 ## 安装
 
-`0.8.x` 还没有发布到 registry（`v0.8.1` 已在本仓库打 tag）。在发布之前请从源码 checkout 安装——
-那装的正是本文描述的开发线；发布之后执行 `dsh plugin --profile web add dsh-plugin-dayflow` 即可。
+npm registry 上还没有任何版本——包名返回 `404`——但 `v0.8.0`、`v0.8.1` 与本轮 `v0.8.4` release close 都已在本仓库
+打 tag。请从源码 checkout 安装：那装的正是本文描述的开发线。等 owner 授权 npm 发布（D7）之后，再执行
+`dsh plugin --profile web add dsh-plugin-dayflow`。
 
 ### Desktop App
 
@@ -146,7 +152,7 @@ profile 也可以把入口整个关掉。
 
 ## 自有日志、记忆与洞察
 
-插件拥有第二个可移植的 SQLite 日志（0.7.5 线为 schema **v10**），Dayflow 仍是默认数据源。先用 `journal_import`
+插件拥有第二个可移植的 SQLite 日志（schema **v10**，自 0.7.5 起未变），Dayflow 仍是默认数据源。先用 `journal_import`
 导入一次，再把 profile 切到 `source: owned`：源库只读打开、导入幂等，现有工具与面板载荷不变。
 
 - **回顾队列**：distillation、重复出现的 loop、改进建议和 task proposal——agent 只提议，用户在面板里

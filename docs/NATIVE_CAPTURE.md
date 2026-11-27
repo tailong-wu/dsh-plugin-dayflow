@@ -2,18 +2,22 @@
 
 [← Back to README](../README.md)
 
-> **Status:** Phases 0–3 are **landed** on the `0.7.x` line. The owned journal is
-> at schema **v10**: `capture_state` (v7), `analysis_jobs` (v8), and the v9
+> **Status:** Phases 0–3 are **landed** across the `0.7.x` line and the
+> `0.8.0`/`0.8.1` patches, and the line is closed at `v0.8.4`. The owned journal
+> is at schema **v10**: `capture_state` (v7), `analysis_jobs` (v8), and the v9
 > `automation_runs` + `briefs` tables widened by v10 (`job = 'lint'`,
 > `briefs.payload_json`). This page covers the capture provider and engine, the
 > text-only analysis pipeline and its worker (`0.7.2`), the scheduled day/week
-> closes and insights pass (`0.7.4`), and the weekly memory lint (`0.7.5`); the
-> panel has three compact status lines (capture, analysis, close state). Capture
-> and analysis are still off/inert by default: with `analysis.consent: 'none'`
-> (the default) the worker runs no model call, and with no configured
-> `analysis.provider`/`model` it records `provider-unset`/`model-unset` skips.
-> Image admission (pixels) is **0.8.0 material**; the cutover default flip is
-> also 0.8.0 — see [NATIVE_PORT.md](NATIVE_PORT.md) and
+> closes and insights pass (`0.7.4`), the weekly memory lint (`0.7.5`), the
+> analysis-ledger gates (`0.8.0`), and the stored-briefs reading view (`0.8.1`);
+> the panel has three compact status lines (capture, analysis, close state).
+> Capture and analysis are still off/inert by default: with
+> `analysis.consent: 'none'` (the default) the worker runs no model call, and
+> with no configured `analysis.provider`/`model` it records
+> `provider-unset`/`model-unset` skips. Image admission (pixels), planned as
+> 0.8.2, and the Phase 4 cutover default flip, planned as 0.8.3, are **formally
+> deferred to the next line** (owner-gated D1/D2/D10/D11); 0.8.4 is the release
+> close — see [NATIVE_PORT.md](NATIVE_PORT.md) and
 > [CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md).
 
 The plugin can record its own screen activity instead of only reading what the
@@ -24,9 +28,11 @@ show what it is doing, and `/dayflow-analyze` runs one manual tick. `0.7.4`
 closes the day and week on a scheduler, and `0.7.5` adds the weekly memory lint.
 `0.8.0` makes the ledger self-healing: the token budget is enforced after each
 call, transiently blocked windows are re-queued, and a 04:00 tail covers the day
-just ended. Every model call is text-only: the analysis call sends the frontmost
-app, window title, and frame hash, and the closes send activity text; no image is
-ever sent on the 0.7.x/0.8.x lines. Everything below is off by default.
+just ended. `0.8.1` makes the stored day/week briefs readable in the insights
+view, and `0.8.4` is the release close (documentation and release-trail work
+only). Every model call is text-only: the analysis call sends the frontmost app,
+window title, and frame hash, and the closes send activity text; no image is ever
+sent on any shipped line (0.7.x–0.8.4). Everything below is off by default.
 
 - **Capture is off by default.** Setting `capture.enabled: true` starts the
   engine with the plugin. The engine does not depend on the panel, so it runs
@@ -77,7 +83,7 @@ ever sent on the 0.7.x/0.8.x lines. Everything below is off by default.
   that brief; both are proposals-only — automation never writes, supersedes, or
   forgets a memory claim. `/dayflow-run-close` triggers one close by hand and
   the panel's close-state line reports the schedule and the last closes. There is
-  no weekly reflection on the 0.7.x line; the stored day/week briefs became
+  no weekly reflection on the shipped line; the stored day/week briefs became
   readable in the panel in 0.8.1. Keys and
   gates are in [CONFIGURATION.md](CONFIGURATION.md); the route is in
   [PANEL.md](PANEL.md).
@@ -95,13 +101,13 @@ ever sent on the 0.7.x/0.8.x lines. Everything below is off by default.
   insights view shows it as one compact capture line —
   off, on, paused, or permission needed — with a Pause/Resume button when
   capture is configured on.
-- **Not yet (owner-gated or later in the 0.8.x line):** image admission and
-  downscaling (pixels need a host attachment peer and image decisions, so the
-  model keeps receiving app / window-title / hash metadata), the `source: owned`
-  default flip (Phase 4, owner-gated).
-  Native cards live only in the owned backend's timeline, not in the Dayflow
-  backend's; the plan is in [NATIVE_PORT.md](NATIVE_PORT.md) and
-  [PATCH_PLAN_0.8.md](PATCH_PLAN_0.8.md).
+- **Not yet — deferred to the next line (owner-gated):** image admission and
+  downscaling (pixels need a host attachment peer and the D1/D2/D11 decisions, so
+  the model keeps receiving app / window-title / hash metadata), and the
+  `source: owned` default flip (Phase 4, D10; a 1.0.0 prerequisite after a real
+  week of capture without data loss). Native cards live only in the owned
+  backend's timeline, not in the Dayflow backend's; the plan is in
+  [NATIVE_PORT.md](NATIVE_PORT.md).
 - **Nothing is written by a status read.** With no journal, the status route
   answers zeros and does not create the file; only the pause write and the
   engine open it.
