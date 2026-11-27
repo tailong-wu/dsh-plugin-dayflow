@@ -1209,6 +1209,9 @@ test('the analysis status route reports the paused gate, the ledger, and the inj
     enabled: true,
     consent: 'cloud',
     intervalMinutes: 5,
+    // The additive 0.10.0 summary names the configured pair even while the
+    // paused capture loop blocks the call, so this literal has to carry it.
+    model: { provider: 'openai', model: 'test-model' },
     worker: 'running',
     queued: 1,
     running: 1,

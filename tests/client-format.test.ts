@@ -650,3 +650,31 @@ test('the analysis line names the spent daily token budget in both languages', (
   assert.equal(enT('analysisTokenBudget'), 'Daily token budget reached');
   assert.equal(zhT('analysisTokenBudget'), '今日 token 预算已用尽');
 });
+
+test('the analysis line names the active model in both languages', () => {
+  // The additive 0.10 model summary is the line's one new read: three copy
+  // variants keyed by the consent destination. Every variant carries `{model}`
+  // so neither language can drop the value or leak a raw `{…}`.
+  for (const key of ['analysisModel', 'analysisModelCloud', 'analysisModelLocal']) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+    assert.match(EN[key] ?? '', /\{model\}/, `English copy for ${key} names the model`);
+    assert.match(ZH[key] ?? '', /\{model\}/, `Chinese copy for ${key} names the model`);
+  }
+  // The consent word is what tells the two allowed destinations apart, and the
+  // unset-consent fallback must read differently from both.
+  assert.equal(
+    enT('analysisModelCloud', { model: 'deepseek-official/deepseek-flash' }),
+    'cloud · deepseek-official/deepseek-flash',
+  );
+  assert.equal(zhT('analysisModelCloud', { model: 'deepseek-official/deepseek-flash' }), '云端 · deepseek-official/deepseek-flash');
+  assert.equal(enT('analysisModelLocal', { model: 'ollama/llama3' }), 'local · ollama/llama3');
+  assert.equal(zhT('analysisModelLocal', { model: 'ollama/llama3' }), '本地 · ollama/llama3');
+  assert.equal(
+    enT('analysisModel', { model: 'deepseek-official/deepseek-flash' }),
+    'Model deepseek-official/deepseek-flash',
+  );
+  assert.equal(zhT('analysisModel', { model: 'deepseek-official/deepseek-flash' }), '模型 deepseek-official/deepseek-flash');
+  assert.notEqual(EN['analysisModelCloud'], EN['analysisModelLocal']);
+  assert.notEqual(ZH['analysisModelCloud'], ZH['analysisModelLocal']);
+});

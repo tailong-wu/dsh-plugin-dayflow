@@ -351,6 +351,11 @@ export interface PanelCapturePauseRequest {
 /**
  * The analysis status line's answer: job counts, the day's call and token
  * budgets, the worker's state, and the consent gate's blocked reason.
+ *
+ * The additive 0.10.0 `model` summary names the effective analysis model when
+ * the profile configures a complete provider/model pair (the active named
+ * entry, or the legacy pair); it is absent otherwise, so an older client and an
+ * unconfigured profile read the same fields.
  */
 export interface PanelAnalysisStatus {
   analysis: AnalysisStatusPayload;

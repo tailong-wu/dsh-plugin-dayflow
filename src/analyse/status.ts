@@ -41,6 +41,18 @@ export interface AnalysisStatusInput {
   now?: () => Date;
 }
 
+/** The active analysis model, as the status line names it. */
+export interface AnalysisModelSummary {
+  /** The active named entry's id; present only in the list shape. */
+  id?: string;
+  /** The effective provider the next call would use. */
+  provider: string;
+  /** The effective model id the next call would use. */
+  model: string;
+  /** The entry's human label; present only when the profile wrote one. */
+  label?: string;
+}
+
 /** One day's ledger, as the panel's status line renders it. */
 export interface AnalysisStatusPayload {
   /** `analysis.enabled` and `capture.enabled`: nothing can run unless both are on. */
@@ -49,6 +61,15 @@ export interface AnalysisStatusPayload {
   consent: 'none' | 'cloud' | 'local';
   /** Minutes between worker ticks, as configured. */
   intervalMinutes: number;
+  /**
+   * The model the next analysis call would use: the active named entry when
+   * `analysis.models` is configured, otherwise the legacy provider/model pair.
+   *
+   * Absent while no complete pair is configured, so an unconfigured profile's
+   * payload is exactly the pre-0.10 payload; the additive field never replaces
+   * or renames an existing one, so an older client can ignore it.
+   */
+  model?: AnalysisModelSummary;
   /** Whether the composition's worker is currently scheduled. */
   worker: 'running' | 'stopped';
   /** Jobs created for today but never started. */
@@ -198,6 +219,26 @@ function readDayLedger(db: DatabaseSync, day: string): DayLedger {
 }
 
 /**
+ * Name the effective analysis model for the status line.
+ *
+ * Present only when both halves of the effective pair are set: an incomplete
+ * pair is exactly what the consent gate reports as `provider-unset` or
+ * `model-unset`, and there is no model to name. The id and label ride along
+ * only in the named-list shape, so the legacy pair's summary stays the pair.
+ */
+function analysisModelSummary(analysis: ResolvedConfig['analysis']): AnalysisModelSummary | undefined {
+  const provider = analysis.provider.trim();
+  const model = analysis.model.trim();
+  if (provider === '' || model === '') return undefined;
+  const modelId = analysis.modelId?.trim() ?? '';
+  if (modelId === '') return { provider, model };
+  const summary: AnalysisModelSummary = { id: modelId, provider, model };
+  const label = analysis.models?.find((entry) => entry.id === modelId)?.label;
+  if (label !== undefined) summary.label = label;
+  return summary;
+}
+
+/**
  * Build the analysis status payload for the panel.
  *
  * A missing journal is not an error: analysis has never recorded anything, so
@@ -230,6 +271,8 @@ export async function buildAnalysisStatus(input: AnalysisStatusInput): Promise<A
     dailyTokenBudget: input.config.analysis.dailyTokenBudget,
     tokenBudgetExhausted: false,
   };
+  const modelSummary = analysisModelSummary(input.config.analysis);
+  if (modelSummary !== undefined) payload.model = modelSummary;
   if (!decision.allowed) payload.reason = decision.reason;
 
   if (!existsSync(input.journalPath)) return payload;

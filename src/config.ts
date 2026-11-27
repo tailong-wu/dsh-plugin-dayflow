@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import z from '@deepseek-ai/schemastery';
 import type Schema from '@deepseek-ai/schemastery';
 
+import type { AnalysisModelConfig, ResolvedAnalysisModel } from './analyse/models.js';
+import { resolveAnalysisModels } from './analyse/models.js';
 import { resolveDatabasePath } from './db.js';
 import { DayflowError } from './errors.js';
 import { iconDirectory } from './icons.js';
@@ -79,8 +81,22 @@ export interface AnalysisConfig {
   localProviders?: string[];
   /** Provider id; empty uses the agent's default model selection. */
   provider?: string;
-  /** Model id; empty uses the provider's default. */
+  /**
+   * Model id; empty uses the provider's default. When {@link models} is
+   * non-empty this names the active entry's `id` instead (case-insensitive),
+   * and empty selects the first entry.
+   */
   model?: string;
+  /**
+   * Named analysis models, `[{ id, provider, model, label? }]`.
+   *
+   * Absent or empty keeps the legacy `provider`/`model` pair exactly as it was.
+   * A non-empty list selects one active entry whose `provider`/`model` becomes
+   * the effective pair; `analysis.provider` must then stay empty, because each
+   * entry carries its own provider. Validation and selection live in
+   * {@link resolveAnalysisModels}.
+   */
+  models?: AnalysisModelConfig[];
   /** Minutes of frames grouped into one analysis window. */
   windowMinutes?: number;
   /** Representative frames sent per window. */
@@ -139,8 +155,25 @@ export interface ResolvedAnalysisConfig {
   readonly consent: AnalysisConsent;
   /** Provider ids accepted as local under `consent: 'local'`, in written order. */
   readonly localProviders: readonly string[];
+  /**
+   * The effective provider: the active named entry's provider, or the trimmed
+   * legacy `analysis.provider`. Both consent gates and every call site read
+   * this field, so they cannot disagree about which model runs.
+   */
   readonly provider: string;
+  /** The effective model id, resolved the same way as {@link provider}. */
   readonly model: string;
+  /**
+   * The normalized named model list, in written order.
+   *
+   * Absent in the legacy shape (an absent list and `[]` mean the same thing),
+   * which keeps a pre-0.10 profile's resolved configuration byte-identical;
+   * it is optional for the same reason as {@link ResolvedCaptureConfig.dedupeDistance},
+   * so hand-built config literals that predate the field still type-check.
+   */
+  readonly models?: readonly ResolvedAnalysisModel[];
+  /** The active named entry's id; absent in the legacy shape. */
+  readonly modelId?: string;
   readonly windowMinutes: number;
   readonly framesPerWindow: number;
   readonly maxCallsPerDay: number;
@@ -285,7 +318,17 @@ const AnalysisSchema = z
       .default([])
       .description('Provider ids accepted as local under consent "local", matched case-insensitively.'),
     provider: z.string().default('').description('Model provider id; empty uses the agent default.'),
-    model: z.string().default('').description('Model id; empty uses the provider default.'),
+    model: z.string().default('').description('Model id; empty uses the provider default, or selects the first named entry.'),
+    // Deliberately a passthrough rather than `z.array(z.object(...))`: the
+    // schemastery array node injects `[]` when the key is absent, which would
+    // add a `models` key to every pre-0.10 profile's resolved configuration.
+    // The legacy shape has to stay byte-identical, so the loader only carries
+    // the raw value and `resolveAnalysisModels` validates it.
+    models: z
+      .any()
+      .description(
+        'Named analysis models as [{ id, provider, model, label? }]; empty keeps the legacy provider/model pair. Validated in resolveConfig.',
+      ),
     windowMinutes: z
       .natural()
       .min(1)
@@ -542,13 +585,19 @@ export function resolveConfig(config: DayflowConfig = {}): ResolvedConfig {
     displays: resolveChoice(captureInput.displays, CAPTURE_DISPLAYS, 'main', 'capture.displays'),
   };
 
+  const analysisModels = resolveAnalysisModels(analysisInput.models, analysisInput.provider, analysisInput.model);
   const analysis: ResolvedAnalysisConfig = {
     enabled: analysisInput.enabled ?? true,
     intervalMinutes: resolveInteger(analysisInput.intervalMinutes, 5, 1, 60, 'analysis.intervalMinutes'),
     consent: resolveChoice(analysisInput.consent, ANALYSIS_CONSENTS, 'none', 'analysis.consent'),
     localProviders: resolveStringList(analysisInput.localProviders, 'analysis.localProviders'),
-    provider: analysisInput.provider?.trim() ?? '',
-    model: analysisInput.model?.trim() ?? '',
+    provider: analysisModels.provider,
+    model: analysisModels.model,
+    // The legacy shape stays byte-identical, so the named-list keys appear
+    // only when a list actually selected an entry.
+    ...(analysisModels.models.length === 0
+      ? {}
+      : { models: analysisModels.models, modelId: analysisModels.modelId }),
     windowMinutes: resolveInteger(analysisInput.windowMinutes, 10, 1, 60, 'analysis.windowMinutes'),
     framesPerWindow: resolveInteger(analysisInput.framesPerWindow, 3, 1, 5, 'analysis.framesPerWindow'),
     maxCallsPerDay: resolveInteger(analysisInput.maxCallsPerDay, 120, 1, 1000, 'analysis.maxCallsPerDay'),

@@ -2423,6 +2423,18 @@ export const PANEL_CSS = `
   white-space: nowrap;
 }
 
+/* The active model the next analysis call would use: the named entry's label,
+ * or its provider/model pair, behind the consent destination word. It is
+ * context, not a warning, so it keeps the quiet secondary tone; on a narrow
+ * sidebar it wraps inside its own flex item rather than widening the strip. */
+.dfp-analysis-model {
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
 .dfp-analysis-hint {
   overflow: hidden;
   color: var(--dsw-alias-label-tertiary);

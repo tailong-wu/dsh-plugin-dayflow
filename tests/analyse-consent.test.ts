@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { decideAnalysis } from '../src/analyse/consent.js';
+import { resolveConfig } from '../src/config.js';
 import type {
   AnalysisBlockedReason,
   AnalysisConsentInput,
@@ -142,4 +143,75 @@ test('the decision is pure: it does not mutate its input', () => {
   assert.deepEqual(first, second);
   assert.deepEqual(input, snapshot);
   assert.equal(first.allowed, true);
+});
+
+/**
+ * A configuration resolved from a named model list, so the gate reads exactly
+ * the `provider`/`model` pair a profile with `analysis.models` produces.
+ * @param analysis - the analysis fields to override on top of the list shape.
+ * @returns the resolved analysis slice the gate reads, plus the capture slice.
+ */
+function namedConfig(analysis: {
+  models: Array<{ id: string; provider: string; model: string; label?: string }>;
+  model?: string;
+  consent?: 'none' | 'cloud' | 'local';
+  localProviders?: string[];
+}): { analysis: AnalysisInput; capture: { enabled: boolean } } {
+  const config = resolveConfig({
+    capture: { enabled: true },
+    analysis: { consent: 'cloud', ...analysis },
+  });
+  return { analysis: config.analysis, capture: config.capture };
+}
+
+test('a named list gates the active entry pair exactly like the legacy pair', () => {
+  const models = [
+    { id: 'flash', provider: ' deepseek ', model: ' deepseek-chat ' },
+    { id: 'pro', provider: 'deepseek', model: 'deepseek-reasoner' },
+  ];
+  const selected = decideAnalysis({ ...namedConfig({ models, model: 'PRO' }), paused: false });
+  assert.equal(selected.allowed, true);
+  if (selected.allowed) {
+    assert.equal(selected.provider, 'deepseek');
+    assert.equal(selected.model, 'deepseek-reasoner', 'the gate sees the selected entry, never the selector');
+  }
+
+  // The same pair written the legacy way produces a byte-identical decision.
+  const legacy = decide({ analysis: { provider: ' deepseek ', model: ' deepseek-reasoner ' } });
+  assert.deepEqual(selected, legacy);
+});
+
+test('consent none still blocks a configured named list', () => {
+  const blocked = decideAnalysis({
+    ...namedConfig({ consent: 'none', models: [{ id: 'flash', provider: 'deepseek', model: 'deepseek-chat' }] }),
+    paused: false,
+  });
+  expectBlocked(blocked, 'consent:none');
+});
+
+test('local consent checks the active named provider against the allowlist', () => {
+  const models = [
+    { id: 'local', provider: 'Ollama', model: 'qwen3:8b' },
+    { id: 'cloud', provider: 'deepseek', model: 'deepseek-chat' },
+  ];
+
+  const allowed = decideAnalysis({
+    ...namedConfig({ consent: 'local', localProviders: [' ollama '], models }),
+    paused: false,
+  });
+  assert.equal(allowed.allowed, true);
+  if (allowed.allowed) {
+    assert.equal(allowed.provider, 'Ollama');
+    assert.equal(allowed.model, 'qwen3:8b');
+  }
+
+  // Switching the active entry to a non-allowlisted provider blocks, exactly
+  // as switching the single pair would: only the active entry is gate-checked.
+  expectBlocked(
+    decideAnalysis({
+      ...namedConfig({ consent: 'local', localProviders: ['ollama'], models, model: 'cloud' }),
+      paused: false,
+    }),
+    'consent:provider-not-local',
+  );
 });

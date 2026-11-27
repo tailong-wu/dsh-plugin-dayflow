@@ -17,9 +17,12 @@
  * analysis is enabled, what the consent gate is still waiting for, whether the
  * worker runs or idles, today's failures, and the call/token budget it spends.
  * When the day's token budget is spent the line turns amber and names that stop
- * instead of the normal running/idle state. It is deliberately not a control
- * surface — analysis is switched on in the profile, and the panel keeps its one
- * entry point and no new buttons.
+ * instead of the normal running/idle state. When the host names the active
+ * analysis model, the line also shows it quietly — the named entry's label, or
+ * the effective provider/model pair, behind the consent destination word — and
+ * adds no control for it. It is deliberately not a control surface — analysis
+ * is switched on in the profile, and the panel keeps its one entry point and no
+ * new buttons.
  *
  * A third, slimmer line under it reports the scheduled day/week close: the day
  * boundary time, the last stored day close and its status, the weekday the week
@@ -839,18 +842,59 @@ function analysisView(status: AnalysisStatusSummary, t: Translate): AnalysisView
 }
 
 /**
+ * The active model named on the analysis line.
+ *
+ * A named entry shows its label; the legacy single pair, or an entry without a
+ * label, shows its effective `provider/model` pair. The host omits the summary
+ * while no complete pair is configured, and an incomplete one names nothing
+ * rather than rendering a stray separator or a bare slash.
+ * @param status - the analysis status, including the optional model summary.
+ * @returns the model's display text, or an empty string when there is none.
+ */
+function analysisModelText(status: AnalysisStatusSummary): string {
+  const model = status.model;
+  if (model === undefined) return '';
+  const label = model.label?.trim() ?? '';
+  if (label !== '') return label;
+  const provider = model.provider.trim();
+  const id = model.model.trim();
+  return provider !== '' && id !== '' ? `${provider}/${id}` : '';
+}
+
+/**
+ * The consent destination word that prefixes the active model.
+ *
+ * The model only means something together with where it runs, so a cloud
+ * consent shows the cloud word and a local consent the local word; an unset
+ * consent falls back to the plain label, because the pair is configured but not
+ * allowed to run yet.
+ * @param status - the analysis status.
+ * @returns the copy key that formats with the model text.
+ */
+function analysisModelKey(
+  status: AnalysisStatusSummary,
+): 'analysisModel' | 'analysisModelCloud' | 'analysisModelLocal' {
+  if (status.consent === 'cloud') return 'analysisModelCloud';
+  if (status.consent === 'local') return 'analysisModelLocal';
+  return 'analysisModel';
+}
+
+/**
  * The compact, read-only analysis line under the capture line.
  *
- * It reports what the worker is doing and what today has cost — state, failures,
- * the call/token budget, and the last job's local time — and deliberately
- * carries no control: enabling analysis or changing its consent is a profile
- * edit, so the panel keeps its one entry point and no second control surface.
+ * It reports what the worker is doing and what today has cost — state, the
+ * active model behind its consent word, failures, the call/token budget, and the
+ * last job's local time — and deliberately carries no control: enabling analysis
+ * or changing its consent is a profile edit, so the panel keeps its one entry
+ * point and no second control surface.
  * @param props - the analysis status and the translator.
  * @returns the line in its current tone.
  */
 function AnalysisLine(props: { status: AnalysisStatusSummary; t: Translate }): ReactNode {
   const { status, t } = props;
   const view = analysisView(status, t);
+  const modelText = analysisModelText(status);
+  const modelCopy = modelText === '' ? '' : t(analysisModelKey(status), { model: modelText });
   const budget = t('analysisBudget', {
     calls: compactCount(status.callsToday),
     maxCalls: compactCount(status.maxCallsPerDay),
@@ -876,6 +920,12 @@ function AnalysisLine(props: { status: AnalysisStatusSummary; t: Translate }): R
       <span className="dfp-analysis-dot" aria-hidden="true" />
       <span className="dfp-analysis-copy">
         <span className="dfp-analysis-state">{view.state}</span>
+        {modelCopy !== '' && (
+          <>
+            <Sep />
+            <span className="dfp-analysis-model">{modelCopy}</span>
+          </>
+        )}
         {view.hint !== undefined && (
           <>
             <Sep />

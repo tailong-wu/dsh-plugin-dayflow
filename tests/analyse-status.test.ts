@@ -27,7 +27,9 @@ import {
   startAnalysisJob,
 } from '../src/analyse/jobs.js';
 import { buildAnalysisStatus } from '../src/analyse/status.js';
+import type { AnalysisModelConfig } from '../src/analyse/models.js';
 import type { ResolvedConfig } from '../src/config.js';
+import { resolveConfig } from '../src/config.js';
 import { dayWindowContaining } from '../src/day.js';
 import { openJournal } from '../src/journal.js';
 import { makeRuntime } from './helpers.js';
@@ -83,6 +85,22 @@ function fileHash(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
+/**
+ * A configuration resolved from a real named model list, so the status builder
+ * reads the same `models`/`modelId` fields a profile would produce.
+ * @param journalPath - the disposable owned journal.
+ * @param models - the named entries to resolve.
+ * @param selector - the optional `analysis.model` entry id.
+ * @returns the resolved configuration.
+ */
+function namedModelConfig(journalPath: string, models: AnalysisModelConfig[], selector?: string): ResolvedConfig {
+  return resolveConfig({
+    journalPath,
+    capture: { enabled: true },
+    analysis: { consent: 'cloud', models, ...(selector === undefined ? {} : { model: selector }) },
+  });
+}
+
 test('a missing journal reports zero usage without creating the file', async () => {
   const journalPath = journalFile('missing');
   assert.equal(existsSync(journalPath), false);
@@ -93,6 +111,7 @@ test('a missing journal reports zero usage without creating the file', async () 
     enabled: true,
     consent: 'cloud',
     intervalMinutes: 5,
+    model: { provider: 'openai', model: 'test-model' },
     worker: 'stopped',
     queued: 0,
     running: 0,
@@ -357,4 +376,83 @@ test('an unreadable journal answers zeros instead of failing the status line', a
   assert.equal(payload.tokenBudgetExhausted, false);
   assert.equal('lastJobAt' in payload, false);
   assert.equal(fileHash(journalPath), before, 'a failed read must not rewrite the file');
+});
+
+test('a legacy provider/model pair is named as the effective model, with no id or label', async () => {
+  const journalPath = journalFile('legacy-model');
+  const payload = await buildAnalysisStatus({ journalPath, config: statusConfig(journalPath), paused: false });
+
+  assert.deepEqual(payload.model, { provider: 'openai', model: 'test-model' });
+  assert.equal('id' in payload.model!, false, 'the legacy shape has no entry id');
+  assert.equal('label' in payload.model!, false, 'the legacy shape has no entry label');
+});
+
+test('the active named entry is named with its id and label', async () => {
+  const journalPath = journalFile('named-model');
+  const models: AnalysisModelConfig[] = [
+    { id: 'deepseek-flash', provider: 'deepseek', model: 'deepseek-chat', label: 'DeepSeek Flash' },
+    { id: 'deepseek-pro', provider: 'deepseek', model: 'deepseek-reasoner', label: 'DeepSeek Pro' },
+  ];
+
+  // An empty selector takes the first entry.
+  const first = await buildAnalysisStatus({ journalPath, config: namedModelConfig(journalPath, models), paused: false });
+  assert.deepEqual(first.model, {
+    id: 'deepseek-flash',
+    provider: 'deepseek',
+    model: 'deepseek-chat',
+    label: 'DeepSeek Flash',
+  });
+
+  // A selector resolves the second entry; the ledger fields are untouched.
+  const selected = await buildAnalysisStatus({
+    journalPath,
+    config: namedModelConfig(journalPath, models, 'DEEPSEEK-PRO'),
+    paused: false,
+  });
+  assert.deepEqual(selected.model, {
+    id: 'deepseek-pro',
+    provider: 'deepseek',
+    model: 'deepseek-reasoner',
+    label: 'DeepSeek Pro',
+  });
+  assert.equal(selected.queued, 0);
+  assert.equal(selected.callsToday, 0);
+  assert.equal(selected.dailyTokenBudget, 200_000);
+});
+
+test('a named entry without a label reports no label key', async () => {
+  const journalPath = journalFile('named-model-unlabelled');
+  const config = namedModelConfig(journalPath, [{ id: 'local-model', provider: 'ollama', model: 'qwen3:8b' }]);
+  const payload = await buildAnalysisStatus({ journalPath, config, paused: false });
+
+  assert.deepEqual(payload.model, { id: 'local-model', provider: 'ollama', model: 'qwen3:8b' });
+  assert.equal('label' in payload.model!, false);
+});
+
+test('no model summary is reported while no complete provider/model pair is configured', async () => {
+  const journalPath = journalFile('no-model');
+  const cases: ResolvedConfig[] = [
+    resolveConfig({ journalPath }),
+    resolveConfig({ journalPath, analysis: { provider: 'deepseek' } }),
+    resolveConfig({ journalPath, analysis: { model: 'deepseek-chat' } }),
+  ];
+  for (const config of cases) {
+    const payload = await buildAnalysisStatus({ journalPath, config, paused: false });
+    assert.equal('model' in payload, false, `incomplete pair ${JSON.stringify([config.analysis.provider, config.analysis.model])}`);
+  }
+});
+
+test('a configured pair is still named while the consent gate blocks the call', async () => {
+  const journalPath = journalFile('blocked-model');
+  const config = resolveConfig({
+    journalPath,
+    capture: { enabled: true },
+    analysis: { consent: 'none', models: [{ id: 'deepseek-flash', provider: 'deepseek', model: 'deepseek-chat' }] },
+  });
+  const payload = await buildAnalysisStatus({ journalPath, config, paused: false });
+
+  // The summary describes the model a call would use, so it survives a block;
+  // the reason is the same consent-gate line as before the list existed.
+  assert.equal(payload.reason, 'consent:none');
+  assert.deepEqual(payload.model, { id: 'deepseek-flash', provider: 'deepseek', model: 'deepseek-chat' });
 });
