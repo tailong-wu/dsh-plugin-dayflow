@@ -283,7 +283,7 @@ This is the part that has to be right before anything captures pixels.
 
 ### Phase 0 — Feasibility spike (2–3 days)
 
-**Status: landed (0.7.0 development line).** The spike's scope below is
+**Status: landed (0.7.0).** The spike's scope below is
 complete; capture is still off by default and nothing is analysed yet.
 
 **Scope.** Prove capture and metadata on this Mac from inside a host plugin.
@@ -333,7 +333,7 @@ write in Phase 0 is the user's pause flag in `capture_state`.
 
 ### Phase 1 — Capture engine (about 1 week)
 
-**Status: in progress / landed scope (0.7.0 development line).** Capture runs
+**Status: landed scope (0.7.0); Phase 2 continues on the 0.7.x line.** Capture runs
 only when the profile sets `capture.enabled: true`; nothing is analysed yet.
 
 **Scope.** Continuous capture into the owned store with pause, dedupe, retention,
