@@ -1,38 +1,49 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: the 0.6.0 release (tagged `v0.6.0`) ships the **read path** of Phases
-> 1+2 only — the owned schema, its forward migration, the Dayflow importer, and
-> the owned read backend. The next development increment on `main` (unreleased)
-> closes the Phase 3 read gap with `dayflow_journal`, `dayflow_goals`,
+> Status: **0.7.0 is the current baseline**, tagged `v0.7.0` on 2026-11-27
+> (commit `45a7e42`), not yet on the npm registry, and without a GitHub Release.
+> `main` is now the **0.7.x patch line**: the work ahead is six small, tagged
+> patches (0.7.1–0.7.6), planned in [`PATCH_PLAN.md`](PATCH_PLAN.md) and
+> summarised in *Patch iterations (0.7.x)* below. The 0.6.0 release (tagged
+> `v0.6.0`) shipped the **read path** of Phases 1+2 only — the owned schema, its
+> forward migration, the Dayflow importer, and the owned read backend; 0.7.0 is
+> the increment that closed the rest of the read surface, put the journal's
+> memory layer in place, and landed native capture Phase 0/1.
+>
+> 0.7.0 closes the Phase 3 read gap with `dayflow_journal`, `dayflow_goals`,
 > `dayflow_observations`, and `dayflow_review_ratings`, and surfaces the goal and
 > review marks in the panel's day view. It also lands the Phase 3.5 **storage and
 > tool** slice: the `review_items` identity/decision queue (owned schema version
-> 3), the `journal_review` tool, and the `review-queue` skill. The same
-> development line adds the Phase 3.7 **storage and tool** slice: long tasks and
-> their per-day sessions (owned schema version 4), the `journal_task` tool, the
-> `long-task` skill, and automatic task creation when a `task_proposal` is
-> accepted. It also adds the Phase 4 **storage and tool** slice: dated,
-> append-and-supersede memory claims (owned schema version 5), the
-> `journal_memory` tool, the `memory` skill, review-kept distillation/loop
-> promotion into memory, FTS5 search with a `LIKE` fallback, a budgeted dynamic
-> memory context (1000-byte cap, cached, empty when there is nothing to say),
-> reflections written back into the journal (owned schema version 6), and the
-> read-only memory lint (`journal_memory` action `lint`) with its four findings,
-> and an in-panel **Journal insights** view, which renders the review queue,
-> active tasks, memory claims, and reflections from a new
-> `/api/dayflow/insights` route while the plugin keeps a single UI entry. The write path
-> (editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
+> 3), the `journal_review` tool, and the `review-queue` skill. The same release
+> adds the Phase 3.7 **storage and tool** slice: long tasks and their per-day
+> sessions (owned schema version 4), the `journal_task` tool, the `long-task`
+> skill, and automatic task creation when a `task_proposal` is accepted. It also
+> adds the Phase 4 **storage and tool** slice: dated, append-and-supersede memory
+> claims (owned schema version 5), the `journal_memory` tool, the `memory` skill,
+> review-kept distillation/loop promotion into memory, FTS5 search with a `LIKE`
+> fallback, a budgeted dynamic memory context (1000-byte cap, cached, empty when
+> there is nothing to say), reflections written back into the journal (owned
+> schema version 6), the read-only memory lint (`journal_memory` action `lint`)
+> with its four findings, and an in-panel **Journal insights** view, which renders
+> the review queue, active tasks, memory claims, and reflections from a new
+> `/api/dayflow/insights` route while the plugin keeps a single UI entry. Native
+> capture Phase 0 (provider plus Swift helper) and Phase 1 (the capture engine)
+> landed in 0.7.0 as well, default-off, with owned schema version 7
+> (`capture_state`) and the capture status/pause routes; nothing is analysed yet.
+>
+> Still later work: the owned-journal write path (the editing tools still go
+> through Dayflow and refuse `source: owned`), the `dsh dayflow import` CLI, the
 > month/week panel surfaces (only the day view carries goals and review marks
-> today; month and week do not yet), the interactive review-queue panel UI (the
-> Journal insights view already renders the queue read-only), the `review.cards`
+> today; month and week do not yet), the interactive review-queue and task panel
+> UI (the Journal insights view renders both read-only), the `review.cards`
 > switch (the plugin never had a card stack, so that switch has no surface here
 > yet), task tagging from the summarization prompt, automatic activity
 > attribution (matching is an inspectable `suggest` step the agent calls), the
-> scheduled lint job, and Phase 5 remain later work. Phase 5 and everything
-> after it remain proposals.
-> Last revised: 2026-11-25 (status restated for the 0.6.0 release and the Phase 3
-> read-gap, review-queue, long-task, memory, context-injection, reflection,
-> memory-lint, and insights increments).
+> scheduled lint job, native port Phases 2–4 (the analyse worker, briefs and
+> automation, cutover), release closure (npm publication, GitHub Releases), and
+> Phase 5. Phase 5 and everything after it remain proposals.
+> Last revised: 2026-11-27 (0.7.0 tagged as the baseline; the next work is the
+> 0.7.x patch line).
 
 ## Where this starts
 
@@ -156,7 +167,7 @@ read-only tool plus a renderer; each is independently shippable.
 - `goal_categories` — goals currently write `day_goals` but not
   `day_goal_categories`, so the focus/distraction split is lost.
 
-**Shipped in the 0.7.0 development line (unreleased, on `main`):**
+**Shipped in 0.7.0 (tagged `v0.7.0`):**
 `journal_entry` → `dayflow_journal`, `observations` → `dayflow_observations`,
 `review_ratings` → `dayflow_review_ratings`, `goal_categories` →
 `dayflow_goals`. All four are read-only and answer on both the Dayflow backend
@@ -291,13 +302,14 @@ an item changes retrievable state; a `hard`-suppressed item is never re-proposed
 (a test replays the same evidence and asserts it is dropped); a `soft`-discarded
 item *is* re-proposed when the evidence changes.
 
-**Shipped in the 0.7.0 development line (unreleased, on `main`):** the owned
-schema (version 3) stores `review_items` with kind/status/confidence/evidence,
-`journal_review` exposes list/propose/decide/unsuppress, and the `review-queue`
-skill teaches the push-right proposal discipline. The hard/soft suppression
-rules, the confidence floor, and the per-day cap are enforced and tested. The
-panel renders that queue read-only in the Journal insights view (Phase 4);
-interactive queue management and the `review.cards` switch remain open.
+**Shipped in 0.7.0 (tagged `v0.7.0`):** the owned schema (version 3) stores
+`review_items` with kind/status/confidence/evidence, `journal_review` exposes
+list/propose/decide/unsuppress, and the `review-queue` skill teaches the
+push-right proposal discipline. The hard/soft suppression rules, the confidence
+floor, and the per-day cap are enforced and tested. The panel renders that queue
+read-only in the Journal insights view (Phase 4); interactive queue management
+and the `review.cards` switch remain open — queue management is planned as the
+0.7.3 patch in [PATCH_PLAN.md](PATCH_PLAN.md).
 
 ### Phase 3.6 — Privacy for cloud summarization
 
@@ -368,6 +380,13 @@ request (asserted on the request bodies in a test) and does reach a local-model
 request intact; its duration still appears in totals; the settings copy contains
 the limitation text.
 
+**Status at 0.7.0:** not implemented — there is no summarization boundary yet,
+so there is nothing to redact. `capture.pauseApps` already skips capture of a
+matching app entirely (stronger than redaction), and cloud analysis stays off by
+default until its own consent. The `privacy_apps` list is **not** scheduled on
+the 0.7.x line; it becomes a candidate for 0.7.2 only if the owner selects cloud
+consent (see [PATCH_PLAN.md](PATCH_PLAN.md) §6).
+
 ### Phase 3.7 — Long-horizon task tracking
 
 This is the piece that turns the journal from a record into a collaborator. A
@@ -409,15 +428,15 @@ surfaces as "stalled"; an agent-proposed task appears in the review queue and
 does not exist as a task until accepted; every suggestion lands in the review
 queue rather than being applied.
 
-**Shipped in the 0.7.0 development line (unreleased, on `main`):** the
-`long_tasks`/`long_task_sessions` schema (version 4), `journal_task`
-(create/list/get/update/attach/detach/suggest), stalled detection after seven
-days, explainable category/app matching as a `suggest` step, and review-queue
-`task_proposal` acceptance creating the task in the same transaction. Sessions
-are attached by the agent from an inspectable `suggest` result rather than
-tagged silently; summarization-prompt tagging and interactive task management
-in the panel remain open (the Journal insights view already lists tasks
-read-only).
+**Shipped in 0.7.0 (tagged `v0.7.0`):** the `long_tasks`/`long_task_sessions`
+schema (version 4), `journal_task` (create/list/get/update/attach/detach/suggest),
+stalled detection after seven days, explainable category/app matching as a
+`suggest` step, and review-queue `task_proposal` acceptance creating the task in
+the same transaction. Sessions are attached by the agent from an inspectable
+`suggest` result rather than tagged silently; summarization-prompt tagging and
+interactive task management in the panel remain open (the Journal insights view
+already lists tasks read-only; panel management is planned as the 0.7.3 patch in
+[PATCH_PLAN.md](PATCH_PLAN.md)).
 
 ### Phase 4 — The memory layer (the actual product)
 
@@ -496,16 +515,16 @@ alone; a test asserts the injected block stays under its byte budget; and a test
 asserts that superseding a claim leaves the old row intact with
 `superseded_by` set, so retrieval at an older date still answers correctly.
 
-**Shipped in the 0.7.0 development line (unreleased, on `main`):** the
-`memory_claims` schema (version 5), `journal_memory` (add/search/list/supersede/
-forget), append-only dated claims with `superseded_by`/`superseded_on`, FTS5
-retrieval with a `LIKE` fallback, and review-kept distillation/loop promotion
-into memory, the budgeted dynamic context (4b: 1000-byte cap, 60-second cache,
-nothing injected when empty), and reflections (4c) stored in the owned journal
-so later sessions read a compiled summary instead of replaying raw days. The
-read-only lint is implemented as `journal_memory` `action: "lint"`; the panel's
-in-panel insights view renders review items, tasks, claims, and reflections. The
-scheduled lint job remains open.
+**Shipped in 0.7.0 (tagged `v0.7.0`):** the `memory_claims` schema (version 5),
+`journal_memory` (add/search/list/supersede/forget), append-only dated claims
+with `superseded_by`/`superseded_on`, FTS5 retrieval with a `LIKE` fallback, and
+review-kept distillation/loop promotion into memory, the budgeted dynamic
+context (4b: 1000-byte cap, 60-second cache, nothing injected when empty), and
+reflections (4c) stored in the owned journal so later sessions read a compiled
+summary instead of replaying raw days. The read-only lint is implemented as
+`journal_memory` `action: "lint"`; the panel's in-panel insights view renders
+review items, tasks, claims, and reflections. The scheduled lint job remains
+open and is planned as the 0.7.5 patch in [PATCH_PLAN.md](PATCH_PLAN.md).
 
 ### Native port — capture and analysis inside the harness
 
@@ -514,8 +533,8 @@ analysis → cards → briefs pipeline into `dsh-plugin-dayflow`, so the owned j
 can be the source of truth and the Dayflow app becomes optional. The plan,
 including the privacy/consent design, schema migrations, phases, acceptance
 criteria, and cost caps, lives in [`NATIVE_PORT.md`](NATIVE_PORT.md). Phase 0
-(the feasibility spike) and Phase 1 (the capture engine) have landed in the 0.7.0
-development line: the capture provider (now including a lazily compiled Swift
+(the feasibility spike) and Phase 1 (the capture engine) landed in 0.7.0
+(tagged `v0.7.0`): the capture provider (now including a lazily compiled Swift
 helper that captures frames with a 64-bit dHash and screen-lock/display-sleep
 state) and its local smoke script, schema v7 `capture_state`, the
 `capture`/`analysis`/`automation` config skeleton (capture off by default), the
@@ -524,12 +543,15 @@ wired into the plugin lifecycle only when `capture.enabled` is true, which skips
 paused, locked, idle, and `pauseApps` ticks, dedupes with dHash, writes frames
 under `$DSH_HOME/dayflow/frames/` plus `screenshots` rows, caps the day, and
 sweeps retention. The analyse worker, activity cards, briefs, and automation
-scheduling are still ahead; the phasing above (Phase 5 and later) is untouched by
-this line until the native path lands.
+scheduling are the 0.7.1–0.7.5 patches on the 0.7.x line (see *Patch iterations
+(0.7.x)* below and [`PATCH_PLAN.md`](PATCH_PLAN.md)); the Phase 4 cutover is
+rehearsed in 0.7.6 but belongs to the next minor line. The phasing above (Phase 5
+and later) is untouched by this line until the native path lands.
 
 ### Phase 5 — Personalization that acts
 
-Only after 4 is trustworthy.
+Only after 4 is trustworthy. **Not on the 0.7.x line:** no patch above starts it;
+it remains a proposal.
 
 - **Planning**: turn open intentions and observed patterns into proposed tasks
   (the agent already has `dsh-tool-schedule` and a jobs system available).
@@ -539,24 +561,50 @@ Only after 4 is trustworthy.
   notes, deduplicated, with a decay/review policy so the prompt does not fill
   with stale self-description.
 
+## Patch iterations (0.7.x)
+
+0.7.0 closed the long development line; `main` moved to small tagged patches so
+every change is reviewable, testable, and revertible on its own. The execution
+plan is [`PATCH_PLAN.md`](PATCH_PLAN.md): it carries each patch's deliverables at
+file level, the acceptance assertions, the owner decisions and safe defaults,
+and the risks and rollback. One line each, all **planned**:
+
+| Patch | Theme | Roadmap item | Status |
+| --- | --- | --- | --- |
+| 0.7.1 | Analysis foundation: the `analyse/` modules, consent gate, schema v8 `analysis_jobs`, fake-adapter tests — nothing leaves the machine | Native port Phase 2 | planned |
+| 0.7.2 | Analysis visible: worker timer, analysis status route and panel line, budget ledger, `/dayflow-analyze` | Native port Phase 2 | planned |
+| 0.7.3 | Interactive insights: decide review items and attach/detach task sessions in the panel | Phase 3.5 / 3.7 remain | planned |
+| 0.7.4 | The day closes itself: briefs, reflection, review proposals, task sessions, weekly close | Native port Phase 3 | planned |
+| 0.7.5 | Scheduled memory lint and a weekly digest (proposals, never auto-repair) | Phase 4 lint remain | planned |
+| 0.7.6 | Release and compatibility close: docs/CHANGELOG, GitHub Release, npm decision, cutover rehearsal | Release closure / Phase 4 | planned |
+
+Ordering note: the interactive panel (0.7.3) lands **before** the automation that
+fills the review queue (0.7.4), because a queue whose only decision path is an
+agent turn becomes the chore Risk 7 warns about. The Phase 4 default cutover is
+not part of this line — it belongs to the next minor release after a real week of
+capture.
+
 ## What this deliberately does not do
 
 - **No screen recording by default.** The owner-selected native port is the one
-  deliberate exception (see Native port above): capture stays off unless the
-  profile opts in and cloud analysis needs its own consent. Until that port
-  finishes, nothing here records the screen, which is also why privacy has to
-  work at the summarization boundary (3.6) rather than at the capture boundary
-  the way Dayflow does it.
-- **No reimplementation of Dayflow's AI pipeline.** The plugin does not need to
-  turn screenshots into cards if the cards arrive by import or by the agent
-  writing what it did. When/if the plugin does summarize (3.6, 3.7), it does so
-  through `ctx.llm.stream()` on the assembled conversation, not by rebuilding a
-  provider zoo.
+  deliberate exception (see Native port above): its Phase 1 capture engine is
+  merged but inert unless the profile sets `capture.enabled: true`, and cloud
+  analysis needs its own consent. Nothing records the screen on a default
+  profile, which is also why privacy has to work at the summarization boundary
+  (3.6) rather than only at the capture boundary the way Dayflow does it.
+- **No reimplementation of Dayflow's AI pipeline outside the native port.** The
+  plugin does not need to turn screenshots into cards if the cards arrive by
+  import or by the agent writing what it did. The native port's analysis phase
+  (0.7.1–0.7.4) is the deliberate exception, and it goes through
+  `ctx.llm.stream()` with one strict JSON contract, not a rebuilt provider zoo.
 - **No card-stack review as the centre.** It stays available and defaults to off
   (3.5). The review that matters is the distillation, loop, and improvement
   queue.
-- **No Swift.** Everything stays Node + TypeScript, per the existing
-  contribution rules. Dayflow's code is read for semantics, not copied.
+- **No Swift in the plugin's logic.** Everything written by hand stays Node +
+  TypeScript. The single exception, agreed with the native port, is the embedded
+  helper source in `src/capture/provider.ts`, compiled locally only when the
+  capture engine needs frontmost-app, idle, and screen-lock metadata; Dayflow's
+  Swift is still read for semantics, never copied.
 - **No silent coupling to Dayflow's schema.** After phase 2 the only place that
   knows Dayflow's column names is the import adapter.
 
@@ -597,6 +645,11 @@ Only after 4 is trustworthy.
 
 ## Suggested first cut
 
+*Historical: this was the advice before any of it shipped. Phases 1+2 landed in
+0.6.0 and 3.5 in 0.7.0, so the current order of work is the 0.7.x patch line
+above, not this list; it stays because the reasoning still explains why the
+early work was sequenced that way.*
+
 If only one thing is built next, build **phase 1 + phase 2**: the owned schema
 and the importer. They are unglamorous, they do not change a single user-visible
 behaviour, and they are the thing that makes every later phase safe. Everything
@@ -635,6 +688,11 @@ Settled with the owner on 2026-10-29. They are requirements, not options.
 4. For agent-proposed tasks: how many proposals per week before it becomes
    nagging? A hard cap is easy to add now and hard to add after users are
    annoyed.
+
+Question 3 now has a shipped default (the context is on, capped at 1000 bytes,
+and `memoryContext: false` switches it off), so what remains open is whether
+that default should stay on; question 4 is made concrete by the 0.7.4 proposal
+caps and the decisions listed in [PATCH_PLAN.md](PATCH_PLAN.md) §6.
 
 ## References and credits
 
