@@ -9,6 +9,9 @@
  */
 
 import type { AnalysisStatusPayload } from './analyse/status.js';
+import type { MemoryClaimPayload } from './memory.js';
+import type { ReviewItemPayload } from './review.js';
+import type { LongTaskPayload } from './tasks.js';
 
 /** One timeline card, as the panel renders it. */
 export interface PanelCard {
@@ -102,6 +105,12 @@ export interface PanelWeek {
   days: PanelDay[];
 }
 
+/** One day attached to a long task, as the insights list shows it. */
+export interface PanelTaskSessionSummary {
+  day: string;
+  minutes: number;
+}
+
 /** One active long task, as the insights list shows it. */
 export interface PanelTaskSummary {
   id: number;
@@ -113,6 +122,8 @@ export interface PanelTaskSummary {
   last_session_day?: string;
   target_date?: string;
   stalled: boolean;
+  /** The day-by-day sessions the task already carries; absent when it has none. */
+  sessions?: PanelTaskSessionSummary[];
 }
 
 /** One still-open review item. */
@@ -222,6 +233,57 @@ export interface PanelTaskLinkResponse {
   linked_days: string[];
 }
 
+/**
+ * Body the panel sends to record the user's decision on one review item.
+ *
+ * The decision belongs to the user, so the panel always sends
+ * `confirm: true` — the click is that explicit agreement. `forever` turns a
+ * negative decision into a hard suppression.
+ */
+export interface PanelReviewDecisionRequest {
+  id: number;
+  decision: 'keep' | 'accept' | 'discard' | 'reject';
+  note?: string;
+  forever?: boolean;
+  confirm: true;
+}
+
+/** Answer to a successful review decision: the item and what it wrote. */
+export interface PanelReviewDecisionResponse {
+  review: {
+    item: ReviewItemPayload;
+    task?: LongTaskPayload;
+    memory?: MemoryClaimPayload;
+  };
+}
+
+/** Body the panel sends to attach one day of work to an existing long task. */
+export interface PanelTaskAttachRequest {
+  id: number;
+  day: string;
+  minutes: number;
+  note?: string;
+  activity_ids?: number[];
+  confirm: true;
+}
+
+/** Answer to a successful session attach: the task with its sessions. */
+export interface PanelTaskAttachResponse {
+  task: LongTaskPayload;
+}
+
+/** Body the panel sends to remove one day from a long task's progress. */
+export interface PanelTaskDetachRequest {
+  id: number;
+  day: string;
+  confirm: true;
+}
+
+/** Answer to a successful session detach: the task with its sessions. */
+export interface PanelTaskDetachResponse {
+  task: LongTaskPayload;
+}
+
 /** Whether the host may read this Mac's screen. */
 export type PanelCapturePermission = 'granted' | 'denied' | 'unknown';
 
@@ -321,6 +383,15 @@ export const PANEL_TASK_SCAN_PATH = '/api/dayflow/tasks/scan';
 
 /** Exact Fetch route that attaches scanned days to a task as its sessions. */
 export const PANEL_TASK_LINK_PATH = '/api/dayflow/tasks/link';
+
+/** Exact Fetch route that records the user's decision on one review item. */
+export const PANEL_REVIEW_DECIDE_PATH = '/api/dayflow/review';
+
+/** Exact Fetch route that attaches one day of work to a long task. */
+export const PANEL_TASK_ATTACH_PATH = '/api/dayflow/tasks/attach';
+
+/** Exact Fetch route that detaches one day of work from a long task. */
+export const PANEL_TASK_DETACH_PATH = '/api/dayflow/tasks/detach';
 
 const DAY_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MONTH_KEY_PATTERN = /^(\d{4})-(\d{2})$/;

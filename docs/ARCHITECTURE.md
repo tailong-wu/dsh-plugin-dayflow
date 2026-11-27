@@ -33,8 +33,11 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   through Dayflow: `journal_import`, `journal_review`, `journal_task`,
   `journal_memory`, and `journal_reflection` write through `withJournalWrite`
   (`src/journal.ts`), so they are not gated by Dayflow's edit switch. The
-  quick-capture slash commands and the panel's three inline add routes write the
-  same way.
+  quick-capture slash commands, the panel's three inline add routes, and its
+  review/task-session decision routes write the same way. A panel review
+  decision calls `applyReviewDecision` (`src/review-actions.ts`) — the same
+  module the `journal_review` tool uses — so both paths combine the item with
+  its task or memory claim identically.
 - **Native analysis (0.7.1 foundation, no worker yet).** When a caller invokes
   it, `analyse/pipeline.ts` reads one Dayflow day's native `screenshots` rows
   (04:00–04:00), groups them into windows (`analysis.windowMinutes`, at most
@@ -127,6 +130,7 @@ src/
   skills.ts       SKILL.md loading and runtime registration
   prompt.ts       the guidance section
   review.ts       review queue: proposals, decisions, suppression
+  review-actions.ts  one decision path: item + task/memory via applyReviewDecision
   tasks.ts        long tasks, their daily sessions, derived progress
   memory.ts       dated memory claims: supersede, search, lint
   reflections.ts  day/week reflections stored in the owned journal
@@ -135,7 +139,7 @@ src/
   setup.ts        read-only detection of the Dayflow install
   errors.ts       the stable failure codes
   paths.ts        Dayflow's database/socket and the plugin's own paths
-  panel.ts        the host Fetch routes behind the Web panel (reads and inline-add writes)
+  panel.ts        the host Fetch routes behind the Web panel (reads, adds, decisions)
   panel-contract.ts  the wire payloads shared by host and browser
   tools/read.ts   the twelve read tools
   tools/import.ts the journal_import tool
@@ -171,7 +175,7 @@ end.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 408 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
+npm test            # 425 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

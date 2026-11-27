@@ -17,7 +17,7 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.7.2` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
+> **状态：** `v0.7.3` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
 > ——请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
@@ -37,7 +37,8 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   `journal_memory`、`journal_reflection` 和 6 个编辑工具。全表 → [docs/TOOLS.md](docs/TOOLS.md)。
 - **8 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`、`long-task`、`memory`、`reflection`。
 - **可选 Web 面板**：月历分段圆环、周泳道、日视图，以及 **Journal insights（洞察）** 视图；只有一个头部按钮、
-  一个标签页和 14 条 host Fetch 路由。细节 → [docs/PANEL.md](docs/PANEL.md)。
+  一个标签页和 17 条 host Fetch 路由。回顾队列可在面板里直接决定，任务 session 可直接关联或解绑，
+  无需 agent turn。细节 → [docs/PANEL.md](docs/PANEL.md)。
 - **快速记录**：三条斜杠命令（`/dayflow-task`、`/dayflow-remember`、`/dayflow-reflect`），洞察视图里的内联添加行，
   以及新建任务后的历史扫描与关联。→ [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md)。
 - **预算化记忆上下文**：active 长任务与最近的带日期记忆 claim 会注入，硬上限 1000 字节、60 秒缓存；
@@ -116,12 +117,14 @@ profile 也可以把入口整个关掉。
 ![dsh 右侧栏中的 Dayflow 月历](docs/panel.zh.png)
 
 - 从对话头部的 **Dayflow** 按钮打开，头部空间不够时收成图标；所有内容都是同一个面板标签页里的视图。
-- **13 条 host Fetch 路由**支撑这些视图：月、周、日、洞察、启用探测和图标，加上三条内联添加、
-  历史扫描与关联、采集状态与暂停。面板自己从不直接访问数据库。
+- **17 条 host Fetch 路由**支撑这些视图：月、周、日、洞察、启用探测和图标，加上三条内联添加、
+  历史扫描与关联、回顾决定与任务 session 的 attach/detach、采集状态与暂停，以及 analysis 状态行。
+  面板自己从不直接访问数据库。
 - **不会把缺失数据画成零活动**：没有录屏的日期画淡点线，有录屏但无活动的日期画浅色轨道，
   分析排队中的日期显示琥珀色脉冲，有记录的日期才画彩色弧段。
 - **Journal insights（洞察）** 是第三个视图：进行中的长任务（含进度与停滞标记）、待决回顾队列、
-  最近的带日期记忆 claim、已保存的反思，以及一条紧凑的采集状态行；除内联添加外它是只读的。
+  最近的带日期记忆 claim、已保存的反思，以及一条紧凑的采集状态行。任务、记忆和反思块都支持内联添加，
+  回顾队列与任务 session 则可在面板内就地决定/解绑，不需要 agent turn。
 
 ![面板中展开的一天](docs/day.zh.png)
 
@@ -134,11 +137,12 @@ profile 也可以把入口整个关掉。
 插件拥有第二个可移植的 SQLite 日志（0.7.1 线为 schema **v8**），Dayflow 仍是默认数据源。先用 `journal_import`
 导入一次，再把 profile 切到 `source: owned`：源库只读打开、导入幂等，现有工具与面板载荷不变。
 
-- **回顾队列**：distillation、重复出现的 loop、改进建议和 task proposal——agent 只提议，用户决定。
+- **回顾队列**：distillation、重复出现的 loop、改进建议和 task proposal——agent 只提议，用户在面板里
+  或通过工具决定。
 - **长任务**带按日 session、停滞标记和可解释的 `suggest`；另有**带日期的记忆** claim、日/周**反思**，
   以及注入系统提示词的预算化上下文。
 - 洞察视图里的历史**扫描**（最近 14 天）加**关联**是同一套证据链的用户侧入口：先预览，
-  只写入用户确认的日期。
+  只写入用户确认的日期，已关联的日期还能在面板里**解绑**（Unlink）。
 
 存储、后端与写入路径见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)；
 快速记录的捷径见 [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md)。

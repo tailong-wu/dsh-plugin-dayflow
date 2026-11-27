@@ -23,16 +23,17 @@ skips the commands; the same writes are still available through the tools.
 
 ## Panel inline add
 
-The **Journal insights** view is a read-only view of the owned journal with one
-exception: it can add. The task, memory, and reflection blocks each end with a
-ToDo-style input row. Type into it and press Enter (or click **Add**); the row
-submits a small `POST` request to the panel API and the list refreshes.
+The **Journal insights** view is a view of the owned journal with two
+exceptions: it can add, and the user can decide what is waiting there. The
+task, memory, and reflection blocks each end with a ToDo-style input row. Type
+into it and press Enter (or click **Add**); the row submits a small `POST`
+request to the panel API and the list refreshes.
 
 The rows only add: a task title, a `preference` claim dated today (the current
 Dayflow day), or a line appended to today's reflection. Nothing in the panel
-edits or deletes an existing entry, and the review queue has no add row at all —
-it is fed by the agent's proposals, and the keep/accept/discard/reject decision
-belongs to the user.
+edits or deletes an existing journal entry, and the review queue has no add row
+at all — it is fed by the agent's proposals, and the decision belongs to the
+user, now one click away (see [Deciding from the panel](#deciding-from-the-panel)).
 
 Adding a task this way raises one follow-up question. After the task appears,
 the panel offers a history **scan** of the last **14 days** of recorded activity,
@@ -41,10 +42,34 @@ and then a **link** of the days that match the task. The scan is a read-only
 together with the task's own category and app signals, and lists one line per
 candidate day with the date, the minutes, and the matched titles. Nothing is
 written until the user confirms; linking then records those days as the task's
-**sessions**. A second link for the same day replaces that day's session instead
-of adding a second one. The scan reads activity from whichever backend is active
-(the Dayflow app database, or an imported owned journal), so a profile with no
-import and no activity simply gets an empty result.
+**sessions**, and a linked day can be unlinked again from the same view. A
+second link for the same day replaces that day's session instead of adding a
+second one. The scan reads activity from whichever backend is active (the
+Dayflow app database, or an imported owned journal), so a profile with no import
+and no activity simply gets an empty result.
+
+## Deciding from the panel
+
+Decisions used to need the conversation: the user read the queue and told the
+agent, and the agent called `journal_review`. The panel can now take the
+decision itself, with no model turn:
+
+- Each waiting review item carries a decision row — **Keep** for a distillation
+  or loop, **Accept** for an improvement or task proposal, plus **Discard** and
+  **Don't suggest again**. Accepting a task proposal creates the long task;
+  keeping a distillation or loop writes the dated memory claim.
+- **Don't suggest again** is a two-step action: the row asks **Hide this for
+  good?** with **Confirm** / **Cancel** inline, and only Confirm stores the
+  *hard* suppression that keeps the same proposal away. A plain Discard is
+  *soft* — the idea may return with materially new evidence.
+- A day already attached to a long task sits under **Linked** in the task row
+  with its own **Unlink**; it detaches that day's session and leaves the day's
+  activities untouched.
+- These are the same writes the tools make — `confirm: true`, one shared
+  decision module — so a click and a tool call leave the same journal state.
+
+The full view reference and the request shapes are in the
+[panel documentation](PANEL.md).
 
 ## Conversation
 

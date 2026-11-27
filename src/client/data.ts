@@ -16,7 +16,10 @@ import {
   PANEL_MEMORY_ADD_PATH,
   PANEL_MONTH_PATH,
   PANEL_REFLECTION_ADD_PATH,
+  PANEL_REVIEW_DECIDE_PATH,
   PANEL_TASK_ADD_PATH,
+  PANEL_TASK_ATTACH_PATH,
+  PANEL_TASK_DETACH_PATH,
   PANEL_TASK_LINK_PATH,
   PANEL_TASK_SCAN_PATH,
   PANEL_WEEK_PATH,
@@ -31,7 +34,13 @@ import type {
   PanelMemoryAddResponse,
   PanelMonth,
   PanelReflectionAddResponse,
+  PanelReviewDecisionRequest,
+  PanelReviewDecisionResponse,
   PanelTaskAddResponse,
+  PanelTaskAttachRequest,
+  PanelTaskAttachResponse,
+  PanelTaskDetachRequest,
+  PanelTaskDetachResponse,
   PanelTaskLinkRequest,
   PanelTaskLinkResponse,
   PanelTaskScanRequest,
@@ -280,4 +289,77 @@ export async function linkTaskHistory(
   signal?: AbortSignal,
 ): Promise<PanelTaskLinkResponse> {
   return postJson<PanelTaskLinkResponse>(PANEL_TASK_LINK_PATH, { task_id: taskId, days }, signal);
+}
+
+/** One decision the insights view can send for a still-open review item. */
+export type ReviewDecision = 'keep' | 'accept' | 'discard' | 'reject';
+
+/**
+ * Apply the user's decision to one review item.
+ *
+ * The panel is the user's own surface, so every write carries `confirm: true`;
+ * the host refuses a decision without it. A negative decision with
+ * `forever: true` hard-suppresses the item's fingerprint so the agent never
+ * proposes it again, while a plain discard only soft-suppresses it.
+ * @param id - the review item's id.
+ * @param decision - keep/accept for the forward path, discard/reject to drop it.
+ * @param options - the optional decision note and the permanent-suppression flag.
+ * @param signal - caller cancellation.
+ * @returns the decided item, plus the task or memory the decision produced.
+ */
+export async function postReviewDecision(
+  id: number,
+  decision: ReviewDecision,
+  options?: { note?: string; forever?: boolean },
+  signal?: AbortSignal,
+): Promise<PanelReviewDecisionResponse> {
+  const payload: PanelReviewDecisionRequest = { id, decision, confirm: true };
+  if (options?.note !== undefined) payload.note = options.note;
+  if (options?.forever !== undefined) payload.forever = options.forever;
+  return postJson<PanelReviewDecisionResponse>(PANEL_REVIEW_DECIDE_PATH, payload, signal);
+}
+
+/**
+ * Attach one day of work to a long task.
+ *
+ * Attaching the same `(task, day)` again replaces that day's minutes instead of
+ * doubling them, so the write is safe to retry. The panel keeps no attach form
+ * of its own: the history scan's Link button is the only attach entry point.
+ * @param id - the task's id.
+ * @param day - the Dayflow day key (`YYYY-MM-DD`) to attach.
+ * @param minutes - the day's minutes from the scan preview.
+ * @param options - the optional note and the matched activity ids.
+ * @param signal - caller cancellation.
+ * @returns the updated task, with its full session list.
+ */
+export async function postTaskAttach(
+  id: number,
+  day: string,
+  minutes: number,
+  options?: { note?: string; activity_ids?: number[] },
+  signal?: AbortSignal,
+): Promise<PanelTaskAttachResponse> {
+  const payload: PanelTaskAttachRequest = { id, day, minutes, confirm: true };
+  if (options?.note !== undefined) payload.note = options.note;
+  if (options?.activity_ids !== undefined) payload.activity_ids = options.activity_ids;
+  return postJson<PanelTaskAttachResponse>(PANEL_TASK_ATTACH_PATH, payload, signal);
+}
+
+/**
+ * Remove one day from a long task's progress.
+ *
+ * Detaching a day that was never attached is a no-op that still answers with the
+ * current task, so a stale row can always be repaired.
+ * @param id - the task's id.
+ * @param day - the day to detach.
+ * @param signal - caller cancellation.
+ * @returns the updated task, with the day gone from its sessions.
+ */
+export async function postTaskDetach(
+  id: number,
+  day: string,
+  signal?: AbortSignal,
+): Promise<PanelTaskDetachResponse> {
+  const payload: PanelTaskDetachRequest = { id, day, confirm: true };
+  return postJson<PanelTaskDetachResponse>(PANEL_TASK_DETACH_PATH, payload, signal);
 }

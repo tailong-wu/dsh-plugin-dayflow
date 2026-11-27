@@ -28,7 +28,10 @@ import {
   PANEL_MEMORY_ADD_PATH,
   PANEL_MONTH_PATH,
   PANEL_REFLECTION_ADD_PATH,
+  PANEL_REVIEW_DECIDE_PATH,
   PANEL_TASK_ADD_PATH,
+  PANEL_TASK_ATTACH_PATH,
+  PANEL_TASK_DETACH_PATH,
   PANEL_TASK_LINK_PATH,
   PANEL_TASK_SCAN_PATH,
   PANEL_WEEK_PATH,
@@ -41,7 +44,10 @@ import type {
   PanelInsights,
   PanelMemoryAddResponse,
   PanelReflectionAddResponse,
+  PanelReviewDecisionResponse,
   PanelTaskAddResponse,
+  PanelTaskAttachResponse,
+  PanelTaskDetachResponse,
   PanelTaskLinkResponse,
   PanelTaskScanResponse,
 } from '../src/panel-contract.js';
@@ -58,11 +64,13 @@ import type { ResolvedConfig } from '../src/config.js';
 import { readCaptureState, recordScreenshotRow, writeCaptureState } from '../src/capture/state.js';
 import { dayWindowContaining } from '../src/day.js';
 import { openJournal } from '../src/journal.js';
-import { addMemoryClaim, supersedeMemoryClaim } from '../src/memory.js';
-import { decideReviewItem, proposeReviewItem } from '../src/review.js';
+import { addMemoryClaim, listMemoryClaims, supersedeMemoryClaim } from '../src/memory.js';
+import { decideReviewItem, listReviewItems, proposeReviewItem } from '../src/review.js';
+import type { ReviewItemPayload, ReviewProposalInput, ReviewStatus, ReviewToolPayload } from '../src/review.js';
 import { saveReflection } from '../src/reflections.js';
-import { attachTaskSession, createLongTask, updateLongTaskStatus } from '../src/tasks.js';
-import { makeRuntime } from './helpers.js';
+import { attachTaskSession, createLongTask, getLongTask, listLongTasks, updateLongTaskStatus } from '../src/tasks.js';
+import { reviewTools } from '../src/tools/review.js';
+import { executionContext, makeRuntime, toolMap, toolNamed } from './helpers.js';
 
 const directory = mkdtempSync(join(tmpdir(), 'dsh-dayflow-panel-insights-'));
 after(() => rmSync(directory, { recursive: true, force: true }));
@@ -360,6 +368,11 @@ test('the insights payload maps active tasks, open review items, active claims, 
     last_session_day: '2026-11-24',
     target_date: '2026-12-01',
     stalled: activeTaskStalled,
+    // The day-by-day sessions let the panel offer one Unlink per attached day.
+    sessions: [
+      { day: '2026-11-23', minutes: 30 },
+      { day: '2026-11-24', minutes: 45 },
+    ],
   });
   assert.ok(!insights.tasks.some((task) => task.id === pausedTaskId), 'paused tasks are not active');
 
@@ -431,9 +444,10 @@ test('the insights route coexists with the other panel routes and answers JSON',
   const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
   const routes = fakeHost(runtime);
 
-  // The fourteen exact Fetch routes share the registry without replacing each
-  // other: eight reads plus the six writes that back the inline add rows, the
-  // post-add history scan/link pair, and the native capture pause flag.
+  // The seventeen exact Fetch routes share the registry without replacing each
+  // other: eight reads plus the nine writes that back the inline add rows, the
+  // post-add history scan/link pair, the native capture pause flag, and the
+  // three interactive-insights writes (review decision, attach, detach).
   const readPaths = [
     PANEL_DAY_PATH,
     PANEL_MONTH_PATH,
@@ -451,6 +465,9 @@ test('the insights route coexists with the other panel routes and answers JSON',
     PANEL_TASK_SCAN_PATH,
     PANEL_TASK_LINK_PATH,
     PANEL_CAPTURE_PAUSE_PATH,
+    PANEL_REVIEW_DECIDE_PATH,
+    PANEL_TASK_ATTACH_PATH,
+    PANEL_TASK_DETACH_PATH,
   ];
   assert.deepEqual([...routes.keys()].sort(), [...readPaths, ...writePaths].sort());
   for (const path of readPaths) {
@@ -1074,4 +1091,610 @@ test('the analysis status route serves an injected builder without touching the 
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json()) as PanelAnalysisStatus, payload);
   assert.equal(existsSync(journalPath), false, 'an injected builder still must not create the journal');
+});
+
+// ---------------------------------------------------------------------------
+// 0.7.3 interactive insights: review decisions and task session attach/detach
+// ---------------------------------------------------------------------------
+
+/** Seed one review proposal in the owned journal and return its id. */
+function seedReviewItem(journalPath: string, input: ReviewProposalInput): number {
+  const db = openJournal(journalPath);
+  try {
+    const result = proposeReviewItem(db, input);
+    assert.equal(result.dropped, false);
+    assert.ok(result.item);
+    return result.item.id;
+  } finally {
+    db.close();
+  }
+}
+
+/** Every stored review item, whatever its status. */
+function allReviewItems(journalPath: string): ReviewItemPayload[] {
+  const statuses: ReviewStatus[] = ['proposed', 'kept', 'discarded', 'accepted', 'rejected'];
+  const db = openJournal(journalPath);
+  try {
+    return statuses.flatMap((status) => listReviewItems(db, { status }));
+  } finally {
+    db.close();
+  }
+}
+
+/** One stored review item by id, read back from the journal. */
+function storedReviewItem(journalPath: string, id: number): ReviewItemPayload {
+  const item = allReviewItems(journalPath).find((row) => row.id === id);
+  assert.ok(item, `review item ${String(id)} is stored`);
+  return item;
+}
+
+/** Every memory claim in the owned journal. */
+function storedClaims(journalPath: string): ReturnType<typeof listMemoryClaims> {
+  const db = openJournal(journalPath);
+  try {
+    return listMemoryClaims(db);
+  } finally {
+    db.close();
+  }
+}
+
+/** Seed one long task and return its id. */
+function seedTask(journalPath: string, title: string): number {
+  const db = openJournal(journalPath);
+  try {
+    return createLongTask(db, { title }).id;
+  } finally {
+    db.close();
+  }
+}
+
+/** One stored long task with its sessions. */
+function storedTask(journalPath: string, id: number): ReturnType<typeof getLongTask> {
+  const db = openJournal(journalPath);
+  try {
+    return getLongTask(db, id);
+  } finally {
+    db.close();
+  }
+}
+
+/** Seed one owned-journal activity inside a day and return its row id. */
+function seedActivity(journalPath: string, day: string): number {
+  const window = dayWindowContaining(new Date());
+  assert.equal(window.dayKey, day, 'the seeded activity belongs to the requested day');
+  const start = new Date(window.start.getTime() + 9 * 3_600_000);
+  const end = new Date(start.getTime() + 45 * 60_000);
+  const db = openJournal(journalPath);
+  try {
+    const inserted = db
+      .prepare(
+        `INSERT INTO activities
+           (source_id, source_key, start_ts, end_ts, day, title, summary, category, metadata, is_deleted)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      )
+      .run(
+        'manual',
+        `interactive-${day}`,
+        Math.floor(start.getTime() / 1000),
+        Math.floor(end.getTime() / 1000),
+        day,
+        'Ship the interactive insights',
+        'Reviewed the panel decision flow.',
+        'Work',
+        JSON.stringify({ appSites: { primary: 'github.com' } }),
+      );
+    return Number(inserted.lastInsertRowid);
+  } finally {
+    db.close();
+  }
+}
+
+/** Count one day's activity rows in the owned journal. */
+function activityCount(journalPath: string, day: string): number {
+  const db = openJournal(journalPath);
+  try {
+    const row = db.prepare('SELECT count(*) AS count FROM activities WHERE day = ?').get(day) as {
+      count: number;
+    };
+    return row.count;
+  } finally {
+    db.close();
+  }
+}
+
+/** The store a decision leaves behind, with write-time timestamps as booleans. */
+interface DecisionStoreState {
+  item: Record<string, unknown>;
+  tasks: Record<string, unknown>[];
+  claims: Record<string, unknown>[];
+}
+
+/** Project one decided journal into the fields both decision paths must agree on. */
+function decisionStoreState(journalPath: string): DecisionStoreState {
+  const statuses: ReviewStatus[] = ['proposed', 'kept', 'discarded', 'accepted', 'rejected'];
+  const db = openJournal(journalPath);
+  try {
+    const items = statuses.flatMap((status) => listReviewItems(db, { status }));
+    assert.equal(items.length, 1, 'the parity fixture holds exactly one review item');
+    const item = items[0];
+    assert.ok(item);
+    const { decided_at, created_at, ...decidedFields } = item;
+    return {
+      item: { ...decidedFields, decided: decided_at !== undefined },
+      tasks: listLongTasks(db).map((task) => {
+        const { created_at, updated_at, accepted_at, ...fields } = task;
+        return {
+          ...fields,
+          accepted: accepted_at !== undefined,
+          updated: updated_at !== '',
+        };
+      }),
+      claims: listMemoryClaims(db).map((claim) => {
+        const { recorded_at, ...fields } = claim;
+        return fields;
+      }),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Decide the same seeded item once through the panel route and once through the
+ * `journal_review` tool, then return both stores and both answers.
+ */
+async function decideBothWays(
+  seed: ReviewProposalInput,
+  decision: 'keep' | 'accept',
+): Promise<{
+  routeReview: PanelReviewDecisionResponse['review'];
+  toolValue: ReviewToolPayload;
+  route: DecisionStoreState;
+  tool: DecisionStoreState;
+}> {
+  const routeJournalPath = journalFile('parity-route');
+  const toolJournalPath = journalFile('parity-tool');
+  const routeId = seedReviewItem(routeJournalPath, seed);
+  const toolId = seedReviewItem(toolJournalPath, seed);
+  assert.equal(routeId, toolId, 'both journals hold the same seeded item id');
+
+  const routes = fakeHost(
+    makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath: routeJournalPath }),
+  );
+  const response = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, {
+    id: routeId,
+    decision,
+    note: 'parity note',
+    confirm: true,
+  });
+  assert.equal(response.status, 200);
+  const routeReview = ((await response.json()) as PanelReviewDecisionResponse).review;
+
+  const tools = toolMap(
+    reviewTools(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath: toolJournalPath })),
+  );
+  const toolValue = (await toolNamed(tools, 'journal_review').execute(
+    { action: 'decide', id: toolId, decision, note: 'parity note', confirm: true },
+    executionContext(),
+  )) as ReviewToolPayload;
+  assert.equal(toolValue.action, 'decide');
+
+  return {
+    routeReview,
+    toolValue,
+    route: decisionStoreState(routeJournalPath),
+    tool: decisionStoreState(toolJournalPath),
+  };
+}
+
+test('the review decision route records a keep and returns the memory claim it writes', async () => {
+  const journalPath = journalFile('review-decide-keep');
+  const id = seedReviewItem(journalPath, {
+    kind: 'distillation',
+    title: 'The shared composer keeps routes and tools in step',
+    body: 'Both paths must write the same decision state.',
+    confidence: 0.8,
+    source_day: '2026-11-19',
+  });
+  const routes = fakeHost(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath }));
+
+  const response = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, {
+    id,
+    decision: 'keep',
+    note: 'Keep it for the release ritual.',
+    confirm: true,
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const payload = (await response.json()) as PanelReviewDecisionResponse;
+  assert.equal(payload.review.item.id, id);
+  assert.equal(payload.review.item.status, 'kept');
+  assert.equal(payload.review.item.decision_note, 'Keep it for the release ritual.');
+  assert.equal(payload.review.task, undefined, 'a kept distillation creates no task');
+  const memory = payload.review.memory;
+  assert.ok(memory, 'a kept distillation returns the claim it wrote');
+  assert.equal(memory.kind, 'distillation');
+  assert.equal(memory.subject, 'The shared composer keeps routes and tools in step');
+  assert.equal(memory.observed_on, '2026-11-19');
+  assert.equal(memory.source_review_item, id);
+
+  // The write is in the store, not just the answer.
+  assert.equal(storedReviewItem(journalPath, id).status, 'kept');
+  assert.deepEqual(
+    storedClaims(journalPath).map((claim) => claim.id),
+    [memory.id],
+  );
+});
+
+test('the review decision route accepts a task proposal and returns the task it creates', async () => {
+  const journalPath = journalFile('review-decide-accept');
+  const id = seedReviewItem(journalPath, {
+    kind: 'task_proposal',
+    title: 'Ship the interactive insights',
+    body: 'Decide and unlink without an agent turn.',
+    confidence: 0.8,
+    source_day: '2026-11-20',
+  });
+  const routes = fakeHost(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath }));
+
+  const response = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, {
+    id,
+    decision: 'accept',
+    confirm: true,
+  });
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as PanelReviewDecisionResponse;
+  assert.equal(payload.review.item.status, 'accepted');
+  assert.equal(payload.review.memory, undefined, 'an accepted task proposal writes no claim');
+  const task = payload.review.task;
+  assert.ok(task, 'an accepted task proposal returns the long task it wrote');
+  assert.equal(task.title, 'Ship the interactive insights');
+  assert.equal(task.description, 'Decide and unlink without an agent turn.');
+  assert.equal(task.origin, 'agent');
+  assert.equal(task.review_item_id, id);
+  assert.equal(task.status, 'active');
+
+  const stored = storedTask(journalPath, task.id);
+  assert.equal(stored.title, task.title);
+  assert.equal(stored.review_item_id, id);
+});
+
+test('the review decision route demands confirm and validates its body before writing', async () => {
+  const journalPath = journalFile('review-decide-invalid');
+  const id = seedReviewItem(journalPath, {
+    kind: 'distillation',
+    title: 'Needs the user decision',
+    confidence: 0.8,
+  });
+  const routes = fakeHost(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath }));
+
+  const invalid: { body: unknown; label: string }[] = [
+    { body: { id, decision: 'keep' }, label: 'a missing confirm' },
+    { body: { id, decision: 'keep', confirm: false }, label: 'confirm: false' },
+    { body: { id, decision: 'keep', confirm: 'true' }, label: 'a string confirm' },
+    { body: { decision: 'keep', confirm: true }, label: 'a missing id' },
+    { body: { id: 0, decision: 'keep', confirm: true }, label: 'a non-positive id' },
+    { body: { id: 1.5, decision: 'keep', confirm: true }, label: 'a fractional id' },
+    { body: { id: 'one', decision: 'keep', confirm: true }, label: 'a string id' },
+    { body: { id, decision: 'approve', confirm: true }, label: 'an unknown decision' },
+    { body: { id, decision: 'keep', note: 42, confirm: true }, label: 'a non-string note' },
+    { body: { id, decision: 'keep', forever: 'yes', confirm: true }, label: 'a non-boolean forever' },
+    { body: 'this is not json', label: 'a malformed JSON body' },
+  ];
+  for (const entry of invalid) {
+    const response = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, entry.body);
+    assert.equal(response.status, 400, `${entry.label} is rejected as invalid input`);
+    assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+    const error = (await response.json()) as { error: string };
+    assert.equal(typeof error.error, 'string');
+    assert.ok(error.error.length > 0, `${entry.label} carries an explanation`);
+  }
+
+  // None of the refused requests changed the open item.
+  assert.equal(storedReviewItem(journalPath, id).status, 'proposed');
+  assert.deepEqual(storedClaims(journalPath), []);
+});
+
+test('the review decision route answers 404 for an unknown item and 400 for a decided one', async () => {
+  const journalPath = journalFile('review-decide-errors');
+  const id = seedReviewItem(journalPath, {
+    kind: 'distillation',
+    title: 'Decide me once',
+    confidence: 0.8,
+  });
+  const routes = fakeHost(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath }));
+
+  const missing = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, {
+    id: 9_999,
+    decision: 'keep',
+    confirm: true,
+  });
+  assert.equal(missing.status, 404);
+  assert.match(((await missing.json()) as { error: string }).error, /No review item with id 9999/);
+
+  const kept = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, { id, decision: 'keep', confirm: true });
+  assert.equal(kept.status, 200);
+
+  const again = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, { id, decision: 'keep', confirm: true });
+  assert.equal(again.status, 400, 'an item can be decided once');
+  assert.match(((await again.json()) as { error: string }).error, /already decided/);
+  assert.equal(storedReviewItem(journalPath, id).status, 'kept');
+
+  // A decision that does not fit the kind is the same caller mistake.
+  const taskItemId = seedReviewItem(journalPath, {
+    kind: 'task_proposal',
+    title: 'Accept me instead',
+    confidence: 0.8,
+  });
+  const mismatch = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, {
+    id: taskItemId,
+    decision: 'keep',
+    confirm: true,
+  });
+  assert.equal(mismatch.status, 400);
+  assert.match(((await mismatch.json()) as { error: string }).error, /can only be accept or reject/);
+  assert.equal(storedReviewItem(journalPath, taskItemId).status, 'proposed');
+});
+
+test('the review route hard-suppresses with forever and a soft discard may return', async () => {
+  const journalPath = journalFile('review-decide-forever');
+  const title = 'Hand-copy the changelog every release';
+  const id = seedReviewItem(journalPath, {
+    kind: 'distillation',
+    title,
+    confidence: 0.8,
+    source_day: '2026-11-19',
+  });
+  const routes = fakeHost(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath }));
+
+  const forever = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, {
+    id,
+    decision: 'discard',
+    forever: true,
+    confirm: true,
+  });
+  assert.equal(forever.status, 200);
+  const discarded = (await forever.json()) as PanelReviewDecisionResponse;
+  assert.equal(discarded.review.item.status, 'discarded');
+  assert.equal(discarded.review.item.suppression, 'hard');
+
+  // Even materially new evidence never re-opens a hard suppression.
+  const db = openJournal(journalPath);
+  try {
+    const suppressed = proposeReviewItem(db, {
+      kind: 'distillation',
+      title,
+      confidence: 0.95,
+      source_day: '2026-11-25',
+    });
+    assert.equal(suppressed.dropped, true);
+    assert.equal(suppressed.reason, 'hard-suppressed');
+  } finally {
+    db.close();
+  }
+  assert.equal(allReviewItems(journalPath).length, 1, 'a suppressed proposal writes no row');
+
+  // A soft discard may come back once the evidence is materially new.
+  const softTitle = 'The first hour goes to email';
+  const softId = seedReviewItem(journalPath, {
+    kind: 'distillation',
+    title: softTitle,
+    confidence: 0.8,
+    source_day: '2026-11-19',
+  });
+  const soft = await postRoute(routes, PANEL_REVIEW_DECIDE_PATH, {
+    id: softId,
+    decision: 'discard',
+    confirm: true,
+  });
+  assert.equal(soft.status, 200);
+  assert.equal(((await soft.json()) as PanelReviewDecisionResponse).review.item.suppression, 'soft');
+
+  const softDb = openJournal(journalPath);
+  try {
+    const same = proposeReviewItem(softDb, {
+      kind: 'distillation',
+      title: softTitle,
+      confidence: 0.8,
+      source_day: '2026-11-19',
+    });
+    assert.equal(same.dropped, true);
+    assert.equal(same.reason, 'soft-discarded');
+    const next = proposeReviewItem(softDb, {
+      kind: 'distillation',
+      title: softTitle,
+      confidence: 0.8,
+      source_day: '2026-11-23',
+    });
+    assert.equal(next.dropped, false);
+    assert.equal(next.item?.status, 'proposed');
+  } finally {
+    softDb.close();
+  }
+});
+
+test('the task session routes attach and detach one day without touching activities', async () => {
+  const journalPath = journalFile('task-sessions');
+  const day = todayKey();
+  const taskId = seedTask(journalPath, 'Ship interactive insights');
+  const activityId = seedActivity(journalPath, day);
+  assert.equal(activityCount(journalPath, day), 1);
+  const runtime = ownedRuntime(journalPath);
+  const routes = fakeHost(runtime);
+
+  const refused = await postRoute(routes, PANEL_TASK_ATTACH_PATH, { id: taskId, day, minutes: 10 });
+  assert.equal(refused.status, 400, 'attach demands confirm: true');
+
+  const attached = await postRoute(routes, PANEL_TASK_ATTACH_PATH, {
+    id: taskId,
+    day,
+    minutes: 30,
+    note: 'first pass',
+    activity_ids: [activityId],
+    confirm: true,
+  });
+  assert.equal(attached.status, 200);
+  assert.equal(attached.headers.get('content-type'), 'application/json; charset=utf-8');
+  const attachedTask = ((await attached.json()) as PanelTaskAttachResponse).task;
+  assert.equal(attachedTask.id, taskId);
+  assert.equal(attachedTask.total_minutes, 30);
+  assert.equal(attachedTask.session_days, 1);
+  assert.equal(attachedTask.last_session_day, day);
+  assert.deepEqual(attachedTask.sessions, [
+    { day, minutes: 30, note: 'first pass', activity_ids: [activityId] },
+  ]);
+  assert.equal(activityCount(journalPath, day), 1, 'attaching a session leaves the activities alone');
+  // The insights payload carries the session so the panel can offer Unlink.
+  const insights = buildPanelInsights(runtime);
+  assert.deepEqual(insights.tasks[0]?.sessions, [{ day, minutes: 30 }]);
+
+  // Attaching the same day again replaces that day instead of doubling it.
+  const replaced = await postRoute(routes, PANEL_TASK_ATTACH_PATH, {
+    id: taskId,
+    day,
+    minutes: 45,
+    activity_ids: [activityId],
+    confirm: true,
+  });
+  assert.equal(replaced.status, 200);
+  const replacedTask = ((await replaced.json()) as PanelTaskAttachResponse).task;
+  assert.equal(replacedTask.total_minutes, 45);
+  assert.equal(replacedTask.session_days, 1);
+  assert.equal(replacedTask.sessions?.length, 1);
+
+  const detached = await postRoute(routes, PANEL_TASK_DETACH_PATH, { id: taskId, day, confirm: true });
+  assert.equal(detached.status, 200);
+  assert.equal(detached.headers.get('content-type'), 'application/json; charset=utf-8');
+  const detachedTask = ((await detached.json()) as PanelTaskDetachResponse).task;
+  assert.equal(detachedTask.total_minutes, 0);
+  assert.equal(detachedTask.session_days, 0);
+  assert.deepEqual(detachedTask.sessions, []);
+  assert.equal('last_session_day' in detachedTask, false);
+  assert.equal(activityCount(journalPath, day), 1, 'detaching a session must not delete the day activities');
+
+  // Detaching a day that was never attached is a no-op that still answers.
+  const again = await postRoute(routes, PANEL_TASK_DETACH_PATH, { id: taskId, day, confirm: true });
+  assert.equal(again.status, 200);
+  assert.equal(((await again.json()) as PanelTaskDetachResponse).task.total_minutes, 0);
+});
+
+test('the task session routes reject malformed bodies and unknown tasks', async () => {
+  const journalPath = journalFile('task-sessions-invalid');
+  const day = todayKey();
+  const taskId = seedTask(journalPath, 'Ship interactive insights');
+  const routes = fakeHost(ownedRuntime(journalPath));
+
+  const invalidAttach: { body: unknown; label: string }[] = [
+    { body: { id: taskId, day, confirm: true }, label: 'missing minutes' },
+    { body: { id: taskId, day, minutes: -1, confirm: true }, label: 'negative minutes' },
+    { body: { id: taskId, day, minutes: 1.5, confirm: true }, label: 'fractional minutes' },
+    { body: { id: taskId, minutes: 10, confirm: true }, label: 'a missing day' },
+    { body: { id: taskId, day: '2026-02-30', minutes: 10, confirm: true }, label: 'an impossible day' },
+    { body: { id: taskId, day, minutes: 10, activity_ids: [-1], confirm: true }, label: 'negative activity ids' },
+    { body: { id: taskId, day, minutes: 10, activity_ids: 'x', confirm: true }, label: 'a non-array activity id list' },
+    { body: { id: taskId, day, minutes: 10, note: 42, confirm: true }, label: 'a non-string note' },
+    { body: { id: taskId, day, minutes: 10, confirm: false }, label: 'confirm: false' },
+    { body: 'this is not json', label: 'a malformed JSON body' },
+  ];
+  for (const entry of invalidAttach) {
+    const response = await postRoute(routes, PANEL_TASK_ATTACH_PATH, entry.body);
+    assert.equal(response.status, 400, `${entry.label} is rejected as invalid input`);
+    assert.equal(typeof ((await response.json()) as { error: string }).error, 'string');
+  }
+
+  const invalidDetach: { body: unknown; label: string }[] = [
+    { body: { id: taskId, day }, label: 'a missing detach confirm' },
+    { body: { id: taskId, confirm: true }, label: 'a missing detach day' },
+    { body: { id: taskId, day: '2026-02-30', confirm: true }, label: 'an impossible detach day' },
+  ];
+  for (const entry of invalidDetach) {
+    const response = await postRoute(routes, PANEL_TASK_DETACH_PATH, entry.body);
+    assert.equal(response.status, 400, `${entry.label} is rejected as invalid input`);
+  }
+
+  // None of the refused writes attached anything.
+  assert.equal(storedTask(journalPath, taskId).session_days, 0);
+
+  const unknownAttach = await postRoute(routes, PANEL_TASK_ATTACH_PATH, {
+    id: 9_999,
+    day,
+    minutes: 10,
+    confirm: true,
+  });
+  assert.equal(unknownAttach.status, 404);
+  const unknownDetach = await postRoute(routes, PANEL_TASK_DETACH_PATH, {
+    id: 9_999,
+    day,
+    confirm: true,
+  });
+  assert.equal(unknownDetach.status, 404);
+});
+
+test('the interactive write routes refuse a missing confirmation without creating the journal', async () => {
+  const journalPath = journalFile('interactive-absent');
+  assert.equal(existsSync(journalPath), false);
+  const routes = fakeHost(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath }));
+
+  const refused: { path: string; body: unknown; label: string }[] = [
+    { path: PANEL_REVIEW_DECIDE_PATH, body: { id: 1, decision: 'keep' }, label: 'a review decision without confirm' },
+    {
+      path: PANEL_REVIEW_DECIDE_PATH,
+      body: { id: 1, decision: 'keep', confirm: false },
+      label: 'a review decision with confirm: false',
+    },
+    { path: PANEL_TASK_ATTACH_PATH, body: { id: 1, day: '2026-11-24', minutes: 5 }, label: 'an attach without confirm' },
+    { path: PANEL_TASK_DETACH_PATH, body: { id: 1, day: '2026-11-24' }, label: 'a detach without confirm' },
+  ];
+  for (const entry of refused) {
+    const response = await postRoute(routes, entry.path, entry.body);
+    assert.equal(response.status, 400, `${entry.label} is rejected as invalid input`);
+    assert.match(((await response.json()) as { error: string }).error, /confirm: true/);
+  }
+  assert.equal(existsSync(journalPath), false, 'a refused write must not create the journal');
+
+  // A confirmed write is a real write: the journal is created first, then the
+  // store answers that the task does not exist. That is the same convention as
+  // the panel's inline add routes, which create the journal on their first write.
+  const missing = await postRoute(routes, PANEL_TASK_DETACH_PATH, {
+    id: 1,
+    day: '2026-11-24',
+    confirm: true,
+  });
+  assert.equal(missing.status, 404);
+  assert.equal(existsSync(journalPath), true);
+});
+
+test('the review route and the journal_review tool leave the same decision state', async () => {
+  const kept = await decideBothWays(
+    {
+      kind: 'distillation',
+      title: 'One shared decision composer',
+      body: 'Route and tool must not drift.',
+      confidence: 0.8,
+      source_day: '2026-11-19',
+    },
+    'keep',
+  );
+  assert.deepEqual(kept.route, kept.tool, 'a keep writes the same item and claim both ways');
+  assert.equal(kept.route.item.status, 'kept');
+  assert.equal(kept.route.claims.length, 1);
+  assert.equal(kept.route.tasks.length, 0);
+  assert.equal(kept.routeReview.memory?.id, kept.toolValue.memory_id);
+
+  const accepted = await decideBothWays(
+    {
+      kind: 'task_proposal',
+      title: 'Ship the interactive panel',
+      body: 'Decide from the panel.',
+      confidence: 0.8,
+      source_day: '2026-11-20',
+    },
+    'accept',
+  );
+  assert.deepEqual(accepted.route, accepted.tool, 'an accept writes the same item and task both ways');
+  assert.equal(accepted.route.item.status, 'accepted');
+  assert.equal(accepted.route.tasks.length, 1);
+  assert.equal(accepted.route.claims.length, 0);
+  assert.equal(accepted.routeReview.task?.id, accepted.toolValue.task_id);
 });

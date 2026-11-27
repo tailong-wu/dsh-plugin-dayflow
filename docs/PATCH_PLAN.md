@@ -1,14 +1,15 @@
 # Patch plan: the 0.7.x line
 
-> **Status:** revised 2026-11-27 against `v0.7.1` (tag `v0.7.1`, commit
-> `0256a64`). **0.7.1 has landed**, so its section records what actually
-> shipped, and **0.7.2 is landed below** (`v0.7.2`); 0.7.3–0.7.6
-> remain planned. Six patches, 0.7.1–0.7.6: each one theme, one integration
-> point, one tag. This is a decision-level plan, not a commitment of dates.
+> **Status:** revised 2026-11-27 against `v0.7.2` (tag `v0.7.2`, commit
+> `7a84ccd`). **0.7.1 and 0.7.2 have landed**, so their sections record what
+> actually shipped; **0.7.3 is landed** (`v0.7.3`, implementation started from the
+> 0.7.2 tree, scope finalised below), and 0.7.4–0.7.6 remain planned. Six
+> patches, 0.7.1–0.7.6: each one theme, one integration point, one tag. This is
+> a decision-level plan, not a commitment of dates.
 > Every patch below is shippable under the safe default of the decisions in
 > [§6](#6-owner-decisions-and-safe-defaults), so no patch waits on an answer.
-> The revision before this one was written against `v0.7.0` (tag `v0.7.0`,
-> commit `45a7e42`); its scope survives unchanged except where 0.7.1 reality
+> The revision before this one was written against `v0.7.1` (tag `v0.7.1`,
+> commit `0256a64`); its scope survives unchanged except where 0.7.2 reality
 > corrected it.
 >
 > Related documents: [`ROADMAP.md`](ROADMAP.md) carries the phases and what
@@ -25,15 +26,15 @@ this table.
 | Fact | Value | Checked at |
 | --- | --- | --- |
 | Baseline | `0.7.0`, annotated tag `v0.7.0` (commit `45a7e42`), the phase baseline this plan was first written against | `package.json`, `git tag` |
-| Current head | `0.7.1`, annotated tag `v0.7.1` (commit `0256a64`), **not** on the npm registry, **no** GitHub Release | `package.json`, `git tag`, `npm view dsh-plugin-dayflow` → 404, `gh release view v0.7.1` → not found |
-| Tests | 408 cases, green on the 0.7.2 tree (`node --test` ran them all); CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
-| Tools | 23 registered by default (17 with `edits: false`), plus `dayflow_install_dayflow` behind `allowInstall: false`; 0.7.1 added no tool | `src/index.ts`, `src/tools/` |
-| Skills | 8 | `skills/` |
-| Panel | 13 exact host Fetch routes, one UI entry (one header button, one panel tab); 0.7.2 adds exactly one read-only GET | `src/panel-contract.ts`, `tests/panel.test.ts` |
-| Owned schema | v8 (`analysis_jobs`), landed in 0.7.1; v7 was the 0.7.0 baseline; 0.7.2 makes **no** schema change | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
-| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed in 0.7.0, both default-off; Phase 2's foundation (five `src/analyse/` modules, schema v8, consent gate, fake-adapter pipeline, text-only contract) landed in 0.7.1, with **no worker, timer, status route, panel line, command, or real provider call** | `src/capture/`, `src/analyse/`, `docs/NATIVE_PORT.md` |
-| Release tool | `npm run release -- patch` bumps, runs the suite, commits, tags, pushes, creates the GitHub Release; it does **not** publish to npm. 0.7.1 was tagged without a GitHub Release, so 0.7.6 must create it by hand | `scripts/release.mjs` |
-| Host cohort | DSH `0.2.1-rc.2` dev dependencies, `^0.2.0-rc.2` peers; `@deepseek-ai/dsh-llm` is already declared but no code calls `ctx.llm` until 0.7.2; `@deepseek-ai/dsh-attachment` is **not** a dependency (0.7.1 stayed text-only and so does the rest of the line) | `package.json`, `npm ls`, `src/analyse/` |
+| Current head | `0.7.2`, annotated tag `v0.7.2` (commit `7a84ccd`), **not** on the npm registry, **no** GitHub Release | `package.json`, `git tag`, `npm view dsh-plugin-dayflow` → 404, `gh release view v0.7.2` → not found |
+| Tests | 425 cases, green on the 0.7.3 tree (`node --test` ran them all; 408 at `v0.7.2`, 384 at `v0.7.1`); CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
+| Tools | 23 registered by default (17 with `edits: false`), plus `dayflow_install_dayflow` behind `allowInstall: false`; 0.7.2 added no tool | `src/index.ts`, `src/tools/` |
+| Skills | 8; 0.7.2 added none | `skills/` |
+| Panel | 14 exact host Fetch routes (8 GET + 6 POST), one UI entry (one header button, one panel tab); 0.7.3 adds exactly three POST → 17 (8 GET + 9 POST) | `src/panel-contract.ts`, `tests/panel.test.ts` |
+| Owned schema | v8 (`analysis_jobs`), landed in 0.7.1; v7 was the 0.7.0 baseline; 0.7.2 and the planned 0.7.3 make **no** schema change | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
+| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed in 0.7.0, both default-off; Phase 2's foundation (five `src/analyse/` modules, schema v8, consent gate, fake-adapter pipeline, text-only contract) landed in 0.7.1; Phase 2's **visibility** landed in 0.7.2 (worker/timer, text-only host `ctx.llm` adapter, `GET /api/dayflow/analysis/status`, panel analysis line, `/dayflow-analyze`, budget ledger), still with no briefs/automation and no image | `src/capture/`, `src/analyse/`, `docs/NATIVE_PORT.md` |
+| Release tool | `npm run release -- patch` bumps, runs the suite, commits, tags, pushes, creates the GitHub Release; it does **not** publish to npm. `v0.7.1` and `v0.7.2` were tagged without a GitHub Release, so 0.7.6 must backfill both by hand | `scripts/release.mjs` |
+| Host cohort | DSH `0.2.1-rc.2` dev dependencies, `^0.2.0-rc.2` peers; `@deepseek-ai/dsh-llm` is declared and is now actually called in 0.7.2 through `ctx.llm` (a structural `HostLlmLike` seam, so CI still never reaches a model); `@deepseek-ai/dsh-attachment` is **not** a dependency (the line stays text-only) | `package.json`, `npm ls`, `src/analyse/` |
 
 **Landed in 0.7.0, therefore not in this plan:** the four Phase 3 read tools and
 their panel surfaces, the review queue, long tasks, dated memory, the budgeted
@@ -51,22 +52,41 @@ contract is **text-only** (frontmost app, window title, frame hash) and there is
 no worker, timer, status route, panel line, command, or real provider call, so a
 default profile analyses nothing and no frame leaves the machine. Its `skipped`
 jobs are terminal — enabling consent later does not replay them; the decision on
-that is in the 0.7.2 section below.
+that is in the 0.7.2 section below, and it was re-triaged in the 0.7.3 window
+below.
 
-**Not landed, and what this plan is:** the rest of native port Phase 2 and its
-visibility (0.7.2: worker/timer, status route, panel line, manual command,
-budget surface, real text-only provider adapter), briefs and automation
-(Phase 3, 0.7.4), interactive panel management (0.7.3), the scheduled lint job
-(0.7.5), and the release closure (0.7.6: npm, GitHub Releases, cutover
-rehearsal).
+**Landed in 0.7.2:** the analysis runtime made visible and operable — the
+`src/analyse/worker.ts` timer (one run in flight, injectable timer seam,
+backoff, idempotent `start()`/`stop()`), `src/analyse/host.ts` (the text-only
+adapter over `ctx.llm.stream`, sending a content-block array and recording the
+provider's usage), `src/analyse/status.ts` and
+`GET /api/dayflow/analysis/status`, one read-only analysis line under the
+capture line in the insights view (with the privacy disclosure),
+`/dayflow-analyze` (the fourth slash command), and `analysis.intervalMinutes`
+(1–60, default 5). It
+makes **no schema change** (v8 stays), adds **no host peer** (the already
+declared `llm` peer is now used through the worker), and keeps the 0.7.1
+text-only contract. The worker mounts only when `capture.enabled` and
+`analysis.enabled` are both true and the host `llm` service is present; a
+default profile still captures and analyses nothing. `skipped` analysis jobs
+stay terminal — no window skipped before consent is replayed, and no catch-up
+policy landed in this patch.
+
+**Not landed, and what this plan is:** the interactive insights panel (0.7.3:
+three POST routes, one shared decision module, and the panel's decide /
+attach / detach controls), briefs and automation (Phase 3, 0.7.4), the scheduled
+lint job (0.7.5), and the release closure (0.7.6: npm, GitHub Releases, cutover
+rehearsal). Native port Phase 2 is complete as of 0.7.2; the three analysis-ledger
+follow-ups it deliberately left behind are triaged in the 0.7.3 section.
 
 **Deliberately not in 0.7.x:** the Phase 4 default cutover (0.8.0 material), the
 month/week panel goal and rating surfaces, editing tools for the owned journal,
 the `dsh dayflow import` CLI (only the tool exists), embeddings, the
 `review.cards` switch (the plugin has no card stack, so it has no surface),
 image admission (pixels need a host attachment peer and a vision contract;
-0.8.0 candidate), automatic catch-up for skipped analysis windows (the 0.7.2
-section below; 0.7.3 candidate), Phase 5, and any change to the Swift helper's
+0.8.0 candidate), automatic catch-up for skipped analysis windows, the token cap
+as a gate, and the 04:00 day tail (all three re-triaged in the 0.7.3 window, then
+carried as 0.7.5/0.8.0 candidates), Phase 5, and any change to the Swift helper's
 permissions.
 
 ## 2. Iteration rules
@@ -126,17 +146,19 @@ definition of that.
 | --- | --- | --- | --- | --- | --- |
 | 0.7.1 | **landed** — Analysis foundation: frames become `activities` rows behind a fake adapter | Native port Phase 2 | — | D1, D2, D5 | Medium |
 | 0.7.2 | **landed** — Analysis visible: worker timer, text-only host adapter, status route and panel line, budget ledger, manual command; no schema change | Native port Phase 2 | 0.7.1 | D1, D3 | Medium |
-| 0.7.3 | Interactive insights: decide review items, attach/detach task sessions in the panel | Phase 3.5 / 3.7 remain | — (built against 0.7.2 tree) | D6 | Low |
+| 0.7.3 | **landed** — Interactive insights: decide review items, attach/detach task sessions in the panel; three POST routes, one shared decision module, no schema or model dependency | Phase 3.5 / 3.7 remain | — (built against 0.7.2 tree) | D6 | Low |
 | 0.7.4 | The day closes itself: briefs, reflection, proposals, task sessions, weekly close | Native port Phase 3 | 0.7.2, 0.7.3 | D3, D4, D9 | High |
-| 0.7.5 | Scheduled memory lint and weekly digest | Phase 4 lint remain | 0.7.4 | D8 | Medium |
+| 0.7.5 | Scheduled memory lint and weekly digest; the recommended home for the deferred analysis-ledger follow-ups only by explicit owner decision | Phase 4 lint remain | 0.7.4 | D8 (+ D3/D4 if the ledger items are taken) | Medium |
 | 0.7.6 | Release and compatibility close | Release closure / Phase 4 rehearsal | 0.7.1–0.7.5 | D1, D7 | Low |
 
 Order rationale: see [§5](#5-sequencing-rationale). Nothing in the table changes
 the plugin's default behaviour; each new path is off by default or requires
 consent, and that is part of every patch's acceptance. This revision finalises
-the **0.7.2** scope below against what 0.7.1 actually shipped: text-only, no
-schema change, one new GET route, one new config key, and skipped analysis jobs
-stay terminal (catch-up deferred, with its cost stated).
+the **0.7.3** scope below against what 0.7.2 actually shipped: three new POST
+routes (14 → 17), one shared decision module so the route and the tool cannot
+drift, no schema change, no model call, and one UI entry. The three
+analysis-ledger follow-ups 0.7.2 left behind are deliberately **not** in 0.7.3;
+its triage subsection recommends where they go next.
 
 ### 0.7.1 — Analysis foundation: frames become rows
 
@@ -265,23 +287,31 @@ builds on.
   explicitly handed to 0.7.2's worker. Consequently, enabling consent later does
   not re-analyse earlier windows and raising the call cap does not revive the
   day's budget skips. 0.7.2's decision on this is stated in its own section
-  below.
+  below, and it was re-triaged in the 0.7.3 window below.
 - **The token budget is recorded, not yet enforced.** `analysis_jobs` carries
   `input_tokens`/`output_tokens` and `analysisTokenTotalsForDay` reads them, but
   only `maxCallsPerDay` is a gate in 0.7.1; 0.7.2 makes the ledger visible and
-  leaves the token cap reported-only (a post-call check is a 0.7.3-window
-  candidate). The `@deepseek-ai/dsh-llm` peer is already declared but no code
+  leaves the token cap reported-only (re-triaged in the 0.7.3 window: still
+  reported-only there; a post-call gate is a 0.7.5/0.8.0 candidate). The
+  `@deepseek-ai/dsh-llm` peer is already declared but no code
   calls `ctx.llm` yet; 0.7.2 adds the adapter.
 
-The suite is 408 tests green on the tagged tree, and `npm run typecheck` /
+The suite is 384 tests green on the `v0.7.1` tree (growing to 408 on the `v0.7.2`
+tree with the 24 analysis-visibility tests), and `npm run typecheck` /
 `npm run check:package` are green; the 0.7.1 CHANGELOG section is the record of
 what shipped.
 
 ### 0.7.2 — Analysis visible: worker, status, budget
 
-**Status: landed in 0.7.2, 2026-11-27 (revised after 0.7.1).** The scope is the one below: **text-only, no schema change, no new
+**Status: landed in `v0.7.2`, 2026-11-27 (commit `7a84ccd`; revised after
+0.7.1).** The scope is the one below: **text-only, no schema change, no new
 host peer**, one new config key, one new GET route, and — decided — **no re-run
-of 0.7.1's skipped jobs** (see the decision near the end of this section).
+of 0.7.1's skipped jobs** (see the decision near the end of this section). The
+tagged tree measures 408 green tests (384 at 0.7.1), 14 panel routes (8 GET + 6
+POST), owned schema v8 unchanged, and it is on neither npm nor a GitHub Release
+(`npm view dsh-plugin-dayflow version` → 404, `gh release view v0.7.2` → not
+found). The implementation's deviations from the plan text are listed at the end
+of the deliverables, before the skipped-jobs decision.
 
 **Theme and motivation.** 0.7.1 can be verified only by tests: nothing runs on a
 schedule, nothing shows state, and a real run still needs a hand-written caller.
@@ -394,6 +424,52 @@ runs nothing and says why.
   `docs/ARCHITECTURE.md` (the worker, host-adapter and status modules),
   `docs/ROADMAP.md` remain lines, `CHANGELOG.md`.
 
+**Implementation deviations (landed).** What the `v0.7.2` tree actually does,
+where it differs from, or was not named in, the plan text above. The shipped
+behaviour is the specification 0.7.3 builds on.
+
+- **The host content type is a block array, not a string.** The host's user
+  message content is `readonly ContentBlock[]`, so `host.ts` sends exactly one
+  `{ type: 'text', text }` block and never an image block. The module types the
+  host structurally (`HostLlmLike`), so tests drive a scripted async iterable
+  and CI never reaches a model; no `attachments` service is injected and
+  `@deepseek-ai/dsh-attachment` is still not a dependency.
+- **The privacy disclosure is two locale keys, not one sentence.**
+  `analysisPrivacy` states the text-only contract (frontmost app, window title,
+  frame hash; never the image) and `analysisPrivacyCloud` adds the cloud-only
+  sentence that the metadata leaves the Mac. The line shows them only when
+  `consent` is not `none` (`cloud` shows both, `local` shows the first), in both
+  EN and ZH, and the client locale-parity test covers them.
+- **The budget status shape is a flat wire string.** The route reports
+  `worker: 'running' | 'stopped'` plus the day's counts and the ledger; it does
+  **not** expose the worker's `{ running, intervalMinutes, lastRunAt,
+  lastOutcome, lastError }` object. `buildAnalysisStatus` takes the worker's
+  `{ running }` as input, and `worker.status()` stays internal, so the wire
+  contract is small and stable.
+- **The token ledger is shown, not enforced.** `tokensToday` and
+  `dailyTokenBudget` are honest numbers on the line and in the payload, but the
+  only gate is still 0.7.1's `maxCallsPerDay`. A post-call token check did not
+  land: it was re-triaged in the 0.7.3 window and is a 0.7.5/0.8.0 candidate.
+- **The panel line is read-only and the single entry is unchanged.** The line
+  sits directly under the capture line in the insights view and carries no
+  button: enabling analysis or changing its consent stays a profile edit. The
+  route-set test grew by exactly the one GET (13 → 14) and the one-tab /
+  one-header-button assertions were not touched.
+- **`capturePending` was reworded.** The 0.7.0 placeholder ("Not recording yet —
+  capture lands in the next phase.") became "Waiting for the first frame." /
+  "等待第一帧。": capture can now be on while the first frame has not arrived, so
+  the old copy promised a phase instead of describing the state. Both locales
+  changed together.
+- **Four commands, one new.** `/dayflow-analyze` joined `dayflow-task`,
+  `dayflow-remember`, and `dayflow-reflect`. It runs one manual tick through the
+  worker and maps a blocked or failed run to an error result instead of throwing
+  into the host.
+- **The worker mounts only with a model service.** It is created inside
+  `ctx.inject(['llm'], …)` and started in an effect only when `capture.enabled`
+  and `analysis.enabled` are both true. Without the host `llm` service the route
+  reports `worker: 'stopped'` and no `analyser-unset` skip is written, so a host
+  that cannot analyse does not burn the day's windows.
+
 **Skipped jobs stay terminal in this patch — decided.** 0.7.1 never restarts a
 `skipped` row. The reasons split into "the user has not fixed the cause yet"
 (`consent:*`, `provider-unset`, `model-unset`, `analyser-unset`, `paused`) and
@@ -427,11 +503,11 @@ automatically or from the command.
   and it would ship a money-spending replay behind a slash command before D3's
   cap policy is settled. If dogfooding shows the one-day gap is painful, it is
   the smallest follow-up to add — as its own change, not as hidden scope.
-- **Where it goes:** a 0.7.3 candidate, to be planned with the same one-theme
-  discipline: either an explicit second deliverable of that patch (an owner
-  decision that deliberately relaxes R1) or a small patch of its own between
-  0.7.3 and 0.7.4; if neither, it becomes 0.8.0 scope. The decision is taken when
-  0.7.2 closes, with the dogfooding evidence in hand.
+- **Where it went:** re-triaged in the 0.7.3 window (see that section's
+  "Deferred from 0.7.2 — triaged, not included." subsection). 0.7.3 deliberately
+  stays single-theme, so catch-up is **not** in it; it is a candidate for 0.7.5
+  (only as an explicit second deliverable that relaxes R1, by owner decision) or
+  0.8.0, and the decision is taken before 0.7.4 starts.
 
 **Other ledger gaps kept out of 0.7.2.** Two analysis-loop items are knowingly
 not in this patch, so no deliverable above silently promises them:
@@ -440,12 +516,15 @@ not in this patch, so no deliverable above silently promises them:
   `tokensToday` are honest ledger numbers, but only `maxCallsPerDay` stops a run
   (0.7.1's gate). Enforcing tokens needs a post-call check because usage arrives
   with the answer, and it is a cost-policy decision rather than a visibility
-  one: it is a 0.7.3-window candidate beside catch-up.
+  one: it was re-triaged in the 0.7.3 window and is a 0.7.5/0.8.0 candidate, not
+  in 0.7.3.
 - **The 04:00 day tail.** A worker tick runs the current Dayflow day, so a frame
   captured just before the boundary after the previous day's last tick is not
   analysed (its windows belong to the previous day). The fix costs one bounded
-  extra `run()` on the first tick after the boundary or on start; it is deferred
-  with catch-up so one patch settles "what may be run late or re-run" once.
+  extra `run()` on the first tick after the boundary or on start; it was
+  re-triaged in the 0.7.3 window and stays deferred with catch-up so one owner
+  decision settles "what may be run late or re-run" once. It is the smallest of
+  the three if the owner wants one early.
 
 **Tests and acceptance.**
 
@@ -481,7 +560,8 @@ not in this patch, so no deliverable above silently promises them:
    one new GET (13 → 14); the single-entry assertions are unchanged; the
    response is `{ analysis: … }`; the line's labels exist in both locales.
 8. `npm test`, typecheck, `check:package` green; no new dependency and no schema
-   migration in the diff.
+   migration in the diff; the tagged tree passes 408 tests (384 at 0.7.1 plus
+   the 24 worker, status, host-adapter, command, and panel-line cases).
 9. Config: `analysis.intervalMinutes` is validated at 1 and 60, defaults to 5,
    and a bad value is refused at load; the resolved-defaults fixture in
    `tests/capture-state.test.ts` carries the new field.
@@ -509,75 +589,159 @@ route and the line; revert the tag; no schema to undo.
 
 ### 0.7.3 — Interactive insights: decisions in the panel
 
+**Status: landed in 0.7.3, 2026-11-27 (scope finalised from the `v0.7.2` tree).**
+Implementation runs in three parallel tracks (shared module + routes, client,
+docs); the acceptance below is the definition of done for the tag. It changes no
+owned schema, calls no model, adds no host peer, and keeps the single UI entry.
+
 **Theme and motivation.** 0.7.0 ships the review queue and long tasks in the
-Journal insights view, but both are read-only: deciding a review item or
-attaching a task session still costs an agent turn. This is low-risk, has no
-schema or model dependency, and it must land **before** 0.7.4 starts filling the
-queue automatically, or the queue becomes the chore the roadmap warns about
-(Risk 7).
+Journal insights view, but a decision or a session edit still costs an agent
+turn: the queue is read-only there. This is low-risk, has no schema or model
+dependency, and it must land **before** 0.7.4 starts filling the queue
+automatically, or the queue becomes the chore the roadmap warns about (Risk 7).
+0.7.2's analysis line stays read-only too: the panel decides review items and
+edits task sessions, not analysis settings.
 
 **Deliverables.**
 
-- `POST /api/dayflow/review` — body `{ id, decision: 'keep' | 'discard' |
-  'accept' | 'reject', note?, forever?, confirm: true }`; it calls the same
-  `decideReviewItem` store function as `journal_review` and returns the updated
-  item plus whatever it created (a task id, a memory id). The `forever` flag is
-  the second, deliberate action; a plain discard stays soft.
-- `POST /api/dayflow/tasks/attach` and `POST /api/dayflow/tasks/detach` — a
-  session is a `(task, day)` pair; attach writes one, detach removes it, both
-  return the updated task. No route re-implements the store rules.
-- `src/client/insights.tsx` — on each review item: Discard as the primary
-  action, "Don't suggest again" as the secondary confirm, Keep/Accept/Reject
-  according to kind; on a task's scanned days: link and unlink. Loading, error,
-  and empty states in both locales, reusing the existing inline-add pattern.
-- `src/panel-contract.ts` — route constants and request/response payload types;
-  `src/panel.ts` — handlers over the store functions.
-- Docs: `docs/PANEL.md` (new routes and interactions, one entry preserved),
-  `CHANGELOG.md`.
+- `src/review-actions.ts` — one shared composer,
+  `applyReviewDecision(db, id, decision, { forever?, note? })`, returning
+  `{ item, task?, memory? }`: an accepted `task_proposal` creates the long task
+  and a kept `distillation`/`loop` writes the dated memory claim, in one write
+  connection. `src/tools/review.ts` now calls it instead of inlining the
+  composition, and the new panel route calls the same function, so the tool and
+  the panel cannot drift. The decision rules themselves stay in
+  `decideReviewItem`; this module composes, it does not re-implement.
+- `POST /api/dayflow/review` — body `{ id: number, decision: 'keep' | 'accept' |
+  'discard' | 'reject', note?: string, forever?: boolean, confirm: true }` →
+  `{ review: { item, task?, memory? } }`. `confirm: true` is required (the click
+  is the user's explicit agreement); `forever` is only valid with
+  `discard`/`reject` and turns the decision into a hard suppression, while a
+  plain discard/reject stays soft. An unknown id is **404** (`not_found`); an
+  already-decided item, a kind-incompatible decision, or a missing confirm is
+  **400** (`invalid_input`), and the item is never silently overwritten.
+- `POST /api/dayflow/tasks/attach` — body `{ id: number, day: 'YYYY-MM-DD',
+  minutes: number, note?: string, activity_ids?: number[], confirm: true }` →
+  `{ task }`. The route writes one `(task, day)` session through
+  `attachTaskSession`; attaching the same day again replaces that day (never
+  doubles it), and the return is the task with its sessions.
+- `POST /api/dayflow/tasks/detach` — body `{ id: number, day: 'YYYY-MM-DD',
+  confirm: true }` → `{ task }`. It removes that day from the task's progress
+  through `detachTaskSession` and **never** deletes the day's activities; the
+  return is the task with its remaining sessions.
+- **Attach vs. the existing link route.** `POST /api/dayflow/tasks/link` has
+  shipped since 0.7.0 as the bulk post-add scan submit
+  (`{ task_id, days: [{ day, minutes?, activity_ids? }] }`) and is **unchanged**
+  in 0.7.3. The new attach route is the single-session, confirm-gated form the
+  interactive list uses; both call `attachTaskSession`, so the store rule lives
+  in one place. Two write shapes is duplication only at the wire level, and it is
+  deliberate: the bulk route keeps the shipped add-task card working, while the
+  panel's per-day actions are one confirmed write each. A later patch may retire
+  `link` once nothing depends on it.
+- `src/panel-contract.ts` — the three route constants, the request/response
+  types, and one additive insights-payload field: `PanelTaskSummary` gains
+  `sessions?: Array<{ day, minutes }>` so the client can draw one Unlink per
+  already-attached day. `src/panel.ts` registers the three handlers inside the
+  existing `ctx.inject(['connection'])` block, validates the untrusted body (id,
+  decision set, day key, minutes, note/forever types, confirm), and runs each
+  write through `withJournalWrite`; errors map through the existing
+  `failureResponse` (400/404/503/500). No new entry point.
+- `src/client/insights.tsx` (with `data.ts`, `locale.ts`, `styles.ts`) — each
+  review item gets an action row by kind: **Accept** (primary) for
+  `task_proposal` and `improvement`, **Keep** (primary) for `distillation` and
+  `loop`, with **Discard** and the secondary **Don't suggest again** beside it.
+  "Don't suggest again" is a deliberate second step: the row turns into an
+  inline Confirm / Cancel line (no browser `confirm`), and only Confirm sends
+  `forever: true`. Every button disables and shows working text while its request
+  is in flight; success refreshes the insights payload, failure keeps the item
+  and shows the existing error line. For tasks, every day in `sessions` gets an
+  Unlink action that calls detach and refreshes; the existing scan → link flow
+  from the add-task card stays as it is (no new attach form). Loading, error, and
+  empty states exist in EN and ZH; the panel still registers one tab, one body,
+  and one header toggle.
+- Docs (the 0.7.3 docs track): `docs/PANEL.md` (routes 14 → 17, 8 GET + 9 POST,
+  and the decisions/Unlink interaction), `docs/QUICK_CAPTURE.md` (deciding from
+  the panel), `docs/ARCHITECTURE.md` (`review-actions` in the write path),
+  README/README.zh (one line), `CHANGELOG.md` `[Unreleased]`.
 
 **Tests and acceptance.**
 
-1. Route tests: a valid decision changes the item's status; a missing
-   `confirm: true` is rejected; `forever: true` hard-suppresses and the
-   fingerprint is not re-proposed; a soft discard leaves the item re-proposable;
-   an unknown id is 404; an already-decided item is refused rather than
-   silently overwritten.
-2. Parity: deciding through the route produces the same store state as the
-   `journal_review` tool path (asserted against the same fixture).
-3. Attach/detach round-trips and survives a reload of the insights payload;
-   detaching does not delete the day's activities.
-4. Client: new labels render in EN and ZH, the disabled/loading state is
-   covered by the existing format/client tests, and the panel still registers
-   one entry with one button and one tab (existing assertions).
-5. The exact route-set assertion grows by exactly the three new POST paths.
-6. `npm test`, typecheck, `check:package`, and the client bundle test green.
+1. Shared composer (`tests/review-actions.test.ts`): accepting a
+   `task_proposal` writes the task, keeping a `distillation`/`loop` writes the
+   memory claim, a discard/reject only updates the item, a `forever` on a
+   positive decision is refused, and the item + task + claim land atomically or
+   not at all.
+2. Review route: a valid decision changes the item's status and returns what it
+   wrote; a missing or false `confirm` is 400 and changes nothing; `forever:
+   true` hard-suppresses and the same fingerprint is not re-proposed; a soft
+   discard stays re-proposable with materially new evidence; an unknown id is
+   404; an already-decided item is 400, not overwritten; a kind-incompatible
+   decision is 400.
+3. Parity: deciding through the route and through the `journal_review` tool
+   handler on the same fixture leaves the same store state for item, task, and
+   memory — or, where a full tool context is impractical, the route is asserted
+   equal to `applyReviewDecision` and the tool handler is asserted to call the
+   same composer, so no second copy of the rule can appear.
+4. Attach/detach: attach writes one session and survives a reload of the
+   insights payload; attaching the same day again replaces it; detach removes
+   it; detaching does not delete the day's activities; a bad day key, a missing
+   minutes, or a missing confirm is 400.
+5. Route set: the exact assertion grows from 14 to **17** (8 GET + 9 POST,
+   adding `PANEL_REVIEW_DECIDE_PATH`, `PANEL_TASK_ATTACH_PATH`, and
+   `PANEL_TASK_DETACH_PATH`); the single-entry assertions (one tab, one header
+   button, one body) are unchanged.
+6. Client: every new label renders in EN and ZH with the locale-parity test,
+   the working/disabled and confirm steps are covered by the format/client
+   tests, and the client bundle builds with no new dependency.
+7. `npm test` (408 cases at 0.7.2 plus the new suites), typecheck,
+   `check:package` green; no schema migration, no model call, no new host peer.
 
 **Dependencies and owner decisions.** D6: whether the panel also gets a
-suppression-management surface (clearing a hard suppression) or stays agent-only
-for now. Safe default: agent-only in 0.7.x; the panel only decides items.
+suppression-management surface (clearing a hard suppression). Safe default and
+the decision for 0.7.x: **agent-only** — the panel only decides items, and
+clearing a hard suppression stays the `journal_review` `unsuppress` action, so no
+suppression list is added to the panel. Nothing here needs D1/D2/D3: no model is
+called and no analysis setting is exposed. No schema change, so rollback is a
+revert plus config (R8).
 
-**Risks and rollback.** The danger is a destructive UI without a confirm step;
-hard suppression is the secondary action with an explicit confirm, and no panel
-path deletes rows. Duplicated decision logic would drift from the tool, so the
-route is a thin wrapper and a parity test holds it. Rollback: revert the tag;
-the routes are additive and no schema changes, so a downgrade only loses the
+**Risks and rollback.** The danger is a destructive UI without a confirm step:
+hard suppression is a secondary action with its own inline confirm, every panel
+write carries `confirm: true`, and no panel path deletes a row (detach removes a
+session, never activities). Duplicated decision logic would drift from the tool,
+which is why the composer is shared and a parity test holds it. Double-submit is
+mitigated by disabling the buttons while a request is in flight and by the store
+replacing, not accumulating, a day's session. Rollback: revert the tag; the
+routes are additive and no schema changes, so a downgrade only loses the
 buttons.
 
-**Deferred from 0.7.2 (candidate here).** A **skipped-window catch-up** policy is
-the first candidate to plan in this window: when consent, an unset
-provider/model, or a cap is fixed, requeue the affected `skipped` windows for a
-bounded range (today and the previous day are enough for dogfooding), with a
-per-reason policy — transient configuration reasons yes, the attempts-cap
-`failed` rows and `budget` skips (a money decision, D3) only with an explicit
-owner choice. 0.7.2 deliberately does not do it (its section explains the cost),
-so adopting it here is either an **explicit second deliverable** of this patch
-(relaxing R1 on purpose) or a small patch of its own between 0.7.3 and 0.7.4;
-if neither is taken, it becomes 0.8.0 scope. The same window is where the two
-other analysis-ledger follow-ups fit, so one decision settles all three: the
-**token cap as a gate** (post-call check) and the **04:00 day tail** (one bounded
-extra run on the first tick after the boundary). The decision is taken when
-0.7.2 closes. Image admission is **not** a candidate here: pixels need a host
-peer and a vision contract and stay a 0.8.0 item.
+**Deferred from 0.7.2 — triaged, not included.** 0.7.3 stays **single-theme**:
+the three analysis-ledger follow-ups 0.7.2 left behind are deliberately **not**
+in this patch. The recommendation for where they go:
+
+- **Skipped-window catch-up** — when consent, an unset provider/model, or a cap
+  is fixed, requeue the affected `skipped` windows for a bounded range (today
+  plus the previous day is enough for dogfooding), with a per-reason policy
+  (transient configuration reasons yes; budget skips are a money decision under
+  D3; the attempts-cap `failed` rows stay non-runnable). Not in 0.7.3: it needs
+  a new state transition, a trigger policy, status fields, and tests — a state
+  machine, not a panel deliverable.
+- **The token cap as a gate** — a post-call check that stops a run when the day's
+  token budget is spent (usage arrives with the answer, so it cannot be a
+  pre-check like the call cap).
+- **The 04:00 day tail** — one bounded extra `run()` for the previous day on the
+  first tick after the boundary (or on start), so frames captured just before the
+  boundary are still analysed.
+
+Where they go next: candidates for **0.7.5** (only as an explicit second
+deliverable that relaxes R1, by owner decision) or **0.8.0**; the decision is
+taken **before 0.7.4 starts**, not inside 0.7.3. Rationale: each is a
+cost/state-machine decision (D3/D4 territory), and folding them into the first
+panel patch would make the diff a UI change plus a replay policy — unreviewable
+under R1 and unshippable under R5 without the cap answers. If the owner wants one
+early, the cheapest is the 04:00 tail (one bounded run, no new state, about half
+a day), then the token gate (about one day), then catch-up (about 1.5–2 days plus
+the D3/D4 decisions). Image admission is **not** a candidate here: pixels need a
+host peer and a vision contract and stay a 0.8.0 item.
 
 ### 0.7.4 — The day closes itself
 
@@ -648,7 +812,8 @@ days catch-up, 3 proposals/day at ≥ 0.6, the master `automation.enabled` switc
 line and the cost reporting read 0.7.2's status route and `analysis_jobs`
 ledger; the D4 catch-up here is about missed **close jobs**
 (`automation_runs`), not a replay of analysis-ledger skips (0.7.2's skipped
-decision, deferred to the 0.7.3 window).
+decision, re-triaged in the 0.7.3 window and now a 0.7.5/0.8.0 candidate decided
+before this patch starts).
 
 **Risks and rollback.** The queue becoming noise is mitigated by the existing
 cap, the confidence floor, soft/hard suppression, and a "nothing worth keeping
@@ -698,6 +863,16 @@ instead of building a second timer.
 or digest only. Digest-only drops the proposal path but still needs the same
 `'lint'` job value and so the same v10 rebuild.
 
+**Deferred analysis-ledger follow-ups (candidate, owner decision).** This is the
+recommended home if the owner wants the three analysis-ledger follow-ups before
+0.8.0: skipped-window catch-up (a bounded replay with a per-reason policy under
+D3/D4), the token cap as a post-call gate, and the 04:00 day tail (one bounded
+extra `run()` on the first tick after the boundary). Taking them here relaxes R1
+on purpose: 0.7.5 then has two themes (the scheduled lint and the ledger), so its
+acceptance list grows by the replay/gate/tail assertions and the diff is larger.
+The alternative — and the default — is leaving them to 0.8.0. Either way the
+decision is taken before 0.7.4 starts, as 0.7.3 records.
+
 **Risks and rollback.** A table rebuild is the one genuinely delicate step in
 the line: one transaction, a populated v9 fixture, row-count and CHECK
 assertions, and no data rewriting. Findings as noise is bounded by the weekly
@@ -714,9 +889,9 @@ cutover rehearsed without flipping any default.
 
 - GitHub Releases: `npm run release -- patch` already creates them; verify
   `v0.7.1`–`v0.7.6` each have a release whose notes are the matching CHANGELOG
-  section. `v0.7.1` is tagged but had **no** GitHub Release on 2026-11-27, so
-  this patch backfills it by hand; the same rule covers any tag cut with
-  `--no-release`.
+  section. `v0.7.1` and `v0.7.2` are tagged but had **no** GitHub Release on
+  2026-11-27, so this patch backfills both by hand; the same rule covers any tag
+  cut with `--no-release`.
 - npm: a publication checklist, not a publication. `npm pack --dry-run` and
   `check-package.mjs` already gate the file list; confirm the registry name is
   still free, that `docs/` (including this plan) ships in the tarball, and that
@@ -748,8 +923,8 @@ cutover rehearsed without flipping any default.
 **Acceptance.**
 
 1. Six tags exist (`v0.7.1`–`v0.7.6`), each with a GitHub Release whose notes
-   match its CHANGELOG section (the `v0.7.1` release is backfilled by hand);
-   the tag version guard passes on each.
+   match its CHANGELOG section (the `v0.7.1` and `v0.7.2` releases are backfilled
+   by hand); the tag version guard passes on each.
 2. `npm view dsh-plugin-dayflow version` either shows the authorized version or
    the README explicitly says the line is tagged and unpublished — no
    ambiguity.
@@ -826,7 +1001,8 @@ The draft order this plan was asked to evaluate was 0.7.1 analysis foundation,
    interleaving a second workstream into the same modules. It is also why the
    skipped-window catch-up policy is not in 0.7.2: that would add a second
    state-machine workstream (with a money decision behind it) to the first patch
-   that can spend real money, so it waits for the 0.7.3 window or 0.8.0.
+   that can spend real money. It was re-triaged in the 0.7.3 window and is now a
+   0.7.5/0.8.0 candidate (see 0.7.3), not hidden scope in the panel patch.
 3. **Lint after automation.** The lint pass reuses the 0.7.4 scheduler and
    `automation_runs`; building it earlier would mean a second timer and a second
    bookkeeping path, which this line exists to avoid.
@@ -847,7 +1023,7 @@ because a decision can be taken at that point instead of before it.
 | --- | --- | --- | --- | --- |
 | D1 | **Analysis destination**: `none`, `local`, or `cloud` | Whether screen frames may leave the machine, and whose model reads them | `none`: capture and the analysis code ship, no frame leaves the machine, the panel says why. Dogfooding a real day waits for the answer | 0.7.1 (code), 0.7.2 (real runs) |
 | D2 | **Provider and model** for analysis | Cost, latency, and which vendor sees the frames | No implicit host default: `analysis.provider` + `analysis.model` must be set explicitly; empty means "not configured" and jobs are `skipped`. 0.7.1 shipped exactly this and 0.7.2's adapter sends the configured pair, so the decision is settled unless the owner wants host defaults | 0.7.1 (settled) |
-| D3 | **Daily budget**: calls and tokens | A runaway loop is a bill, not a bug | 120 calls / 200k tokens per day, shown in status and read from the jobs ledger; the call cap has been a gate since 0.7.1, 0.7.2 surfaces both numbers, and the token cap becomes a gate in the 0.7.3 window | 0.7.2 |
+| D3 | **Daily budget**: calls and tokens | A runaway loop is a bill, not a bug | 120 calls / 200k tokens per day, shown in status and read from the jobs ledger; the call cap has been a gate since 0.7.1, 0.7.2 surfaces both numbers, and the token cap is still reported-only after the 0.7.3 window (a post-call gate is a 0.7.5/0.8.0 candidate) | 0.7.2 |
 | D4 | **Catch-up window** after the machine was off | Closing ten missed days at once is noise and cost | At most the last two days; older days are marked `skipped`, never fabricated | 0.7.4 |
 | D5 | **Frame retention** after analysis | Debuggability versus leaving screenshots on disk | `keepFramesDays: 0` deletes a frame after its successful analysis; 1–7 days is the debugging alternative | 0.7.1 |
 | D6 | **Suppression management surface** | A hard-suppressed idea must be clearable somewhere | Agent-only in 0.7.x (`journal_review` unsuppress); a panel list is a later patch | 0.7.3 |
@@ -855,13 +1031,16 @@ because a decision can be taken at that point instead of before it.
 | D8 | **Lint finding destination** | A finding is only useful if it is seen, and only trustworthy if it is not auto-"fixed" | Weekly digest plus at most one proposal per claim per week; no automatic supersede or forget | 0.7.5 |
 | D9 | **Automatic memory writes** | The product rule is "the agent may notice, only the user may decide" | Automation proposes into the queue; claims are written only through the existing kept-item promotion path | 0.7.4 |
 
-**Where the decisions stand after 0.7.1.** D2 is settled as the explicit
+**Where the decisions stand after 0.7.2.** D2 is settled as the explicit
 provider/model rule above; D5's landed behaviour is delete-after-success at
 `keepFramesDays: 0`, with the engine sweep as the fallback; D1 remains
 unanswered, which keeps the line inert by default (`consent: none`, capture off).
-D3's caps are configured and the call cap is enforced; 0.7.2 makes the ledger
-visible (both call and token numbers) without turning the token number into a
-gate yet — that needs a post-call check and is a 0.7.3-window candidate.
+D3's caps are configured and the call cap is enforced; 0.7.2 made the ledger
+visible (both call and token numbers) and left the token number reported-only.
+The 0.7.3 window kept that choice, so a post-call token gate is a 0.7.5/0.8.0
+candidate. D6's safe default is what 0.7.3 ships: the panel decides items, and a
+hard suppression is cleared only through the agent's `journal_review`
+`unsuppress` action — there is no panel suppression list in 0.7.x.
 
 Two constraints that are not decisions: the privacy limitation copy from
 Roadmap 3.6 (a paused app's window is skipped, but nothing can tell what is

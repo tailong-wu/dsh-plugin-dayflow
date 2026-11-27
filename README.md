@@ -16,7 +16,7 @@ journal imported from it once, and nothing leaves the Mac.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.7.2` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
+> **Status:** `v0.7.3` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
 > README describes — install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
@@ -41,7 +41,8 @@ stayed. That is the whole dataset.
 - **8 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`,
   and `reflection`.
 - **An optional Web panel**: month segmented rings, week swim lanes, a day view, and a **Journal insights**
-  view — one header button, one tab, and 14 host Fetch routes. Details → [docs/PANEL.md](docs/PANEL.md).
+  view — one header button, one tab, and 17 host Fetch routes. Review items are decided and task sessions
+  linked or unlinked in the panel, with no agent turn. Details → [docs/PANEL.md](docs/PANEL.md).
 - **Quick capture**: three slash commands (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`), inline
   add rows in the insights view, and a post-add history scan → [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
 - **A budgeted memory context**: active long tasks and recent dated claims are injected under a hard
@@ -128,15 +129,17 @@ entry point off entirely.
 
 - Open it from the **Dayflow** button in the conversation header; it collapses to an icon
   when the header runs out of room. Everything is views inside one panel tab.
-- **13 host Fetch routes** back the views: month, week, day, insights, the enablement
-  probe, and icons, plus the three inline adds, the history scan and link, and capture
-  status and pause. The panel never touches the database itself.
+- **17 host Fetch routes** back the views: month, week, day, insights, the enablement
+  probe, and icons, plus the three inline adds, the history scan and link, the review
+  decision and task-session attach/detach, capture status and pause, and the analysis
+  status line. The panel never touches the database itself.
 - **A day's state is never faked.** A day with no captures draws a faint dotted track, a
   captured day with nothing to show draws a plain track, queued analysis pulses amber, and
   a recorded day draws its arcs; missing data is not zero activity.
 - **Journal insights** is the third view: active long tasks with progress and stalled
   marks, the open review queue, recent dated memory claims, stored reflections, and one
-  compact capture line. It is read-only apart from its inline add rows.
+  compact capture line. The tasks, memory, and reflections blocks take a line of your own,
+  and review items are decided in place while task sessions can be unlinked — no agent turn.
 
 ![One day open in the panel](docs/day.en.png)
 
@@ -153,13 +156,13 @@ default. Import a Dayflow database once with `journal_import`, then point the pr
 tools and panel keep their payloads.
 
 - **Review queue**: distillations, recurring loops, improvements, and task proposals — the
-  agent proposes, the user decides.
+  agent proposes, the user decides, in the panel or through the tools.
 - **Long tasks** with dated sessions, stalled marks, and an explainable `suggest`, plus
   **dated memory** claims, day/week **reflections**, and a budgeted context injected into
   the system prompt.
 - The insights view's history **scan** (last 14 days) followed by a **link** is the
   user-facing half of the same evidence trail: it previews, then writes only the days the
-  user confirms.
+  user confirms, and a linked day can be **unlinked** again from the panel.
 
 Read the store, backends, and write paths in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
 the quick-capture shortcuts in [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).

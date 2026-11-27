@@ -290,6 +290,45 @@ test('the insights copy exists in both dictionaries', () => {
   assert.equal(zhT('activeTasksCount', { count: 3 }), '3 个进行中');
 });
 
+test('the review decision and session unlink copy exists in both dictionaries', () => {
+  // Every label the interactive review queue and the task session row render;
+  // the two dictionaries share the key set, so a missing language fails here.
+  const fixed = [
+    'accept',
+    'keep',
+    'discard',
+    'dontSuggestAgain',
+    'foreverConfirm',
+    'confirm',
+    'cancel',
+    'working',
+    'actionFailed',
+    'unlink',
+    'unlinkFailed',
+    'sessionsLabel',
+  ];
+  for (const key of fixed) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+    assert.doesNotMatch(EN[key] ?? '', /\{\w+\}/, `English copy for ${key} has no placeholder`);
+    assert.doesNotMatch(ZH[key] ?? '', /\{\w+\}/, `Chinese copy for ${key} has no placeholder`);
+  }
+  // The per-day unlink label names the date, so both dictionaries must carry
+  // the same interpolation point and resolve it.
+  assert.match(EN['unlinkDay'] ?? '', /\{date\}/);
+  assert.match(ZH['unlinkDay'] ?? '', /\{date\}/);
+  assert.equal(enT('unlinkDay', { date: 'Oct 19' }), 'Unlink Oct 19');
+  assert.equal(zhT('unlinkDay', { date: '10月19日' }), '取消关联 10月19日');
+  // The kind's forward decision keeps the store's two vocabularies apart: a
+  // distillation is Kept, a task proposal is Accepted, and both label rows.
+  assert.equal(enT('keep'), 'Keep');
+  assert.equal(zhT('keep'), '保留');
+  assert.equal(enT('accept'), 'Accept');
+  assert.equal(zhT('accept'), '接受');
+  assert.equal(enT('working'), 'Working…');
+  assert.equal(zhT('working'), '正在处理…');
+});
+
 test('the analysis status copy exists in both dictionaries', () => {
   const keys = [
     'analysisOff',

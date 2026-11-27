@@ -69,7 +69,9 @@ card placed at its time and tinted with its category colour.
   day/week reflections. It is a view inside the panel, not a second tab or
   button, so the plugin keeps one entry. The task, memory, and reflection blocks
   also take an inline add, and a newly added task can be offered a history scan
-  (see [Quick capture](QUICK_CAPTURE.md)); the review queue does not.
+  (see [Quick capture](QUICK_CAPTURE.md)); the review queue has no add row — its
+  items are the agent's proposals — but each one can be decided in place, and a
+  task session can be unlinked (see below).
 - Above those sections sit two quiet status lines. The first is the native
   capture strip (permission, today's frame count, Pause/Resume). The second
   reports the **analysis worker** as read-only: off, waiting for consent, a
@@ -83,6 +85,38 @@ card placed at its time and tinted with its category colour.
   consented in the profile — so the panel keeps its single entry point and adds
   no second control surface.
 
+### Decisions in the panel
+
+- **The review queue is decided in place.** Each waiting item carries an inline
+  decision row, matched to its kind: a **distillation** or **loop** offers
+  **Keep** (the primary action) and **Discard**; an **improvement** or **task
+  proposal** offers **Accept** (primary) and the same **Discard** button, which
+  the store records as the kind's negative decision (`discard` or `reject`).
+  Accepting a task proposal creates the long task in the same act, and keeping
+  a distillation or loop writes the dated memory claim — the panel calls the
+  same decision module as `journal_review`, so a click and a tool call leave the
+  store in the same state.
+- **Don't suggest again asks twice.** The item's row asks one inline question —
+  **Hide this for good?** with **Confirm** / **Cancel** (no browser dialog);
+  only **Confirm** sends `forever: true` and stores a *hard* suppression, after
+  which that proposal fingerprint is dropped on sight. A plain **Discard** is
+  *soft*: the agent may propose the same idea again only when the evidence is
+  materially new — a different source day, a confidence jump, or more
+  occurrences. Clearing a hard suppression stays agent-only in 0.7.x (the
+  `journal_review` unsuppress action), so the panel deliberately has no
+  suppression-management surface.
+- **Task sessions can be unlinked.** The history scan still previews, and
+  **Link** attaches the confirmed days; in the task row each linked day sits
+  under **Linked** with its own **Unlink**, which removes that day's session and
+  leaves the day's recorded activities untouched.
+- **States are honest.** While a decision is in flight its row disables the
+  buttons and says it is working; a failed decision or unlink shows the error
+  inline and leaves the row in place; an empty queue keeps its quiet "no items
+  waiting" line. The new action, confirmation, and error copy is in both
+  languages.
+- **Nothing else moved.** Deciding is still the same **Journal insights** view:
+  no schema change, no model call, no second tab, and no new header button.
+
 ## Panel routes and icons
 
 - The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`,
@@ -92,12 +126,31 @@ card placed at its time and tinted with its category colour.
   `POST /api/dayflow/tasks`, `POST /api/dayflow/memory`, and
   `POST /api/dayflow/reflections` on the same bridge, and the post-add history
   scan and its link submit `POST /api/dayflow/tasks/scan` and
-  `POST /api/dayflow/tasks/link`. The native capture line adds
-  `GET /api/dayflow/capture/status` and `POST /api/dayflow/capture/pause`, and
-  the analysis line adds `GET /api/dayflow/analysis/status` (see
+  `POST /api/dayflow/tasks/link`. The newer writes are `POST /api/dayflow/review`
+  (a review decision) and `POST /api/dayflow/tasks/attach` /
+  `POST /api/dayflow/tasks/detach` (one day of a task's sessions). The
+  native capture line adds `GET /api/dayflow/capture/status` and
+  `POST /api/dayflow/capture/pause`, and the analysis line adds
+  `GET /api/dayflow/analysis/status` (see
   [Native capture](NATIVE_CAPTURE.md)). Together with the icon route
-  below, those are the panel's host Fetch routes — fourteen in all, eight `GET`
-  and six `POST`. It never touches the database itself.
+  below, those are the panel's host Fetch routes — seventeen in all, eight `GET`
+  and nine `POST`. It never touches the database itself.
+- The three new writes require `confirm: true` in the body — the same guard the
+  `journal_review` tool uses — and answer with the store's own payload:
+  - `POST /api/dayflow/review` takes
+    `{id, decision: keep | accept | discard | reject, note?, forever?, confirm: true}`
+    and answers `{review: {item, task?, memory?}}`; `task` is present when
+    accepting a task proposal created it, and `memory` when keeping a
+    distillation or loop wrote the claim. An unknown id answers `404`; a
+    malformed body or an item that is already decided answers `400`.
+  - `POST /api/dayflow/tasks/attach` takes
+    `{id, day, minutes, note?, activity_ids?, confirm: true}` — `minutes` is a
+    non-negative whole number — and answers `{task}`. Attaching the same day
+    again replaces that day's session instead of recording a second one.
+  - `POST /api/dayflow/tasks/detach` takes `{id, day, confirm: true}` and answers
+    `{task}`; the detached day's recorded activities stay in the journal. An
+    unknown task id answers `404`, and detaching a day that was never attached
+    is a no-op that still answers with the current task.
 - Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
   `favicon.ico` per domain on first use and caches it under
   `$DSH_HOME/dayflow-icons`. That is the plugin's only outbound request: it

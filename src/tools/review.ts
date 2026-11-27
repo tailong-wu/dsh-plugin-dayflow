@@ -13,9 +13,9 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools';
 import { DayflowError } from '../errors.js';
 import { renderReview } from '../format.js';
 import { withJournal, withJournalWrite } from '../journal.js';
-import { createMemoryFromReviewItem } from '../memory.js';
-import type { MemoryClaimPayload } from '../memory.js';
-import { decideReviewItem, listReviewItems, proposeReviewItem, unsuppressReviewItem } from '../review.js';
+import { applyReviewDecision } from '../review-actions.js';
+import type { ReviewDecision } from '../review-actions.js';
+import { listReviewItems, proposeReviewItem, unsuppressReviewItem } from '../review.js';
 import type {
   ReviewItemPayload,
   ReviewKind,
@@ -24,13 +24,8 @@ import type {
   ReviewToolPayload,
   ReviewTrigger,
 } from '../review.js';
-import { createTaskFromReviewItem } from '../tasks.js';
-import type { LongTaskPayload } from '../tasks.js';
 import type { ToolRuntime } from './shared.js';
 import { jsonValue } from './shared.js';
-
-/** The decisions a keep-worthy kind accepts and the ones a task-like kind accepts. */
-type ReviewDecision = 'keep' | 'accept' | 'discard' | 'reject';
 
 /** The kind values, for parameter and error text. */
 const KIND_DESCRIPTION = "'distillation' | 'loop' | 'improvement' | 'task_proposal'";
@@ -224,38 +219,11 @@ export function reviewTools(runtime: ToolRuntime): ToolDefinition[] {
                 'A decision belongs to the user: get their explicit agreement first, then pass confirm: true. Nothing was changed.',
               );
             }
-            const decided = withJournalWrite(
-              runtime.config.journalPath,
-              (db): { item: ReviewItemPayload; task?: LongTaskPayload; memory?: MemoryClaimPayload } => {
-                const item = decideReviewItem(db, id, decision as ReviewDecision, {
-                  ...(args.forever === undefined ? {} : { forever: args.forever }),
-                  ...(args.note === undefined ? {} : { note: args.note }),
-                });
-                const outcome: {
-                  item: ReviewItemPayload;
-                  task?: LongTaskPayload;
-                  memory?: MemoryClaimPayload;
-                } = { item };
-                // Accepting a task proposal creates the task in the same write
-                // connection, so the decision and the task cannot diverge.
-                if (item.kind === 'task_proposal' && item.status === 'accepted') {
-                  outcome.task = createTaskFromReviewItem(db, item);
-                }
-                // A kept distillation or loop becomes a dated memory claim in the
-                // same write connection, so the user's keep and the memory it
-                // implies are one atomic act.
-                if (item.status === 'kept' && (item.kind === 'distillation' || item.kind === 'loop')) {
-                  outcome.memory = createMemoryFromReviewItem(db, {
-                    id: item.id,
-                    kind: item.kind,
-                    title: item.title,
-                    body: item.body,
-                    source_day: item.source_day,
-                    confidence: item.confidence,
-                  });
-                }
-                return outcome;
-              },
+            const decided = withJournalWrite(runtime.config.journalPath, (db) =>
+              applyReviewDecision(db, id, decision as ReviewDecision, {
+                ...(args.forever === undefined ? {} : { forever: args.forever }),
+                ...(args.note === undefined ? {} : { note: args.note }),
+              }),
             );
             const payload: ReviewToolPayload = {
               action: 'decide',

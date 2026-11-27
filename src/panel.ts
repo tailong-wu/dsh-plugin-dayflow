@@ -24,8 +24,17 @@ import { addMemoryClaim, listMemoryClaims } from './memory.js';
 import type { MemoryClaimPayload } from './memory.js';
 import { getReflection, listReflections, saveReflection } from './reflections.js';
 import type { ReflectionPayload } from './reflections.js';
+import { applyReviewDecision } from './review-actions.js';
+import type { ReviewDecision } from './review-actions.js';
 import { listReviewItems } from './review.js';
-import { attachTaskSession, createLongTask, getLongTask, listLongTasks, scanTaskHistory } from './tasks.js';
+import {
+  attachTaskSession,
+  createLongTask,
+  detachTaskSession,
+  getLongTask,
+  listLongTasks,
+  scanTaskHistory,
+} from './tasks.js';
 import type { LongTaskPayload, TaskHistoryDayInput } from './tasks.js';
 import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekWindowContaining } from './day.js';
 import { DayflowError, isDayflowError } from './errors.js';
@@ -40,7 +49,10 @@ import {
   PANEL_MEMORY_ADD_PATH,
   PANEL_MONTH_PATH,
   PANEL_REFLECTION_ADD_PATH,
+  PANEL_REVIEW_DECIDE_PATH,
   PANEL_TASK_ADD_PATH,
+  PANEL_TASK_ATTACH_PATH,
+  PANEL_TASK_DETACH_PATH,
   PANEL_TASK_LINK_PATH,
   PANEL_TASK_SCAN_PATH,
   PANEL_WEEK_PATH,
@@ -67,9 +79,15 @@ import type {
   PanelReflectionAddRequest,
   PanelReflectionAddResponse,
   PanelReflectionSummary,
+  PanelReviewDecisionRequest,
+  PanelReviewDecisionResponse,
   PanelReviewItem,
   PanelTaskAddRequest,
   PanelTaskAddResponse,
+  PanelTaskAttachRequest,
+  PanelTaskAttachResponse,
+  PanelTaskDetachRequest,
+  PanelTaskDetachResponse,
   PanelTaskLinkRequest,
   PanelTaskLinkResponse,
   PanelTaskScanRequest,
@@ -205,6 +223,12 @@ function taskSummary(task: LongTaskPayload): PanelTaskSummary {
   };
   if (task.last_session_day !== undefined) summary.last_session_day = task.last_session_day;
   if (task.target_date !== undefined) summary.target_date = task.target_date;
+  // The panel draws one Unlink action per already-attached day, so the summary
+  // carries the day-by-day sessions. A task with no session keeps the field off
+  // the wire, exactly like its other absent optional fields.
+  if (task.sessions !== undefined && task.sessions.length > 0) {
+    summary.sessions = task.sessions.map((session) => ({ day: session.day, minutes: session.minutes }));
+  }
   return summary;
 }
 
@@ -462,7 +486,11 @@ export function buildPanelInsights(runtime: ToolRuntime): PanelInsights {
   const empty: PanelInsights = { tasks: [], review: [], memory: [], reflections: [] };
   if (!existsSync(runtime.config.journalPath)) return empty;
   return withJournal(runtime.config.journalPath, (db) => ({
-    tasks: listLongTasks(db, { status: 'active', limit: 20 }).map(taskSummary),
+    // The list carries the day-by-day sessions too, so the panel can offer one
+    // Unlink per attached day; read each task back with its sessions.
+    tasks: listLongTasks(db, { status: 'active', limit: 20 })
+      .map((task) => getLongTask(db, task.id))
+      .map(taskSummary),
     review: listReviewItems(db, { status: 'proposed', limit: 20 }).map((item) => {
       const summary: PanelReviewItem = {
         id: item.id,
@@ -480,16 +508,90 @@ export function buildPanelInsights(runtime: ToolRuntime): PanelInsights {
 }
 
 /**
- * Read one positive task id from an untrusted JSON body.
- * @param value - the `task_id` field.
+ * Read one positive row id from an untrusted JSON body.
+ * @param value - the body's id field.
  * @param message - the invalid-input message for a missing or malformed id.
  * @returns the validated id.
  */
-function panelTaskId(value: unknown, message: string): number {
+function panelPositiveId(value: unknown, message: string): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
     throw new DayflowError(message, 'invalid_input');
   }
   return value;
+}
+
+/**
+ * Read one real `YYYY-MM-DD` day key from an untrusted JSON body.
+ * @param value - the body's day field.
+ * @param message - the invalid-input message for a missing or impossible day.
+ * @returns the validated day key.
+ */
+function panelDayKey(value: unknown, message: string): string {
+  const window = typeof value === 'string' ? dayWindowForKey(value) : undefined;
+  if (window === undefined || window.dayKey !== value) {
+    throw new DayflowError(message, 'invalid_input');
+  }
+  return window.dayKey;
+}
+
+/**
+ * Require the user's explicit confirmation in a panel write body.
+ *
+ * The panel's writes record the user's own decisions and work log, so every
+ * route demands `confirm: true`; a missing or false flag changes nothing.
+ * @param body - the parsed request body.
+ * @param action - what the route would have done, for the error text.
+ */
+function panelConfirm(body: { confirm?: unknown }, action: string): void {
+  if (body.confirm !== true) {
+    throw new DayflowError(
+      `A ${action} belongs to the user: send confirm: true once they have agreed. Nothing was changed.`,
+      'invalid_input',
+    );
+  }
+}
+
+/** The decisions the review route accepts; the store enforces kind compatibility. */
+const PANEL_REVIEW_DECISIONS: ReadonlySet<string> = new Set<ReviewDecision>([
+  'keep',
+  'accept',
+  'discard',
+  'reject',
+]);
+
+/**
+ * Read one review decision from an untrusted JSON body.
+ * @param value - the body's decision field.
+ * @returns the validated decision; kind compatibility is the store's rule.
+ */
+function panelReviewDecision(value: unknown): ReviewDecision {
+  if (typeof value !== 'string' || !PANEL_REVIEW_DECISIONS.has(value)) {
+    throw new DayflowError(
+      "A review decision must be one of 'keep', 'accept', 'discard', or 'reject'.",
+      'invalid_input',
+    );
+  }
+  return value as ReviewDecision;
+}
+
+/**
+ * Read one review decision's options, refusing a malformed note or forever flag.
+ * @param body - the parsed request body.
+ * @returns the options to pass to the shared decision composer.
+ */
+function panelReviewOptions(body: { note?: unknown; forever?: unknown }): { forever?: boolean; note?: string } {
+  const note = body.note;
+  if (note !== undefined && typeof note !== 'string') {
+    throw new DayflowError('A review decision note must be a string.', 'invalid_input');
+  }
+  const forever = body.forever;
+  if (forever !== undefined && typeof forever !== 'boolean') {
+    throw new DayflowError('A review decision "forever" flag must be a boolean.', 'invalid_input');
+  }
+  return {
+    ...(forever === undefined ? {} : { forever }),
+    ...(note === undefined ? {} : { note }),
+  };
 }
 
 /**
@@ -995,7 +1097,7 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime, options:
       fetch: async (request) => {
         try {
           const body = (await readJsonBody(request)) as Partial<PanelTaskScanRequest>;
-          const taskId = panelTaskId(body.task_id, 'A history scan needs a positive task id.');
+          const taskId = panelPositiveId(body.task_id, 'A history scan needs a positive task id.');
           const days = panelScanDays(body.days);
           return jsonResponse({ scan: panelTaskScan(runtime, taskId, days) } satisfies PanelTaskScanResponse);
         } catch (error) {
@@ -1010,7 +1112,7 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime, options:
       fetch: async (request) => {
         try {
           const body = (await readJsonBody(request)) as Partial<PanelTaskLinkRequest>;
-          const taskId = panelTaskId(body.task_id, 'A history link needs a positive task id.');
+          const taskId = panelPositiveId(body.task_id, 'A history link needs a positive task id.');
           const days = panelLinkDays(body.days);
           const task = withJournalWrite(runtime.config.journalPath, (db) => {
             for (const item of days) {
@@ -1026,6 +1128,91 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime, options:
             task: taskSummary(task),
             linked_days: days.map((item) => item.day),
           } satisfies PanelTaskLinkResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    // The three routes below are the panel's interactive insights: the user may
+    // decide a review item, and attach or detach one day of a long task, without
+    // an agent turn. Each is a user-owned write, so each demands confirm: true;
+    // the review decision reuses the same composer as the journal_review tool.
+    connection.fetch.register({
+      path: PANEL_REVIEW_DECIDE_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = (await readJsonBody(request)) as Partial<PanelReviewDecisionRequest>;
+          panelConfirm(body, 'review decision');
+          const id = panelPositiveId(body.id, 'A review decision needs a positive review item id.');
+          const decision = panelReviewDecision(body.decision);
+          const review = withJournalWrite(runtime.config.journalPath, (db) =>
+            applyReviewDecision(db, id, decision, panelReviewOptions(body)),
+          );
+          return jsonResponse({ review } satisfies PanelReviewDecisionResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    connection.fetch.register({
+      path: PANEL_TASK_ATTACH_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = (await readJsonBody(request)) as Partial<PanelTaskAttachRequest>;
+          panelConfirm(body, 'task session attach');
+          const id = panelPositiveId(body.id, 'A task session attach needs a positive task id.');
+          const day = panelDayKey(body.day, 'A task session attach needs a real YYYY-MM-DD day.');
+          const minutes = body.minutes;
+          if (typeof minutes !== 'number' || !Number.isSafeInteger(minutes) || minutes < 0) {
+            throw new DayflowError('A task session attach needs non-negative whole minutes.', 'invalid_input');
+          }
+          const note = body.note;
+          if (note !== undefined && typeof note !== 'string') {
+            throw new DayflowError('A task session note must be a string.', 'invalid_input');
+          }
+          const activityIds = body.activity_ids;
+          if (
+            activityIds !== undefined &&
+            (!Array.isArray(activityIds) ||
+              activityIds.some((entry) => !Number.isSafeInteger(entry) || entry < 0))
+          ) {
+            throw new DayflowError(
+              'A task session attach needs non-negative whole activity ids.',
+              'invalid_input',
+            );
+          }
+          const task = withJournalWrite(runtime.config.journalPath, (db) =>
+            attachTaskSession(db, id, {
+              day,
+              minutes,
+              ...(note === undefined ? {} : { note }),
+              ...(activityIds === undefined ? {} : { activity_ids: activityIds }),
+            }),
+          );
+          return jsonResponse({ task } satisfies PanelTaskAttachResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    connection.fetch.register({
+      path: PANEL_TASK_DETACH_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        try {
+          const body = (await readJsonBody(request)) as Partial<PanelTaskDetachRequest>;
+          panelConfirm(body, 'task session detach');
+          const id = panelPositiveId(body.id, 'A task session detach needs a positive task id.');
+          const day = panelDayKey(body.day, 'A task session detach needs a real YYYY-MM-DD day.');
+          const task = withJournalWrite(runtime.config.journalPath, (db) =>
+            detachTaskSession(db, id, day),
+          );
+          return jsonResponse({ task } satisfies PanelTaskDetachResponse);
         } catch (error) {
           return failureResponse(error);
         }

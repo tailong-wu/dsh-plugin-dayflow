@@ -23,17 +23,29 @@
  * the owned journal directly and refreshes the page on success. Adding a task
  * then offers an optional history scan: the panel previews the recent days whose
  * activity matches the task and links only the days the user confirms, so the
- * create flow stays one step while the evidence stays the user's call. The
- * review queue stays read-only because its items are agent proposals the user
- * decides on.
+ * create flow stays one step while the evidence stays the user's call.
+ *
+ * The review queue is the one surface where the user decides: every agent
+ * proposal carries its kind's forward decision (Keep for a distillation or a
+ * loop, Accept for an improvement or a task proposal), a plain discard, and a
+ * restrained "don't suggest again" that asks for one inline confirmation before
+ * hard-suppressing the item. A long task's linked days each carry an Unlink,
+ * so a mis-scanned day can be detached without opening a second view; attaching
+ * still happens only through the history scan's own Link button.
  * @module dsh-plugin-dayflow/client/insights
  */
 
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
-import type { PanelCaptureStatus, PanelInsights, PanelTaskScanResponse, PanelTaskSummary } from '../panel-contract.js';
-import type { AnalysisStatusSummary } from './data.js';
+import type {
+  PanelCaptureStatus,
+  PanelInsights,
+  PanelReviewItem,
+  PanelTaskScanResponse,
+  PanelTaskSummary,
+} from '../panel-contract.js';
+import type { AnalysisStatusSummary, ReviewDecision } from './data.js';
 import {
   addMemory,
   addReflection,
@@ -41,6 +53,8 @@ import {
   fetchAnalysisStatus,
   fetchCaptureStatus,
   linkTaskHistory,
+  postReviewDecision,
+  postTaskDetach,
   scanTaskHistory,
   setCapturePaused,
 } from './data.js';
@@ -145,6 +159,38 @@ function addFailureMessage(cause: unknown, t: Translate): string {
 }
 
 /**
+ * Make a failed decision or unlink readable in the row that raised it.
+ *
+ * The row keeps its buttons, so the message names the action and then the
+ * transport or server detail; an empty failure falls back to the action copy
+ * rather than an empty line.
+ * @param cause - the rejected write.
+ * @param action - the localized action that failed.
+ * @param t - the bound translator.
+ * @returns the message the row shows.
+ */
+function actionFailureMessage(cause: unknown, action: string, t: Translate): string {
+  const detail = humanize(rawMessage(cause).trim(), t);
+  return detail === '' ? action : `${action} · ${detail}`;
+}
+
+/**
+ * The two decisions a review item's kind allows.
+ *
+ * The store decides distillations and loops with keep/discard and improvements
+ * and task proposals with accept/reject; the panel's forward button is the
+ * positive one, and both the plain discard and the permanent "don't suggest
+ * again" use the negative one.
+ * @param kind - the review item's kind.
+ * @returns the positive and the negative decision for that kind.
+ */
+function reviewDecisions(kind: string): { forward: ReviewDecision; negative: ReviewDecision; forwardLabel: 'keep' | 'accept' } {
+  return kind === 'distillation' || kind === 'loop'
+    ? { forward: 'keep', negative: 'discard', forwardLabel: 'keep' }
+    : { forward: 'accept', negative: 'reject', forwardLabel: 'accept' };
+}
+
+/**
  * Shorten a call or token count for the status line's budget summary.
  *
  * The line sits on one compact row, so 200000 reads as "200k" and 1200000 as
@@ -241,6 +287,176 @@ function AddRow(props: {
         </button>
       </form>
       {error !== '' && <p className="dfp-insights-add-error">{error}</p>}
+    </>
+  );
+}
+
+/**
+ * One still-open review item with the decisions its kind allows.
+ *
+ * The row owns its inline confirmation, its busy flag, and its error line, so a
+ * failed decision never disturbs the rest of the queue. "Don't suggest again"
+ * swaps the action row for one confirm/cancel question — no browser dialog —
+ * and only the confirmed write carries `forever`, which hard-suppresses the
+ * item for good.
+ * @param props - the item, the translator, and the parent's writer.
+ * @returns the item row in its decision state.
+ */
+function ReviewRow(props: {
+  item: PanelReviewItem;
+  t: Translate;
+  onDecide: (item: PanelReviewItem, decision: ReviewDecision, forever: boolean) => Promise<void>;
+}): ReactNode {
+  const { item, t, onDecide } = props;
+  const { forward, negative, forwardLabel } = reviewDecisions(item.kind);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const run = (decision: ReviewDecision, forever: boolean): void => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    void onDecide(item, decision, forever).then(
+      () => {
+        // The parent removes the item and refreshes, so this row unmounts; the
+        // state reset only matters when a slow refresh keeps it mounted.
+        setBusy(false);
+        setConfirming(false);
+      },
+      (cause: unknown) => {
+        setBusy(false);
+        setError(actionFailureMessage(cause, t('actionFailed'), t));
+      },
+    );
+  };
+
+  return (
+    <li className="dfp-insights-row">
+      <div className="dfp-insights-row-head">
+        <span className={`dfp-insights-badge is-${item.kind}`}>{item.kind}</span>
+        <span className="dfp-insights-row-title">{item.title}</span>
+      </div>
+      <div className="dfp-insights-meta">
+        <span>
+          {t('confidenceLabel')} {formatShare(item.confidence)}
+        </span>
+        {item.source_day !== undefined && item.source_day !== '' && (
+          <>
+            <Sep />
+            <span className="dfp-insights-date">{shortDate(item.source_day, t)}</span>
+          </>
+        )}
+      </div>
+      {confirming ? (
+        <div className="dfp-insights-confirm">
+          <span className="dfp-insights-confirm-text">{t('foreverConfirm')}</span>
+          <button
+            type="button"
+            className="dfp-insights-action is-confirm"
+            disabled={busy}
+            onClick={() => run(negative, true)}
+          >
+            {busy ? t('working') : t('confirm')}
+          </button>
+          <button
+            type="button"
+            className="dfp-insights-action"
+            disabled={busy}
+            onClick={() => {
+              setConfirming(false);
+              setError('');
+            }}
+          >
+            {t('cancel')}
+          </button>
+        </div>
+      ) : (
+        <div className="dfp-insights-actions">
+          <button
+            type="button"
+            className="dfp-insights-action is-primary"
+            disabled={busy}
+            onClick={() => run(forward, false)}
+          >
+            {t(forwardLabel)}
+          </button>
+          <button type="button" className="dfp-insights-action" disabled={busy} onClick={() => run(negative, false)}>
+            {t('discard')}
+          </button>
+          <button
+            type="button"
+            className="dfp-insights-action is-danger"
+            disabled={busy}
+            onClick={() => {
+              setConfirming(true);
+              setError('');
+            }}
+          >
+            {t('dontSuggestAgain')}
+          </button>
+          {busy && <span className="dfp-insights-working">{t('working')}</span>}
+        </div>
+      )}
+      {error !== '' && (
+        <p className="dfp-insights-action-error" role="status">
+          {error}
+        </p>
+      )}
+    </li>
+  );
+}
+
+/**
+ * The days a long task already carries, each with its Unlink.
+ *
+ * The chips come from the insights payload's per-task session list, so a day
+ * that was linked by the history scan (or by an agent) can be detached later
+ * from the task itself. Unlinking only says "this day should not count": the
+ * activities behind it are untouched.
+ * @param props - the task, the in-flight key, the inline error, the translator, and the writer.
+ * @returns the session row, or nothing when the task carries no day.
+ */
+function TaskSessions(props: {
+  task: PanelTaskSummary;
+  unlinking: string | undefined;
+  error: string;
+  t: Translate;
+  onUnlink: (task: PanelTaskSummary, day: string) => void;
+}): ReactNode {
+  const { task, unlinking, error, t, onUnlink } = props;
+  const sessions = task.sessions ?? [];
+  if (sessions.length === 0) return null;
+  return (
+    <>
+      <div className="dfp-insights-sessions">
+        <span>{t('sessionsLabel')}</span>
+        {sessions.map((session) => {
+          const key = `${task.id}:${session.day}`;
+          const busy = unlinking === key;
+          const date = shortDate(session.day, t);
+          return (
+            <span key={session.day} className="dfp-insights-session">
+              <span className="dfp-insights-date">{date}</span>
+              <button
+                type="button"
+                className="dfp-insights-session-unlink"
+                aria-label={t('unlinkDay', { date })}
+                title={t('unlinkDay', { date })}
+                disabled={unlinking !== undefined}
+                onClick={() => onUnlink(task, session.day)}
+              >
+                {busy ? t('working') : t('unlink')}
+              </button>
+            </span>
+          );
+        })}
+      </div>
+      {error !== '' && (
+        <p className="dfp-insights-session-error" role="status">
+          {error}
+        </p>
+      )}
     </>
   );
 }
@@ -591,6 +807,10 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   const [captureBusy, setCaptureBusy] = useState(false);
   const [captureError, setCaptureError] = useState('');
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatusSummary | undefined>(undefined);
+  // One review decision at a time, and one session unlink at a time: the item
+  // row disables its own buttons while its write is in flight.
+  const [unlinking, setUnlinking] = useState<string | undefined>(undefined);
+  const [unlinkError, setUnlinkError] = useState<{ taskId: number; message: string } | undefined>(undefined);
 
   useEffect(() => {
     if (typeof loadInsights !== 'function') {
@@ -722,6 +942,38 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
     );
   };
   const dismissCapture = (): void => setCapture(undefined);
+  // A decision is the user's own write: it lands on the host's review route and
+  // the row re-reads the page, so an accepted proposal's new task appears in the
+  // tasks section in the same pass. The item is dropped from the local list
+  // first so the row cannot be decided twice while the re-read is in flight.
+  const decideReview = async (item: PanelReviewItem, decision: ReviewDecision, forever: boolean): Promise<void> => {
+    await postReviewDecision(item.id, decision, forever ? { forever: true } : undefined);
+    setData((current) =>
+      current === undefined
+        ? current
+        : { ...current, review: current.review.filter((entry) => entry.id !== item.id) },
+    );
+    refresh();
+  };
+  // Detaching says one day should not count; the activities behind it stay. The
+  // write answers with the updated task, but the page still re-reads so the
+  // totals, the stall mark, and the section counts move together.
+  const unlinkSession = (task: PanelTaskSummary, day: string): void => {
+    const key = `${task.id}:${day}`;
+    if (unlinking !== undefined) return;
+    setUnlinking(key);
+    setUnlinkError(undefined);
+    void postTaskDetach(task.id, day).then(
+      () => {
+        setUnlinking(undefined);
+        refresh();
+      },
+      (cause: unknown) => {
+        setUnlinking(undefined);
+        setUnlinkError({ taskId: task.id, message: actionFailureMessage(cause, t('unlinkFailed'), t) });
+      },
+    );
+  };
   const submitMemory = async (text: string): Promise<void> => {
     await addMemory(text);
     refresh();
@@ -858,6 +1110,13 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
                   <span className="dfp-insights-progress" aria-hidden="true">
                     <span style={{ width: `${Math.max(6, Math.round((task.total_minutes / maxTaskMinutes) * 100))}%` }} />
                   </span>
+                  <TaskSessions
+                    task={task}
+                    unlinking={unlinking}
+                    error={unlinkError?.taskId === task.id ? unlinkError.message : ''}
+                    t={t}
+                    onUnlink={unlinkSession}
+                  />
                 </li>
               ))}
             </ul>
@@ -866,23 +1125,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
           <Section tone="review" title={t('reviewSection')} count={data.review.length} empty={t('noReviewItems')}>
             <ul className="dfp-insights-list">
               {data.review.map((item) => (
-                <li key={item.id} className="dfp-insights-row">
-                  <div className="dfp-insights-row-head">
-                    <span className={`dfp-insights-badge is-${item.kind}`}>{item.kind}</span>
-                    <span className="dfp-insights-row-title">{item.title}</span>
-                  </div>
-                  <div className="dfp-insights-meta">
-                    <span>
-                      {t('confidenceLabel')} {formatShare(item.confidence)}
-                    </span>
-                    {item.source_day !== undefined && item.source_day !== '' && (
-                      <>
-                        <Sep />
-                        <span className="dfp-insights-date">{shortDate(item.source_day, t)}</span>
-                      </>
-                    )}
-                  </div>
-                </li>
+                <ReviewRow key={item.id} item={item} t={t} onDecide={decideReview} />
               ))}
             </ul>
           </Section>

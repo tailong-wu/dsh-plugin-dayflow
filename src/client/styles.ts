@@ -1443,6 +1443,187 @@ export const PANEL_CSS = `
   line-height: 16px;
 }
 
+/* Review decisions and session unlinks.
+ *
+ * One quiet action row per review item: the kind's forward decision (Keep for
+ * a distillation/loop, Accept for an improvement/task proposal) is the tinted
+ * primary; Discard stays secondary; "Don't suggest again" is the restrained
+ * danger action and opens an inline confirm instead of a browser dialog. The
+ * row wraps rather than clips when the right Sidebar is docked narrow. */
+
+.dfp-insights-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.dfp-insights-action {
+  height: 23px;
+  padding: 0 9px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dfp-insights-action.is-primary {
+  border-color: color-mix(in srgb, var(--dfp-accent) 36%, var(--dsw-alias-border-l2));
+  background: color-mix(in srgb, var(--dfp-accent) 13%, transparent);
+  color: color-mix(in srgb, var(--dfp-accent) 82%, var(--dsw-alias-label-primary));
+  font-weight: 600;
+}
+
+.dfp-insights-action.is-danger {
+  color: color-mix(in srgb, var(--dsw-static-red-500) 78%, var(--dsw-alias-label-secondary));
+}
+
+.dfp-insights-action.is-confirm {
+  border-color: color-mix(in srgb, var(--dsw-static-red-500) 42%, var(--dsw-alias-border-l2));
+  background: color-mix(in srgb, var(--dsw-static-red-500) 12%, transparent);
+  color: color-mix(in srgb, var(--dsw-static-red-500) 82%, var(--dsw-alias-label-primary));
+  font-weight: 600;
+}
+
+.dfp-insights-action:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.dfp-insights-action.is-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dfp-accent) 22%, transparent);
+  color: color-mix(in srgb, var(--dfp-accent) 86%, var(--dsw-alias-label-primary));
+}
+
+.dfp-insights-action.is-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-static-red-500) 12%, transparent);
+  color: color-mix(in srgb, var(--dsw-static-red-500) 88%, var(--dsw-alias-label-primary));
+}
+
+.dfp-insights-action.is-confirm:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-static-red-500) 20%, transparent);
+}
+
+.dfp-insights-action:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: 1px;
+}
+
+.dfp-insights-action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dfp-insights-working {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dfp-insights-confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+  padding: 5px 8px;
+  border: 0.5px solid color-mix(in srgb, var(--dsw-static-red-500) 34%, var(--dsw-alias-border-l1));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dsw-static-red-500) 7%, transparent);
+}
+
+.dfp-insights-confirm-text {
+  flex: 1;
+  min-width: 116px;
+  color: color-mix(in srgb, var(--dsw-static-red-500) 78%, var(--dsw-alias-label-primary));
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dfp-insights-action-error {
+  margin: 0;
+  padding: 4px 0 0;
+  color: var(--dsw-static-amber-600);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/* The linked days under a long task: a day chip each with a quiet Unlink. */
+
+.dfp-insights-sessions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.dfp-insights-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dfp-insights-session-unlink {
+  height: 19px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 16px;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 2px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dfp-insights-session-unlink:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-static-red-500) 10%, transparent);
+  color: color-mix(in srgb, var(--dsw-static-red-500) 85%, var(--dsw-alias-label-primary));
+}
+
+.dfp-insights-session-unlink:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: 1px;
+}
+
+.dfp-insights-session-unlink:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dfp-insights-session-error {
+  margin: 3px 0 0;
+  color: var(--dsw-static-amber-600);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/* A docked sidebar leaves about 280px; the action row wraps instead of
+ * narrowing every button below a readable tap size. */
+@container (max-width: 300px) {
+  .dfp-insights-actions {
+    gap: 4px;
+  }
+
+  .dfp-insights-action {
+    flex: 1 1 auto;
+  }
+}
+
 /* The empty journal explains the view instead of showing one bare line. */
 
 .dfp-insights-intro {
