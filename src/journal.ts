@@ -20,7 +20,7 @@ import type { ResolvedConfig } from './config.js';
 import { defaultJournalPath } from './paths.js';
 
 /** Current owned-store schema version. Migrations are forward-only. */
-export const JOURNAL_SCHEMA_VERSION = 9;
+export const JOURNAL_SCHEMA_VERSION = 10;
 /** Default source id used by an import from a Dayflow database. */
 export const DAYFLOW_SOURCE_ID = 'dayflow';
 
@@ -530,6 +530,46 @@ const MIGRATION_9 = `
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (kind, period_key)
   );
+`;
+
+/**
+ * Migration 10 widens the automation ledger for the weekly memory lint pass and
+ * gives briefs a JSON payload.
+ *
+ * `automation_runs` carries its job names in a `CHECK`, and SQLite cannot alter
+ * a constraint in place, so the table is rebuilt: the new shape accepts `lint`
+ * as a third job; every existing row is copied with its id, lifecycle, payload,
+ * and timestamps; the old table is dropped, the rebuilt one renamed, and the
+ * `day` index recreated. The whole rebuild runs inside {@link migrateJournal}'s
+ * single transaction, so an interrupted upgrade leaves the v9 table untouched.
+ *
+ * `briefs` predates the memory-health digest, which is JSON that does not
+ * belong in the generated body alone; the added column is nullable, so every
+ * v9 brief keeps its row with a NULL payload. The column is added under a
+ * `tableHasColumn` guard (inside the same transaction) because a journal can
+ * already carry it when a later fixture rewinds a newer file to an older
+ * version; an unconditional `ALTER` would then fail with a duplicate column.
+ */
+const MIGRATION_10 = `
+  CREATE TABLE automation_runs_v10 (
+    id INTEGER PRIMARY KEY,
+    job TEXT NOT NULL CHECK (job IN ('day_close','week_close','lint')),
+    day TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending','running','complete','failed','skipped')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    payload_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (job, day)
+  );
+  INSERT INTO automation_runs_v10 (id, job, day, status, attempts, error, payload_json, created_at, updated_at)
+    SELECT id, job, day, status, attempts, error, payload_json, created_at, updated_at
+      FROM automation_runs;
+  DROP TABLE automation_runs;
+  ALTER TABLE automation_runs_v10 RENAME TO automation_runs;
+  CREATE INDEX IF NOT EXISTS automation_runs_day_idx ON automation_runs (day);
 `;
 
 /**
@@ -1072,6 +1112,16 @@ export function migrateJournal(db: DatabaseSync): number {
       db.exec(MIGRATION_9);
       db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(9);
       version = 9;
+    }
+    if (version < 10) {
+      db.exec(MIGRATION_10);
+      // Additive and guarded: a journal rewound from a newer schema can already
+      // carry the column, and adding it twice would abort the upgrade.
+      if (!tableHasColumn(db, 'briefs', 'payload_json')) {
+        db.exec('ALTER TABLE briefs ADD COLUMN payload_json TEXT');
+      }
+      db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(10);
+      version = 10;
     }
     db.exec('COMMIT');
     return version;

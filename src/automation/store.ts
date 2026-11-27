@@ -5,15 +5,17 @@
  * The scheduler's work is small and failure-tolerant, so it is recorded in two
  * tables rather than inferred from timestamps:
  *
- * - `automation_runs` holds one row per closing job. `(job, day)` is unique, so
- *   ensuring a job twice is idempotent instead of a duplicate; `status` is a
- *   lifecycle (`pending` → `running` → `complete` / `failed` / `skipped`), and
- *   `attempts` caps retries at {@link AUTOMATION_MAX_ATTEMPTS}. A failed run can
- *   be started again while it has attempts left; a run that used them stays
- *   failed. The payload of a successful run is stored as JSON.
+ * - `automation_runs` holds one row per scheduled job (the two closing jobs and
+ *   the weekly memory lint). `(job, day)` is unique, so ensuring a job twice is
+ *   idempotent instead of a duplicate; `status` is a lifecycle (`pending` →
+ *   `running` → `complete` / `failed` / `skipped`), and `attempts` caps retries
+ *   at {@link AUTOMATION_MAX_ATTEMPTS}. A failed run can be started again while
+ *   it has attempts left; a run that used them stays failed. The payload of a
+ *   successful run is stored as JSON.
  * - `briefs` holds the generated summary of one day or one week. `(kind,
  *   period_key)` is unique, so regenerating a period rewrites its title, body,
- *   model, and source while keeping the `id` and `created_at`.
+ *   model, optional JSON payload, and source while keeping the `id` and
+ *   `created_at`.
  *
  * This module only touches the database. It never calls a model, never reads the
  * configuration, and never decides whether automation is allowed — the scheduler
@@ -30,8 +32,8 @@ import type { DatabaseSync } from 'node:sqlite';
 import { dayWindowForKey } from '../day.js';
 import { DayflowError } from '../errors.js';
 
-/** The two scheduled closing jobs: one Dayflow day, or one Dayflow week. */
-export type AutomationJob = 'day_close' | 'week_close';
+/** The scheduled jobs: the two closing jobs and the weekly memory lint. */
+export type AutomationJob = 'day_close' | 'week_close' | 'lint';
 
 /** The lifecycle states of one automation run. */
 export type AutomationRunStatus = 'pending' | 'running' | 'complete' | 'failed' | 'skipped';
@@ -75,6 +77,8 @@ export interface BriefRecord {
   title: string;
   body: string;
   model?: string;
+  /** Optional structured data that goes with the body (the weekly memory digest). */
+  payload?: unknown;
   /** Where the brief came from; `native` for briefs this plugin wrote. */
   source_id: string;
   /** The importer-facing key of the source record. */
@@ -98,6 +102,8 @@ export interface UpsertBriefInput {
   title: string;
   body: string;
   model?: string;
+  /** Optional structured data stored as JSON; omitted clears an earlier payload. */
+  payload?: unknown;
   sourceKey: string;
 }
 
@@ -107,7 +113,7 @@ export interface ListBriefsOptions {
   limit?: number;
 }
 
-const JOBS: ReadonlySet<string> = new Set<AutomationJob>(['day_close', 'week_close']);
+const JOBS: ReadonlySet<string> = new Set<AutomationJob>(['day_close', 'week_close', 'lint']);
 const STATUSES: ReadonlySet<string> = new Set<AutomationRunStatus>([
   'pending',
   'running',
@@ -286,6 +292,27 @@ function parsePayload(value: unknown, rowLabel: string): unknown {
   }
 }
 
+/**
+ * Decode a brief's optional `payload_json` column tolerantly.
+ *
+ * A run's payload is the ledger's record of what the job produced, so it must be
+ * trustworthy and a corrupt one is a database error. A brief's payload is
+ * supplementary data — the weekly memory-digest block — so a reader that cannot
+ * decode it treats the brief as having no payload instead of failing a brief
+ * whose body is still readable.
+ */
+function parseBriefPayload(value: unknown): unknown {
+  if (value === null || value === undefined) return undefined;
+  const raw = asText(value);
+  if (raw === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed === null ? undefined : parsed;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Decode a required timestamp column. */
 function requireTimestamp(value: unknown, rowLabel: string, column: string): string {
   const text = asText(value);
@@ -355,6 +382,7 @@ function briefFromRow(row: Row): BriefRecord {
   if (sourceId === undefined || sourceId.trim() === '') throw databaseError(`${label} has no source id.`);
   const sourceKey = asText(row.source_key);
   if (sourceKey === undefined || sourceKey.trim() === '') throw databaseError(`${label} has no source key.`);
+  const payload = parseBriefPayload(row.payload_json);
   return {
     id,
     kind: kind as BriefKind,
@@ -362,6 +390,7 @@ function briefFromRow(row: Row): BriefRecord {
     title,
     body,
     ...(model === undefined ? {} : { model }),
+    ...(payload === undefined ? {} : { payload }),
     source_id: sourceId,
     source_key: sourceKey,
     created_at: requireTimestamp(row.created_at, label, 'created_at'),
@@ -582,11 +611,14 @@ export function listAutomationRuns(
  * Save (insert or rewrite) one brief.
  *
  * `(kind, period_key)` is unique: saving the same period again rewrites the
- * title, body, model, and source key in place while keeping the `id` and
- * `created_at`, so regenerating a brief never piles up copies. The source id is
- * `native` until an importer writes briefs from another store.
+ * title, body, model, payload, and source key in place while keeping the `id`
+ * and `created_at`, so regenerating a brief never piles up copies. The source id
+ * is `native` until an importer writes briefs from another store. The payload is
+ * JSON-serialized; a payload left out clears an earlier one, so the row always
+ * holds the latest result.
  *
- * @throws `invalid_input` for a malformed kind, period, title, or source key.
+ * @throws `invalid_input` for a malformed kind, period, title, or source key, or
+ *   for a payload that is not JSON-serializable.
  */
 export function upsertBrief(db: DatabaseSync, input: UpsertBriefInput): BriefRecord {
   if (input === undefined || input === null) throw invalid('A brief input is required.');
@@ -595,18 +627,20 @@ export function upsertBrief(db: DatabaseSync, input: UpsertBriefInput): BriefRec
   const title = requireTitle(input.title);
   const body = requireBody(input.body);
   const model = optionalModel(input.model);
+  const payloadText = serializePayload(input.payload);
   const sourceKey = requireSourceKey(input.sourceKey);
   return storeCall('save a brief', () => {
     db.prepare(
-      `INSERT INTO briefs (kind, period_key, title, body, model, source_id, source_key)
-       VALUES (?, ?, ?, ?, ?, 'native', ?)
+      `INSERT INTO briefs (kind, period_key, title, body, model, payload_json, source_id, source_key)
+       VALUES (?, ?, ?, ?, ?, ?, 'native', ?)
        ON CONFLICT (kind, period_key) DO UPDATE SET
          title = excluded.title,
          body = excluded.body,
          model = excluded.model,
+         payload_json = excluded.payload_json,
          source_key = excluded.source_key,
          updated_at = CURRENT_TIMESTAMP`,
-    ).run(kind, periodKey, title, body, model ?? null, sourceKey);
+    ).run(kind, periodKey, title, body, model ?? null, payloadText, sourceKey);
     const brief = readBrief(db, kind, periodKey);
     if (brief === undefined) throw databaseError(`Brief ${kind} ${periodKey} disappeared after it was saved.`);
     return brief;

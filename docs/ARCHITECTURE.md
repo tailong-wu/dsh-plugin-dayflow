@@ -4,7 +4,7 @@
 
 The plugin reads one of two backends — the Dayflow app's `chunks.sqlite`
 (`source: dayflow`, the default) or the plugin-owned journal (`source: owned`,
-owned schema version 9, filled by `journal_import`) — and writes through two
+owned schema version 10, filled by `journal_import`) — and writes through two
 channels: Dayflow's Unix socket for app edits, and `withJournalWrite` for the
 owned journal. This file covers those paths, the source layout, and the
 development scripts.
@@ -42,7 +42,11 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   day's `daily_standup_entries`, the daily/weekly `briefs`, the day/week
   reflections, review proposals, kept memory claims, matched task sessions, and
   one `automation_runs` row per attempted close. That path is gated by the
-  analysis consent/provider/model, not by Dayflow's edit switch.
+  analysis consent/provider/model, not by Dayflow's edit switch. The 0.7.5
+  weekly memory lint reuses that path but only as a **proposal writer**: inside
+  the weekly close it calls `lintMemoryClaims` and files review proposals — it
+  never writes, supersedes, or forgets a `memory_claims` row — and the digest it
+  returns is rendered into that week's `briefs` body and `payload_json`.
 - **Native analysis (0.7.1 foundation, no worker yet).** When a caller invokes
   it, `analyse/pipeline.ts` reads one Dayflow day's native `screenshots` rows
   (04:00–04:00), groups them into windows (`analysis.windowMinutes`, at most
@@ -128,11 +132,12 @@ src/
   briefs/         text-only day and week briefs written by the close (0.7.4)
     daily.ts      standup/daily brief from the day's activities → daily_standup_entries
     weekly.ts     seven-day rollup → briefs
-  automation/     the scheduled day/week close (0.7.4)
+  automation/     the scheduled day/week close (0.7.4), plus the weekly lint (0.7.5)
     store.ts      automation_runs state machine: idempotent closes, bounded retries, skipped rows
     consent.ts    the automation pass reuses the analysis consent/provider/model gate
     scheduler.ts  host timers, 04:00/Monday boundaries, catchUpOnStart + catchUpDays catch-up
     insights.ts   post-close reflection, review proposals, kept memory claims, task sessions
+    lint.ts       weekly memory lint inside the weekly close: proposals only, never a claim edit; digest in the weekly brief
   day.ts          4 AM days, Monday 4 AM weeks, formatting
   db.ts           lazy node:sqlite, read-only open, query helper
   journal.ts      owned schema, migrations, importer, withJournalWrite
@@ -188,7 +193,7 @@ end.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 477 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
+npm test            # 493 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

@@ -1,5 +1,5 @@
 /**
- * Owned journal schema v9 (`analysis_jobs`, `automation_runs`, `briefs`) and the analysis-job ledger.
+ * Owned journal schema v10 (`analysis_jobs`, `automation_runs`, `briefs`) and the analysis-job ledger.
  *
  * The ledger is what makes frame analysis resumable and bounded: a unique
  * `job_key` makes replay idempotent, `status` is a five-state machine, and
@@ -80,12 +80,12 @@ function jobInput(startTs: number, endTs = startTs + 600): {
   return { jobKey: analysisJobKey('2026-03-11', startTs), day: '2026-03-11', windowStartTs: startTs, windowEndTs: endTs };
 }
 
-test('a fresh journal is schema v9 and carries the job ledger with indexes', () => {
+test('a fresh journal is schema v10 and carries the job ledger with indexes', () => {
   const path = journalFile('fresh');
   const db = openJournal(path);
   try {
-    assert.equal(JOURNAL_SCHEMA_VERSION, 9);
-    assert.equal(Number(db.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 9);
+    assert.equal(JOURNAL_SCHEMA_VERSION, 10);
+    assert.equal(Number(db.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 10);
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'analysis_jobs'")
       .all() as Row[];
@@ -103,7 +103,7 @@ test('a fresh journal is schema v9 and carries the job ledger with indexes', () 
   } finally {
     db.close();
   }
-  // Reopening a v9 journal is a no-op that keeps its rows.
+  // Reopening a v10 journal is a no-op that keeps its rows.
   const reopened = openJournal(path);
   try {
     assert.equal(getAnalysisJob(reopened, analysisJobKey('2026-03-11', 1_772_000_000))?.id, 1);
@@ -115,7 +115,7 @@ test('a fresh journal is schema v9 and carries the job ledger with indexes', () 
   assert.equal(job?.window_end_ts, 1_772_000_600);
 });
 
-test('a v7 journal migrates to v9 in one step and keeps its data', () => {
+test('a v7 journal migrates to v10 in one step and keeps its data', () => {
   const path = journalFile('v7-upgrade');
   const legacy = openJournal(path);
   try {
@@ -137,7 +137,7 @@ test('a v7 journal migrates to v9 in one step and keeps its data', () => {
 
   const upgraded = openJournal(path);
   try {
-    assert.equal(Number(upgraded.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 9);
+    assert.equal(Number(upgraded.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 10);
     const tables = upgraded
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'analysis_jobs'")
       .all() as Row[];

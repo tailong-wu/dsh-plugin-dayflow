@@ -52,6 +52,25 @@ export interface WeeklyBriefResult {
   model?: string;
   /** Why a `skipped` result was skipped (`consent:none`, `already-written`, …). */
   reason?: string;
+  /** The digest the written brief carried, when the caller supplied one. */
+  memoryHealth?: WeeklyMemoryHealth;
+}
+
+/**
+ * The memory-health digest a weekly lint pass contributes to the brief.
+ *
+ * The lint pass owns the numbers and the sentence; the brief only renders the
+ * sentence as its last paragraph (and echoes the digest back on the result).
+ * Omitted by callers that do not run the weekly lint, which is the historical
+ * behaviour: no digest paragraph and no memory-health data.
+ */
+export interface WeeklyMemoryHealth {
+  /** How many lint findings the week's scan produced across every finding group. */
+  findings: number;
+  /** How many review proposals the pass recorded for those findings. */
+  proposals: number;
+  /** The one-line summary rendered after `Memory health:` (for example `nothing to report.`). */
+  summary: string;
 }
 
 /** Everything {@link writeWeeklyBrief} needs; every optional field has a production default. */
@@ -68,6 +87,16 @@ export interface WeeklyBriefOptions {
   now?: () => Date;
   /** Regenerate an existing week brief instead of skipping it. */
   force?: boolean;
+  /**
+   * The weekly memory-lint digest to append to the brief.
+   *
+   * When present the body ends with exactly one paragraph reading
+   * `Memory health: <summary>`. It is never part of the prompt: the model writes
+   * the week review, and the digest is the lint pass's own sentence. A rerun
+   * without `force` still skips an existing brief, so a changed digest never
+   * rewrites a stored week by itself; `force` is what refreshes it.
+   */
+  memoryHealth?: WeeklyMemoryHealth;
 }
 
 /** The `source_key` prefix for native week briefs. */
@@ -218,13 +247,28 @@ export function buildWeeklyBriefPrompt(
 }
 
 /**
+ * Render the memory-health digest as the brief's final paragraph.
+ *
+ * The lint pass supplies the sentence, so this is pure formatting: one
+ * `Memory health: <summary>` paragraph, no trailing period added, no second
+ * paragraph, and nothing sent to the model.
+ * @param memoryHealth - the digest the weekly lint pass reported.
+ * @returns the paragraph appended to the model's week review.
+ */
+export function renderMemoryHealth(memoryHealth: WeeklyMemoryHealth): string {
+  return `Memory health: ${memoryHealth.summary.trim()}`;
+}
+
+/**
  * Generate and write one week's brief.
  *
  * The flow is: validate the Monday, run the text gate, read the seven days'
  * activities plus the existing week brief, return `empty` when there is nothing
  * to summarise, return `already-written` unless `force`, call the model once,
  * and upsert `{ kind: 'week', periodKey: monday, title: 'Week of <monday>', body,
- * model, sourceKey }`.
+ * model, sourceKey }`. A supplied {@link WeeklyBriefOptions.memoryHealth} is
+ * appended to the body as one `Memory health: <summary>` paragraph and recorded
+ * in the row's `payload_json.memory_health`.
  *
  * @param options - the journal, config, model seam, and Monday.
  * @returns `written` with the brief id and model, `empty` for a week with no
@@ -258,15 +302,28 @@ export async function writeWeeklyBrief(options: WeeklyBriefOptions): Promise<Wee
   const body = answer.text.trim();
   if (body === '') return { status: 'skipped', reason: 'empty-output' };
 
+  // The digest is the lint pass's own sentence: it is appended after the model's
+  // answer, never sent to the model, and never counts as a second paragraph.
+  const digest = options.memoryHealth === undefined ? undefined : renderMemoryHealth(options.memoryHealth);
+  const memoryHealthPayload =
+    options.memoryHealth === undefined ? undefined : { memory_health: options.memoryHealth };
+
   const brief = withJournalWrite(options.journalPath, (db) =>
     upsertBrief(db, {
       kind: 'week',
       periodKey: monday,
       title: `Week of ${monday}`,
-      body,
+      body: digest === undefined ? body : `${body}\n\n${digest}`,
       model: answer.model,
       sourceKey: weeklyBriefSourceKey(monday),
+      // Only a brief written by a weekly lint pass carries the digest payload.
+      ...(memoryHealthPayload === undefined ? {} : { payload: memoryHealthPayload }),
     }),
   );
-  return { status: 'written', briefId: brief.id, model: brief.model ?? answer.model };
+  return {
+    status: 'written',
+    briefId: brief.id,
+    model: brief.model ?? answer.model,
+    ...(options.memoryHealth === undefined ? {} : { memoryHealth: options.memoryHealth }),
+  };
 }

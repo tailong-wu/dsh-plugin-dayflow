@@ -17,7 +17,7 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.7.4` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
+> **状态：** `v0.7.5` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
 > ——请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
@@ -178,6 +178,11 @@ job；挂载后，收盘还需要 `cloud`/`local` consent 加上显式 provider 
 `/dayflow-run-close` 手动触发一次收盘；Journal insights 在 analysis 行下方新增紧凑的 **close-state 行**
 （`日收盘 04:00 · 上次收盘 … · 周收盘 周一 · 补收盘 2 天`）；`GET /api/dayflow/automation/status` 返回同一份
 日程与最近收盘数据。schema 变更纯属新增：既有表与面板 payload 都不变。
+
+0.7.5 把每周 **memory lint** 并入周收盘：跑一次只读 claim 检查，每个 claim 每周最多生成一条回顾提案，
+绝不修改、取代或遗忘 claim，并把一段简短的记忆健康摘要写进当周 brief——schema v10 重建
+`automation_runs` 以记录 `lint` job，并给 `briefs` 加上存 digest 的 `payload_json` 列，不新增路由、
+命令或配置键。
 
 本地验证（不碰真实数据）：
 

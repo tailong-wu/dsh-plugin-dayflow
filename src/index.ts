@@ -45,6 +45,8 @@ import type { HostLlmLike } from './analyse/host.js';
 import type { AnalysisRunResult } from './analyse/pipeline.js';
 import { AnalysisWorker } from './analyse/worker.js';
 import { runDayInsights } from './automation/insights.js';
+import { runWeeklyLint } from './automation/lint.js';
+import type { WeeklyLintResult } from './automation/lint.js';
 import { AutomationScheduler } from './automation/scheduler.js';
 import type { AutomationCloseOutcome } from './automation/scheduler.js';
 import { writeDailyBrief } from './briefs/daily.js';
@@ -167,19 +169,31 @@ function describeDayClose(brief: BriefOutcomeView, insights: InsightsOutcomeView
 }
 
 /**
- * Map a weekly-brief result onto one close outcome.
+ * Map a weekly-brief result plus the week's memory-lint pass onto one close outcome.
  *
- * A skipped week means either a gate blocked it (recorded as skipped) or the
- * brief already existed (a completed, idempotent no-op).
+ * Both passes are part of the same weekly close: the lint pass runs first, its
+ * `findings`/`proposals`/`summary` become the brief's memory-health digest, and
+ * the brief is only written after it. A thrown failure never reaches this
+ * mapping: the close callback records it as failed, which is how a broken model
+ * call or a broken lint scan reaches the scheduler's bounded retry.
+ *
+ * A gate that blocks both passes (consent, provider, model) is recorded as
+ * `skipped` with that reason, exactly as the day close does. When both passes
+ * only skip because their week was already recorded, the close is `skipped` too:
+ * the work for that Monday is already in the journal and the reason says which
+ * half reported it first. Any other combination counts as a completed close.
  * @param weekly - what the weekly brief pass reported.
+ * @param lint - what the week's memory-lint pass reported.
  * @returns the close outcome the scheduler records.
  */
-function describeWeekClose(weekly: BriefOutcomeView): AutomationCloseOutcome {
-  if (weekly.status !== 'skipped') return { status: 'complete' };
-  const reason = weekly.reason;
-  return reason !== undefined && AUTOMATION_BLOCKED_REASONS.has(reason)
-    ? { status: 'skipped', error: reason }
-    : { status: 'complete' };
+function describeWeekClose(weekly: BriefOutcomeView, lint: WeeklyLintResult): AutomationCloseOutcome {
+  const blocked = [weekly.reason, lint.reason].find(
+    (reason) => reason !== undefined && AUTOMATION_BLOCKED_REASONS.has(reason),
+  );
+  if (blocked !== undefined) return { status: 'skipped', error: blocked };
+  if (weekly.status !== 'skipped' || lint.status !== 'skipped') return { status: 'complete' };
+  const reason = weekly.reason ?? lint.reason;
+  return reason === undefined ? { status: 'complete' } : { status: 'skipped', error: reason };
 }
 
 /**
@@ -336,9 +350,10 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
 
       if (resolved.automation.enabled) {
         // The close work itself lives above this module: a day close writes the
-        // standup brief and then the day's insight pass, a week close writes the
-        // weekly rollup. The scheduler owns the clock and the ledger, and maps
-        // each pass's result onto the one outcome it records.
+        // standup brief and then the day's insight pass, a week close runs the
+        // scheduled memory lint and then writes the weekly rollup carrying its
+        // digest. The scheduler owns the clock and the ledger, and maps each
+        // pass's result onto the one outcome it records.
         const closeDay = async (day: string): Promise<AutomationCloseOutcome> => {
           try {
             const brief = await writeDailyBrief({
@@ -360,13 +375,25 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
         };
         const closeWeek = async (monday: string): Promise<AutomationCloseOutcome> => {
           try {
+            // The lint pass is proposals-only and records its own run; it runs
+            // first so the brief can carry this week's memory-health digest.
+            const lint = await runWeeklyLint({
+              journalPath: runtime.config.journalPath,
+              config: resolved,
+              weekMonday: monday,
+            });
             const weekly = await writeWeeklyBrief({
               journalPath: runtime.config.journalPath,
               config: resolved,
               analyser,
               monday,
+              memoryHealth: {
+                findings: lint.findings,
+                proposals: lint.proposals,
+                summary: lint.summary,
+              },
             });
-            return describeWeekClose(weekly);
+            return describeWeekClose(weekly, lint);
           } catch (error) {
             return { status: 'failed', error: error instanceof Error ? error.message : String(error) };
           }

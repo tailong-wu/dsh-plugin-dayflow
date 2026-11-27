@@ -282,6 +282,7 @@ export class AutomationScheduler {
   private readonly retry: Record<AutomationJob, RetryState> = {
     day_close: { failures: 0 },
     week_close: { failures: 0 },
+    lint: { failures: 0 },
   };
 
   constructor(options: AutomationSchedulerOptions) {

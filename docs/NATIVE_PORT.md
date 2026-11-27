@@ -9,7 +9,10 @@ the host-LLM adapter, the status route, and the panel analysis line) landed in
 automation slice landed in 0.7.4**: schema v9 (`automation_runs` and `briefs`),
 the daily and weekly close, the insights pass, the host scheduler with
 `catchUpDays`, `/dayflow-run-close`, and the panel's close-state line and status
-route. Image admission and the briefs reading view remain for later phases.
+route; **0.7.5 adds the scheduled weekly memory lint** — schema v10 (a `'lint'`
+job value for `automation_runs`), `automation/lint.ts`, and a memory-health
+digest in the weekly brief. Image admission and the briefs reading view remain
+for later phases.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -140,6 +143,7 @@ New host modules (children of `src/`):
 | `automation/consent.ts` | the pure text-analysis gate: enabled/consent/provider/model before any call |
 | `automation/scheduler.ts` | host timers, day-boundary jobs, catch-up, `automation_runs`, failure backoff |
 | `automation/insights.ts` | daily reflection + review proposals + kept-claim promotion + task session matching |
+| `automation/lint.ts` | the weekly memory-lint pass: read-only `lintMemoryClaims`, findings as review proposals only, idempotent `job: 'lint'` run, digest in the weekly brief |
 | `client/` additions | capture status/pause line inside the insights view; localised copy |
 
 Existing modules touched: `journal.ts` (migrations v7+), `config.ts` (new keys),
@@ -215,11 +219,46 @@ CREATE TABLE IF NOT EXISTS briefs (
 );
 ```
 
+The 0.7.5 scheduled memory lint needs a third `job` value, and SQLite cannot
+alter a CHECK in place, so **v10 rebuilds `automation_runs`** and gives `briefs`
+the JSON payload column the digest needs:
+
+```sql
+-- v10: rebuild automation_runs so the job CHECK also accepts the weekly lint
+-- (0.7.5). One transaction: create the replacement table, copy every v9 row,
+-- drop the old one, rename, recreate the day index. No row is rewritten or
+-- dropped, and the widened CHECK is the only change to this table.
+CREATE TABLE automation_runs_v10 (              -- same shape as v9, one change:
+  id INTEGER PRIMARY KEY,
+  job TEXT NOT NULL CHECK (job IN ('day_close','week_close','lint')),
+  day TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','running','complete','failed','skipped')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  payload_json TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (job, day)
+);
+INSERT INTO automation_runs_v10 (id, job, day, status, attempts, error, payload_json, created_at, updated_at)
+  SELECT id, job, day, status, attempts, error, payload_json, created_at, updated_at
+    FROM automation_runs;
+DROP TABLE automation_runs;
+ALTER TABLE automation_runs_v10 RENAME TO automation_runs;
+CREATE INDEX IF NOT EXISTS automation_runs_day_idx ON automation_runs (day);
+
+-- v10: the weekly brief's structured digest (`memory_health`). Nullable, so
+-- every v9 brief keeps its row with a NULL payload.
+ALTER TABLE briefs ADD COLUMN payload_json TEXT;
+```
+
 Migration order on the 0.7.x line: **v8** adds `analysis_jobs` (0.7.1),
 **v9** adds `automation_runs` and `briefs` (0.7.4), and **v10** rebuilds
 `automation_runs` so its `job` CHECK also accepts `'lint'` for the scheduled
-memory-lint job (0.7.5) — a rebuild, not a new table. Migrations are
-forward-only, one version per patch.
+memory-lint job and adds the nullable `briefs.payload_json` column (0.7.5) — a
+rebuild inside one transaction, every v9 row copied, not a new table.
+Migrations are forward-only, one version per patch.
 
 Native screenshot rows keep `source_id = 'native'` and a content-derived
 `source_key` (frame hash plus capture second), so the importer and the capture
@@ -257,7 +296,7 @@ activity.
     automation:
       enabled: true
       dailyAt: '04:00'           # day-close jobs run at the Dayflow boundary
-      weeklyOn: 'monday'         # weekly close at the same boundary
+      weeklyOn: 'monday'         # weekly close at the same boundary; the weekly memory lint runs as part of it
       catchUpOnStart: true
 ```
 
@@ -309,7 +348,9 @@ This is the part that has to be right before anything captures pixels.
   `analysis_jobs`; when a cap is hit the pipeline pauses analysis for the day and
   the panel says why.
 - Text-only jobs (daily brief, reflection, review proposals) run once per day and
-  once per week; they are cheap and capped by the same token ledger.
+  once per week; they are cheap and capped by the same token ledger. The weekly
+  memory lint is local and read-only — it calls no model — so it adds no token
+  cost and its only cost is the proposals it writes into the review queue.
 - The capture loop is idle-cheap: one `screencapture` per interval, a resize +
   hash, and a write. Frame analysis runs off the capture path in its own timer.
 
@@ -531,9 +572,9 @@ what was on screen.
 
 ### Phase 3 — Cards, briefs, and insights automation (about 1 week)
 
-**Status: the text-only automation slice is complete (0.7.4).** The day and week
-close themselves now, behind the same analysis consent/provider/model gate and
-without any image:
+**Status: the text-only automation slice is complete (0.7.4); the scheduled
+weekly memory lint landed in 0.7.5.** The day and week close themselves now,
+behind the same analysis consent/provider/model gate and without any image:
 
 - **Schema v9.** Two additive tables — `automation_runs` (one row per attempted
   day/week close: period, status, attempts, error, timestamps, so a re-run is a
@@ -557,26 +598,52 @@ without any image:
   confidence ≥ 0.6), memory claims only as a **kept** promotion (never silently
   active), and task session matching through the existing `scanTaskHistory`
   logic followed by `attachTaskSession` (a low-confidence match becomes a
-  review item instead). The weekly close adds the weekly reflection, the weekly
-  review pass, and the memory lint summary.
+  review item instead). The weekly close adds the weekly reflection and the
+  weekly review pass; the memory lint is the separate 0.7.5 pass below.
 - **Observable surface.** `/dayflow-run-close` (a manual trigger for testing and
   catch-up), the panel's compact close-state line, and
   `GET /api/dayflow/automation/status` (enabled/running, `dailyAt`, `weeklyOn`,
   `catchUpDays`, the last day/week close, and the next close time).
-- **Still not in 0.7.4:** image admission and downscaling (the model sees app /
-  window-title / hash metadata, not screen pixels), a catch-up replay for
-  analysis windows a blocked tick marked `skipped`, and a panel view for reading
-  the stored briefs.
+- **Scheduled memory lint (`src/automation/lint.ts`, 0.7.5).** As part of the
+  weekly close, a read-only pass over the dated claims (`lintMemoryClaims`, the
+  same check `journal_memory` `action: "lint"` exposes) turns each finding into
+  **review proposals only**: kind `improvement`, at most one per claim per week,
+  through the existing review fingerprint and suppression, and bounded by the
+  existing daily cap. It never supersedes or forgets a claim, writes nothing to
+  `memory_claims`, and makes no model call — so it runs even when the week's
+  model call is gated off, and the close itself is then recorded `skipped`. One
+  `automation_runs` row with `job: 'lint'` and `day` = the week's Monday keeps
+  the pass idempotent — re-running the same week is a no-op — and the weekly
+  brief gains a short **"Memory health: …"** digest in its body and in
+  `payload_json.memory_health` (the lint runs before the brief is written, so
+  its result lands in the same brief); a week with no findings says "nothing to
+  report" rather than showing nothing.
+- **Schema v10 (0.7.5).** SQLite cannot alter a CHECK in place, so v10 rebuilds
+  `automation_runs` inside one transaction: every v9 row is copied, and the
+  `job` CHECK accepts `'lint'` beside `'day_close'` and `'week_close'` while the
+  rest of the shape is unchanged. The same migration adds a nullable
+  `briefs.payload_json` for the digest, so every v9 brief keeps its row with a
+  NULL payload. Stored closes survive the rebuild, and both the old and the new
+  job values are accepted afterwards; the migration asserts the row count before
+  and after.
+- **Still not in 0.7.4 or 0.7.5:** image admission and downscaling (the model
+  sees app / window-title / hash metadata, not screen pixels), a catch-up replay
+  for analysis windows a blocked tick marked `skipped`, and a panel view for
+  reading the stored briefs — the memory-health digest lives with the brief, so
+  the panel's close-state line still shows only the schedule and the last close.
 
 **Acceptance.** Closing a synthetic day with a scripted model produces one
 standup entry, one brief, one reflection, ≤3 review items, and attaches
 matching task days; re-running the same day is a no-op. A skipped day catches
-up on next start inside `catchUpDays` and is recorded `skipped` outside it.
-Defaults stay inert: the scheduler mounts only with the analysis stack
-(`capture.enabled` and `analysis.enabled` plus the host model service), so a
-capture-off profile runs no close at all; once mounted, `analysis.consent:
-'none'`, no provider, or no model records a skipped close and never calls a
-model.
+up on next start inside `catchUpDays` and is recorded `skipped` outside it. The
+0.7.5 weekly lint turns a fixture's contradiction into at most one proposal for
+that claim in the week, leaves every claim row byte-identical (no supersede, no
+forget), writes its digest into the week's brief once, and a second run of the
+same week is a no-op. Defaults stay inert: the scheduler mounts only with the
+analysis stack (`capture.enabled` and `analysis.enabled` plus the host model
+service), so a capture-off profile runs no close and no lint; once mounted,
+`analysis.consent: 'none'`, no provider, or no model records a skipped close and
+never calls a model.
 
 ### Phase 4 — Cutover and release (about 1 week)
 
@@ -663,7 +730,8 @@ rows but still no analysis; 0.7.1 then added the analysis foundation behind a
 fake adapter, and 0.7.2 ran that pipeline on the host's model service and made
 its state visible in the panel. 0.7.4 added the text-only automation slice:
 briefs, the scheduler with catch-up, and the insights close, all with fake
-adapters in CI. Phase 4 is the cutover.
+adapters in CI; 0.7.5 added the scheduled weekly memory lint and its digest in
+the weekly brief. Phase 4 is the cutover.
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three
 parallel workstreams, plus one real week of dogfooding before `1.0.0`.

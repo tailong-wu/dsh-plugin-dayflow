@@ -169,6 +169,16 @@ function briefRows(path: string): TestRow[] {
   return readAll(path, 'SELECT * FROM briefs ORDER BY id ASC');
 }
 
+/** Read the `payload_json` object of one brief row, when it has one. */
+function briefPayload(row: TestRow): Record<string, unknown> | undefined {
+  const raw = row.payload_json;
+  if (raw === null || raw === undefined) return undefined;
+  const parsed: unknown = JSON.parse(String(raw));
+  return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>)
+    : undefined;
+}
+
 function isInvalidInput(error: unknown): boolean {
   return error instanceof DayflowError && error.code === 'invalid_input';
 }
@@ -421,6 +431,8 @@ test('the weekly brief writes one week row keyed by its Monday', async () => {
   assert.equal(row.period_key, MONDAY);
   assert.equal(row.title, `Week of ${MONDAY}`);
   assert.equal(row.body, WEEKLY_ANSWER);
+  assert.doesNotMatch(row.body, /Memory health:/);
+  assert.equal(briefPayload(row)?.memory_health, undefined);
   assert.equal(row.model, 'fake-model');
   assert.equal(row.source_id, 'native');
   assert.equal(row.source_key, weeklyBriefSourceKey(MONDAY));
@@ -466,6 +478,97 @@ test('a second weekly run is a no-op, and force rewrites the one row', async () 
   assert.equal(rows.length, 1);
   assert.equal((rows[0] as TestRow).body, 'A rewritten week.\n\nNext week: rest.');
   assert.equal(adapter.calls.length, 2);
+});
+
+/** The digest a weekly lint pass hands the brief. */
+const MEMORY_HEALTH = {
+  findings: 3,
+  proposals: 2,
+  summary: '3 findings across 2 claims (2 proposals).',
+};
+
+/** The digest a later lint pass reports for the same week. */
+const NEXT_MEMORY_HEALTH = {
+  findings: 1,
+  proposals: 1,
+  summary: '1 finding across 1 claim (1 proposal).',
+};
+
+test('the weekly brief appends exactly one memory-health paragraph and records its payload', async () => {
+  const fixture = createFixture();
+  seedActivities(fixture.journalPath, [
+    { sourceKey: 'monday-card', title: 'Monday work' },
+    { day: '2026-10-20', sourceKey: 'tuesday-card', title: 'Tuesday work' },
+  ]);
+  const adapter = createFakeLlmAdapter([WEEKLY_ANSWER]);
+  const result = await writeWeeklyBrief({
+    journalPath: fixture.journalPath,
+    config: fixture.config,
+    analyser: adapter,
+    monday: MONDAY,
+    memoryHealth: MEMORY_HEALTH,
+  });
+
+  assert.equal(result.status, 'written');
+  assert.equal(adapter.calls.length, 1);
+  // The digest belongs to the lint pass, not the prompt: the model never sees it.
+  assert.doesNotMatch(adapter.calls[0].user, /Memory health/);
+  assert.doesNotMatch(adapter.calls[0].system, /Memory health/);
+  assert.deepEqual(result.memoryHealth, MEMORY_HEALTH);
+
+  const rows = briefRows(fixture.journalPath);
+  assert.equal(rows.length, 1);
+  const row = rows[0] as TestRow;
+  assert.equal(row.body, `${WEEKLY_ANSWER}\n\nMemory health: ${MEMORY_HEALTH.summary}`);
+  const segments = String(row.body).match(/Memory health:/g) ?? [];
+  assert.equal(segments.length, 1, 'the body carries the digest exactly once');
+  assert.ok(String(row.body).endsWith(`Memory health: ${MEMORY_HEALTH.summary}`), 'the digest is the last paragraph');
+  assert.deepEqual(briefPayload(row)?.memory_health, MEMORY_HEALTH);
+});
+
+test('a changed digest never rewrites an existing brief without force, and force refreshes it', async () => {
+  const fixture = createFixture();
+  seedActivities(fixture.journalPath, [
+    { sourceKey: 'monday-card', title: 'Monday work' },
+    { day: '2026-10-20', sourceKey: 'tuesday-card', title: 'Tuesday work' },
+  ]);
+  const adapter = createFakeLlmAdapter([WEEKLY_ANSWER, 'A rewritten week.\n\nNext week: rest.']);
+  const options = {
+    journalPath: fixture.journalPath,
+    config: fixture.config,
+    analyser: adapter,
+    monday: MONDAY,
+    memoryHealth: MEMORY_HEALTH,
+  };
+  const first = await writeWeeklyBrief(options);
+  assert.equal(first.status, 'written');
+
+  // Same Monday, different digest, no force: still the same idempotent no-op,
+  // and neither the body nor the payload of the stored brief changes.
+  const skipped = await writeWeeklyBrief({ ...options, memoryHealth: NEXT_MEMORY_HEALTH });
+  assert.equal(skipped.status, 'skipped');
+  assert.equal(skipped.reason, 'already-written');
+  assert.equal(skipped.briefId, first.briefId);
+  assert.equal(adapter.calls.length, 1);
+  const unchanged = briefRows(fixture.journalPath);
+  assert.equal(unchanged.length, 1);
+  assert.equal((unchanged[0] as TestRow).body, `${WEEKLY_ANSWER}\n\nMemory health: ${MEMORY_HEALTH.summary}`);
+  assert.deepEqual(briefPayload(unchanged[0] as TestRow)?.memory_health, MEMORY_HEALTH);
+
+  const forced = await writeWeeklyBrief({ ...options, memoryHealth: NEXT_MEMORY_HEALTH, force: true });
+  assert.equal(forced.status, 'written');
+  assert.equal(forced.briefId, first.briefId);
+  assert.equal(adapter.calls.length, 2);
+  assert.deepEqual(forced.memoryHealth, NEXT_MEMORY_HEALTH);
+  const rows = briefRows(fixture.journalPath);
+  assert.equal(rows.length, 1);
+  const row = rows[0] as TestRow;
+  assert.equal(
+    row.body,
+    `A rewritten week.\n\nNext week: rest.\n\nMemory health: ${NEXT_MEMORY_HEALTH.summary}`,
+  );
+  assert.equal((String(row.body).match(/Memory health:/g) ?? []).length, 1);
+  assert.deepEqual(briefPayload(row)?.memory_health, NEXT_MEMORY_HEALTH);
 });
 
 test('a non-Monday period is rejected instead of becoming a second week row', async () => {

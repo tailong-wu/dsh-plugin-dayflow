@@ -1,16 +1,16 @@
 # Patch plan: the 0.7.x line
 
-> **Status:** revised 2026-11-27 against `v0.7.3` (annotated tag `v0.7.3`,
-> commit `bebfd7a`). **0.7.1–0.7.3 have landed**, so their sections record what
-> actually shipped, and 0.7.3's tagged tree is measured at the end of its
-> section; **0.7.4 is landed** (`v0.7.4`) — its scope was finalised below against that
-> tree — and 0.7.5–0.7.6 remain planned. Six patches, 0.7.1–0.7.6: each one
-> theme, one integration point, one tag. This is a decision-level plan, not a
-> commitment of dates.
+> **Status:** revised 2026-11-27 against `v0.7.4` (annotated tag `v0.7.4`,
+> commit `1375717`). **0.7.1–0.7.4 have landed**, so their sections record what
+> actually shipped, and 0.7.4's tagged tree is measured at the end of its
+> section; **0.7.5 is finalised below** against that tree as the next patch, and
+> 0.7.6 remains planned. Six patches, 0.7.1–0.7.6: each one theme, one
+> integration point, one tag. This is a decision-level plan, not a commitment of
+> dates.
 > Every patch below is shippable under the safe default of the decisions in
 > [§6](#6-owner-decisions-and-safe-defaults), so no patch waits on an answer.
-> The revision before this one was written against `v0.7.2` (tag `v0.7.2`,
-> commit `7a84ccd`); its scope survives unchanged except where 0.7.3 reality
+> The revision before this one was written against `v0.7.3` (tag `v0.7.3`,
+> commit `bebfd7a`); its scope survived unchanged except where 0.7.4 reality
 > corrected it.
 >
 > Related documents: [`ROADMAP.md`](ROADMAP.md) carries the phases and what
@@ -21,21 +21,21 @@
 ## 1. Starting point, measured
 
 Facts checked against the repository and the registry on 2026-11-27, on the
-`v0.7.3` tree; `npm test` was run for this revision (425 pass, 0 fail, 0
+`v0.7.4` tree; `npm test` was run for this revision (477 pass, 0 fail, 0
 skipped). They are the baseline every patch below assumes; a patch that
 invalidates one updates this table.
 
 | Fact | Value | Checked at |
 | --- | --- | --- |
 | Baseline | `0.7.0`, annotated tag `v0.7.0` (commit `45a7e42`), the phase baseline this plan was first written against | `package.json`, `git tag` |
-| Current head | `0.7.3`, annotated tag `v0.7.3` (commit `bebfd7a`), **not** on the npm registry, **no** GitHub Release | `package.json`, `git tag`, `npm view dsh-plugin-dayflow` → 404, `gh release list` → latest release is `v0.5.1` |
-| Tests | 477 cases, green on the `v0.7.4` tree (`npm test`: 477 pass, 0 fail, 0 skipped; 425 at `v0.7.3`, 408 at `v0.7.2`, 384 at `v0.7.1`); CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
-| Tools | 23 registered by default (17 with `edits: false`), plus `dayflow_install_dayflow` behind `allowInstall: false`; 0.7.3 added no tool | `src/index.ts`, `src/tools/`, `tests/plugin.test.ts` |
-| Skills | 8; 0.7.3 added none | `skills/`, `tests/plugin.test.ts` |
-| Panel | 17 exact host Fetch routes (8 GET + 9 POST), one UI entry (one header button, one panel tab); 0.7.4 adds exactly one GET → 18 (9 GET + 9 POST) | `src/panel-contract.ts`, `tests/panel.test.ts` |
-| Owned schema | v8 (`analysis_jobs`), landed in 0.7.1; v7 was the 0.7.0 baseline; 0.7.3 makes **no** schema change; 0.7.4 is migration **v9** (`automation_runs` + `briefs`) | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
-| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed in 0.7.0, both default-off; Phase 2's foundation landed in 0.7.1 and its **visibility** in 0.7.2 (worker/timer, text-only host `ctx.llm` adapter, status route, panel analysis line, `/dayflow-analyze`, budget ledger), so Phase 2 is complete as of `v0.7.2`; 0.7.3 added no native-port work (interactive panel only); **Phase 3 is 0.7.4, in progress** (briefs, insight pass, scheduler, schema v9), still with no image | `src/capture/`, `src/analyse/`, `src/briefs/`, `src/automation/`, `docs/NATIVE_PORT.md` |
-| Release tool | `npm run release -- patch` bumps, runs the suite, commits, tags, pushes, creates the GitHub Release; it does **not** publish to npm. `v0.7.1`, `v0.7.2` and `v0.7.3` were tagged without a GitHub Release, so 0.7.6 must backfill `v0.7.1`–`v0.7.4` by hand where a tag lacks one | `scripts/release.mjs`, `gh release list` |
+| Current head | `0.7.4`, annotated tag `v0.7.4` (commit `1375717`), **not** on the npm registry, **no** GitHub Release | `package.json`, `git tag`, `npm view dsh-plugin-dayflow version` → 404, `gh release list` → latest release is `v0.5.1` |
+| Tests | 493 cases, green on the `v0.7.5` tree (`npm test`: 493 pass, 0 fail, 0 skipped; 477 at `v0.7.4`, 425 at `v0.7.3`, 408 at `v0.7.2`, 384 at `v0.7.1`); CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
+| Tools | 23 registered by default (17 with `edits: false`), plus `dayflow_install_dayflow` behind `allowInstall: false`; 0.7.3 and 0.7.4 added no tool | `src/index.ts`, `src/tools/`, `tests/plugin.test.ts` |
+| Skills | 8; 0.7.3 and 0.7.4 added none | `skills/`, `tests/plugin.test.ts` |
+| Panel | 18 exact host Fetch routes (9 GET + 9 POST), one UI entry (one header button, one panel tab); 0.7.4 added exactly the automation GET (17 → 18) and 0.7.5 adds no route, so it stays 18 | `src/panel-contract.ts`, `tests/panel.test.ts` |
+| Owned schema | v9 (`automation_runs` + `briefs`), landed in 0.7.4; v8 (`analysis_jobs`) was 0.7.1's and v7 the 0.7.0 baseline; 0.7.2 and 0.7.3 made **no** schema change; **0.7.5 is migration v10** — rebuild `automation_runs` so `job` also accepts `'lint'`, plus an additive `briefs.payload_json` column for the weekly digest | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
+| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed in 0.7.0, both default-off; Phase 2's foundation landed in 0.7.1 and its **visibility** in 0.7.2 (worker/timer, text-only host `ctx.llm` adapter, status route, panel analysis line, `/dayflow-analyze`, budget ledger), so Phase 2 is complete as of `v0.7.2`; 0.7.3 added no native-port work (interactive panel only); **Phase 3 landed in 0.7.4** (briefs, insight pass, scheduler, schema v9), so the text-only automation slice is complete; **0.7.5 is the Phase 4 lint remain** (scheduled memory lint + weekly digest), still with no image | `src/capture/`, `src/analyse/`, `src/briefs/`, `src/automation/`, `docs/NATIVE_PORT.md` |
+| Release tool | `npm run release -- patch` bumps, runs the suite, commits, tags, pushes, creates the GitHub Release; it does **not** publish to npm. `v0.7.1`, `v0.7.2`, `v0.7.3` and `v0.7.4` were tagged without a GitHub Release, so 0.7.6 must backfill `v0.7.1`–`v0.7.5` by hand where a tag lacks one | `scripts/release.mjs`, `gh release list` |
 | Host cohort | DSH `0.2.1-rc.2` dev dependencies, `^0.2.0-rc.2` peers; `@deepseek-ai/dsh-llm` is declared and is now actually called in 0.7.2 through `ctx.llm` (a structural `HostLlmLike` seam, so CI still never reaches a model); `@deepseek-ai/dsh-attachment` is **not** a dependency (the line stays text-only) | `package.json`, `npm ls`, `src/analyse/` |
 
 **Landed in 0.7.0, therefore not in this plan:** the four Phase 3 read tools and
@@ -86,12 +86,29 @@ model, adds no host peer and no dependency, and the single UI entry is unchanged
 The tagged tree measures 425 green tests (408 at 0.7.2 — seventeen new cases)
 and 17 panel routes (8 GET + 9 POST; 14 at 0.7.2).
 
-**Not landed, and what this plan is:** briefs and automation (native port
-Phase 3, **0.7.4 landed** — finalised in that section below), the scheduled
-lint job (0.7.5), and the release closure (0.7.6: npm, GitHub Releases, cutover
-rehearsal). Native port Phase 2 is complete as of 0.7.2 and 0.7.3 landed the
-interactive panel; the three analysis-ledger follow-ups 0.7.2 deliberately left
-behind stay out of 0.7.4 and remain 0.7.5/0.8.0 candidates.
+**Landed in 0.7.4:** the text-only automation slice — schema v9
+(`automation_runs` + `briefs`), the daily close (standup into
+`daily_standup_entries`), the daily insight pass (one reflection, at most three
+model proposals at confidence ≥ 0.6, weak task-session guesses proposed,
+high-confidence sessions attached), the weekly brief (one `briefs` row for the
+just-ended week), and the scheduler at `automation.dailyAt`/`weeklyOn` with
+`automation.catchUpDays` (1–30, default 2). It adds one GET
+(`/api/dayflow/automation/status`, 17 → 18 routes: 9 GET + 9 POST), one close
+line under the analysis line, and the fifth slash command
+(`/dayflow-run-close`); no tool, no skill, no host peer, no image, and no token
+gate. The scheduler mounts only inside the existing
+capture + analysis + host-`llm` block (and `automation.enabled`), so a default
+profile runs no close. The tagged tree measures **477** green tests and **18**
+routes. The section below records the exact landed shape and every deviation
+from the finalised plan text.
+
+**Not landed, and what this plan is:** the scheduled lint job (0.7.5, finalised
+below), and the release closure (0.7.6: npm, GitHub Releases, cutover
+rehearsal). Native port Phase 2 is complete as of 0.7.2, 0.7.3 landed the
+interactive panel, and 0.7.4 landed the automation; the three analysis-ledger
+follow-ups 0.7.2 deliberately left behind stay out of 0.7.4 and are **0.8.0
+candidates by default** — the owner has not answered the decision, and 0.7.5
+stays single-theme.
 
 **Deliberately not in 0.7.x:** the Phase 4 default cutover (0.8.0 material), the
 month/week panel goal and rating surfaces, editing tools for the owned journal,
@@ -100,8 +117,9 @@ the `dsh dayflow import` CLI (only the tool exists), embeddings, the
 image admission (pixels need a host attachment peer and a vision contract;
 0.8.0 candidate), automatic catch-up for skipped analysis windows, the token cap
 as a gate, and the 04:00 day tail (all three re-triaged in the 0.7.3 and 0.7.4
-windows, carried as 0.7.5/0.8.0 candidates and **not** in 0.7.4), Phase 5, and
-any change to the Swift helper's permissions.
+windows and **not** in 0.7.4; by default they are 0.8.0 candidates, because
+0.7.5 is finalised single-theme — see [§0.7.5](#075--lint-on-a-schedule-digest-in-the-week)),
+Phase 5, and any change to the Swift helper's permissions.
 
 ## 2. Iteration rules
 
@@ -119,7 +137,8 @@ regression is attributable to one diff.
 **R3 — Migrations ride with their code, not with a redesign.** A schema step
 goes into the same patch as the code that reads it, and every migration has a
 "migrate from the previous version's fixture" test. No patch combines a
-migration with a UI redesign; 0.7.5 deliberately rebuilds one table on its own.
+migration with a UI redesign; 0.7.5 deliberately rebuilds one table (and adds one
+additive column) on its own.
 
 **R4 — CI never calls a model, captures the screen, or needs a permission.**
 Fake adapters are the test seam, following the existing pattern
@@ -162,19 +181,22 @@ definition of that.
 | 0.7.2 | **landed** — Analysis visible: worker timer, text-only host adapter, status route and panel line, budget ledger, manual command; no schema change | Native port Phase 2 | 0.7.1 | D1, D3 | Medium |
 | 0.7.3 | **landed** — Interactive insights: decide review items, attach/detach task sessions in the panel; three POST routes, one shared decision module, no schema or model dependency | Phase 3.5 / 3.7 remain | — (built against 0.7.2 tree) | D6 | Low |
 | 0.7.4 | **landed** — The day closes itself: schema v9 (`automation_runs` + `briefs`), daily/weekly briefs, the insight pass, a scheduler with `automation.catchUpDays` (1–30, default 2), one GET route (18 total) and the fifth slash command; text-only, no image and no token gate | Native port Phase 3 | 0.7.2, 0.7.3 | D3, D4, D9 | High |
-| 0.7.5 | Scheduled memory lint and weekly digest; the recommended home for the deferred analysis-ledger follow-ups only by explicit owner decision | Phase 4 lint remain | 0.7.4 | D8 (+ D3/D4 if the ledger items are taken) | Medium |
+| 0.7.5 | **landed** — Scheduled memory lint with the weekly digest: schema v10 (`automation_runs` accepts `lint`, plus `briefs.payload_json`), a weekly lint pass that proposes at most one item per claim per week and never writes a claim, and a memory-health paragraph in the weekly brief; no route, no command, no new surface. The deferred analysis-ledger follow-ups stay 0.8.0 candidates (owner unanswered; single-theme patch) | Phase 4 lint remain | 0.7.4 | D8 | Low–Medium |
 | 0.7.6 | Release and compatibility close | Release closure / Phase 4 rehearsal | 0.7.1–0.7.5 | D1, D7 | Low |
 
 Order rationale: see [§5](#5-sequencing-rationale). Nothing in the table changes
 the plugin's default behaviour; each new path is off by default or requires
-consent, and that is part of every patch's acceptance. This revision finalises
-the **0.7.4** scope below against what 0.7.3 actually shipped: schema v9
+consent, and that is part of every patch's acceptance. This revision records
+**0.7.4 as landed** and measures the `v0.7.4` tree: schema v9
 (`automation_runs` + `briefs`), the text-only briefs and insight pass, the
-scheduler with its new `automation.catchUpDays` window, one new GET (17 → 18
-routes), one new slash command, and one line in the existing panel entry. It
-adds **no** image, **no** token gate, and **no** replay of analysis-ledger
-skips: the three follow-ups 0.7.2 left behind remain outside 0.7.4 and are
-0.7.5/0.8.0 candidates.
+scheduler with its `automation.catchUpDays` window, the 18th route, and the
+fifth slash command — with **no** image, **no** token gate, and **no** replay of
+analysis-ledger skips. It then finalises **0.7.5** against that same tree as one
+theme (R1): the read-only memory lint becomes a weekly scheduled pass whose
+findings are proposals (at most one per claim per week, never an automatic
+supersede or forget) and whose digest is written into the weekly brief. The three
+analysis-ledger follow-ups 0.7.2 left behind remain outside 0.7.4 and, by default,
+outside 0.7.5: they are 0.8.0 candidates until the owner answers.
 
 ### 0.7.1 — Analysis foundation: frames become rows
 
@@ -308,7 +330,8 @@ builds on.
   `input_tokens`/`output_tokens` and `analysisTokenTotalsForDay` reads them, but
   only `maxCallsPerDay` is a gate in 0.7.1; 0.7.2 makes the ledger visible and
   leaves the token cap reported-only (re-triaged in the 0.7.3 window: still
-  reported-only there; a post-call gate is a 0.7.5/0.8.0 candidate). The
+  reported-only there; a post-call gate stays a 0.8.0 candidate and 0.7.5 is
+  finalised single-theme). The
   `@deepseek-ai/dsh-llm` peer is already declared but no code
   calls `ctx.llm` yet; 0.7.2 adds the adapter.
 
@@ -465,7 +488,8 @@ behaviour is the specification 0.7.3 builds on.
 - **The token ledger is shown, not enforced.** `tokensToday` and
   `dailyTokenBudget` are honest numbers on the line and in the payload, but the
   only gate is still 0.7.1's `maxCallsPerDay`. A post-call token check did not
-  land: it was re-triaged in the 0.7.3 window and is a 0.7.5/0.8.0 candidate.
+  land: it was re-triaged in the 0.7.3 window and is a 0.8.0 candidate (0.7.5 is
+  finalised single-theme).
 - **The panel line is read-only and the single entry is unchanged.** The line
   sits directly under the capture line in the insights view and carries no
   button: enabling analysis or changing its consent stays a profile edit. The
@@ -522,8 +546,9 @@ automatically or from the command.
 - **Where it went:** re-triaged in the 0.7.3 window (see that section's
   "Deferred from 0.7.2 — triaged, not included." subsection). 0.7.3 and 0.7.4
   deliberately stay single-theme, so catch-up is **not** in either; it is a
-  candidate for 0.7.5 (only as an explicit second deliverable that relaxes R1, by
-  owner decision) or 0.8.0, and the decision is taken before 0.7.5 starts.
+  **0.8.0 candidate by default** — the owner has not answered, and 0.7.5 is
+  finalised single-theme (taking it earlier would need an explicit R1
+  relaxation).
 
 **Other ledger gaps kept out of 0.7.2.** Two analysis-loop items are knowingly
 not in this patch, so no deliverable above silently promises them:
@@ -532,8 +557,8 @@ not in this patch, so no deliverable above silently promises them:
   `tokensToday` are honest ledger numbers, but only `maxCallsPerDay` stops a run
   (0.7.1's gate). Enforcing tokens needs a post-call check because usage arrives
   with the answer, and it is a cost-policy decision rather than a visibility
-  one: it was re-triaged in the 0.7.3 window and is a 0.7.5/0.8.0 candidate, not
-  in 0.7.3.
+  one: it was re-triaged in the 0.7.3 window and is a 0.8.0 candidate, not in
+  0.7.3 and not in the finalised 0.7.5.
 - **The 04:00 day tail.** A worker tick runs the current Dayflow day, so a frame
   captured just before the boundary after the previous day's last tick is not
   analysed (its windows belong to the previous day). The fix costs one bounded
@@ -805,11 +830,13 @@ in this patch. The recommendation for where they go:
   first tick after the boundary (or on start), so frames captured just before the
   boundary are still analysed.
 
-Where they go next: candidates for **0.7.5** (only as an explicit second
-deliverable that relaxes R1, by owner decision) or **0.8.0**; the decision is
-taken **before 0.7.5 starts**, and 0.7.4 deliberately does not take them (its
-own catch-up is about missed *close* jobs, not a replay of analysis-ledger
-skips). Rationale: each is a
+Where they go next: they are **0.8.0 candidates by default.** The owner has
+not answered the decision 0.7.2–0.7.4 deferred, and 0.7.5 is finalised
+single-theme (R1); 0.7.4 deliberately did not take them either (its own
+catch-up is about missed *close* jobs, not a replay of analysis-ledger skips).
+If the owner answers before 0.7.5 implementation starts, taking one there is an
+explicit R1 relaxation and the per-item shape below plus its added acceptance
+assertions apply. Rationale: each is a
 cost/state-machine decision (D3/D4 territory), and folding them into the first
 panel patch would make the diff a UI change plus a replay policy — unreviewable
 under R1 and unshippable under R5 without the cap answers. If the owner wants one
@@ -820,14 +847,18 @@ host peer and a vision contract and stay a 0.8.0 item.
 
 ### 0.7.4 — The day closes itself
 
-**Status: landed in `v0.7.4`, 2026-11-27.**
-Implementation runs in four disjoint tracks — schema/store, briefs/insights,
-scheduler/wiring, panel/docs — with the acceptance list below as the definition
-of done. It is the first patch that writes the journal's opinionated layer
-(briefs, reflections, proposals, task sessions) on a timer, so it lands after
-the panel can decide (0.7.3) and after the pipeline is observable (0.7.2). It
-is **text-only** (no image, no host attachment peer) and adds no new decision
-point beyond D4 and D9, both resolved by their safe defaults: D4 is
+**Status: landed in `v0.7.4`, 2026-11-27 (commit `1375717`).** The scope was
+finalised against the `v0.7.3` tree and shipped as the four disjoint tracks —
+schema/store, briefs/insights, scheduler/wiring, panel/docs — with the
+acceptance list below as the definition of done. This revision adds the
+**landed shape and deviations** block at the end of the deliverables: the
+tagged tree is the specification 0.7.5 builds on, and three details (the mount
+gate, the proposal-count semantics, and the weekly/catch-up shapes) read
+differently from the plan prose. It is the first patch that writes the journal's
+opinionated layer (briefs, reflections, proposals, task sessions) on a timer, so
+it lands after the panel can decide (0.7.3) and after the pipeline is observable
+(0.7.2). It is **text-only** (no image, no host attachment peer) and adds no new
+decision point beyond D4 and D9, both resolved by their safe defaults: D4 is
 `automation.catchUpDays` (1–30, default 2), D9 is proposals-only memory, and the
 existing cost caps apply.
 
@@ -953,11 +984,95 @@ turn.
   automation block is now used, including `catchUpDays`), `docs/PANEL.md` (18
   routes and the close line), README/README.zh (one line), `CHANGELOG.md`.
 
+**Landed shape and deviations (measured on the `v0.7.4` tree).** The shipped
+behaviour is the specification 0.7.5 builds on. The plan prose above is kept as
+the intent; these are the points where the tagged tree measures differently or
+where the finalised text named something more loosely.
+
+- **The mount gate is the whole analysis block, not just the scheduler.** The
+  scheduler is created and started only inside the existing
+  `ctx.inject(['llm'], …)` block, itself under
+  `capture.enabled && analysis.enabled`, and only when `automation.enabled` —
+  so 0.7.4's close pass is a **native-capture feature**: a default profile
+  (capture off) mounts nothing and imported journals are untouched. Once
+  mounted, the `decideTextAnalysis` gate is deliberately narrower than the frame
+  gate (no `capture.enabled`, no `capture_state.paused`, no
+  `localProviders` check): it reads already-stored rows and sends activity
+  text only, never frames, window titles, or images.
+- **The daily brief's home is `daily_standup_entries`, with the planned
+  payload.** The row is `source_id = 'native'`,
+  `source_key = 'automation:day:<day>'`, payload
+  `{day, title: 'Standup <day>', body, model, generated_at}` — the existing
+  `standup` skill and panel read it unchanged. The weekly close writes only
+  `briefs(kind = 'week', period_key = <Monday>, source_key =
+  'automation:week:<Monday>')`; `kind = 'day'` stays reserved. The weekly close
+  in **this** tree is exactly one text call plus that one row: there is **no**
+  weekly reflection and **no** memory-lint summary yet (both are 0.7.5's job; one
+  CHANGELOG sentence that suggests otherwise is loose prose, not behaviour — see
+  0.7.6's docs reconciliation).
+- **Proposal counting is not capped at three.** `proposals` in the insight
+  result is the number of review items written: the model's proposals (filtered
+  to confidence ≥ 0.6, sorted, then at most `DEFAULT_MAX_PROPOSALS = 3`) **plus**
+  weak task-session guesses proposed as `kind = 'task_proposal'` (a session on
+  an existing active task at confidence below `DEFAULT_SESSION_MIN_SCORE = 0.8`
+  becomes a queue item instead of an attachment; up to `INSIGHTS_MAX_TASK_SESSIONS
+  = 10` guesses are considered). So one day can produce more than three queue
+  items, bounded by the store's own `MAX_PROPOSALS_PER_DAY = 5` and by dedupe,
+  suppression, and the 0.8 attach floor; unknown or inactive task ids are skipped
+  with a reason, and no memory claim is ever written (D9).
+- **Weekly Monday semantics: the close summarises the week that just ended.**
+  A close at `automation.weeklyOn` 04:00 (Monday by default) has just ended the
+  previous week, so the period key is the **Monday seven days before the
+  boundary date** (e.g. Monday 2026-11-23 04:00 closes the week of
+  2026-11-16). The current, still-running week is never closed early; with
+  catch-up on, the only week the window may replay is the immediately preceding
+  one. The same rule shapes the day close: the 04:00 boundary ends the Dayflow
+  day labelled with the previous date, and a day still in progress is never
+  closed.
+- **`automation.catchUpOnStart: false` shrinks the windows to the due period,
+  and the ledger archives one boundary row.** Every pass plans from the due
+  day/week; with catch-up off the day window is 1 (the due day only) and the
+  week window is 1 (the due week only), so a restart does not replay old days.
+  The first missed day (or week) just outside the window is recorded as
+  `skipped` with `older-than-catch-up` and no brief is fabricated; days older
+  than that first boundary day are **not** given individual rows (the landed
+  shape is one honest boundary marker, not a row per missed day). A `running`
+  row left by a crash is skipped as `stale-running`, a failed close is retried
+  to `AUTOMATION_MAX_ATTEMPTS = 2`, and consecutive failures re-arm an early pass
+  with a 5-minute delay that doubles up to five doublings; a success restores
+  the normal boundary. Passes are serialized, the timer is armed only after a
+  pass settles, and a tick never throws into the host.
+- **The status payload and close line are exactly the planned ones.** The wire
+  is `{automation: {enabled, running, dailyAt, weeklyOn, catchUpDays,
+  lastDayClose?, lastWeekClose?, nextDayCloseAt?}}`; when the scheduler is not
+  mounted the route answers the profile-derived schedule with `running: false`
+  and never creates the journal. `lastDayClose` is the most recent **day**, not
+  the most recently touched one, so archiving an old day cannot hide today's
+  close. The panel line shows the day-close time, the last day close's
+  day/status, the weekly day, "catch-up N days", "closing now" while a pass
+  runs, and a green/amber/grey dot; it has no button, no second entry, and its
+  copy is in EN and ZH.
+- **Measured surface.** 477 tests (425 at 0.7.3 — 52 new cases across
+  automation store/scheduler/insights, briefs, commands, panel, and client
+  format), 18 panel routes (9 GET + 9 POST), 5 slash commands, 23 tools, 8
+  skills, schema v9, no new host peer or dependency, no image. The tagged tree
+  is green under the same `npm test` / typecheck / `check:package` gates as the
+  rest of the line.
+- **Two ledgers 0.7.5 must build on.** `automation_runs.payload_json` exists and
+  the store records/parses it, but the 0.7.4 close composition never passes a
+  payload (`completeAutomationRun` gets `{status: 'complete'}`), and the
+  scheduler's close outcome carries only `{status, error}`, so a lint run has to
+  own its row and its payload rather than ride the scheduler's outcome. And
+  `briefs` has **no** `payload_json` column, so the digest needs one additive
+  column. Both are named in the 0.7.5 finalisation.
+
 **Tests and acceptance.**
 
 1. Closing a synthetic day with a scripted adapter produces exactly one standup
-   entry, one day reflection, at most three proposals (confidence ≥ 0.6
-   respected), and sessions only for the high-confidence (≥ 0.8) matches; a
+   entry, one day reflection, at most three **model** proposals (confidence ≥ 0.6
+   respected) plus any weak task-session `task_proposal` items — the landed
+   counting rule, so the queue total is bounded by the store's five-a-day cap
+   rather than by three — and sessions only for the high-confidence (≥ 0.8) matches; a
    lower-confidence match on an existing active task becomes a `task_proposal`
    review item; a task id that is unknown or no longer active is skipped with a
    reason; `memory_claims` is unchanged.
@@ -965,13 +1080,14 @@ turn.
    existing row bodies unchanged; `force` rewrites the brief/reflection instead
    of duplicating a period.
 3. Catch-up is bounded: a day missed inside the `catchUpDays` window is closed
-   on the next start/tick; a missing day older than the window gets an
+   on the next start/tick; the first missed day just outside the window gets an
    `automation_runs` row with `status = 'skipped'` and reason
-   `older-than-catch-up`, and no brief is fabricated; a long shutdown does not
-   produce a storm.
+   `older-than-catch-up`, older days are not given individual rows, and no brief
+   is fabricated; a long shutdown does not produce a storm.
 4. The weekly close on the configured weekday writes exactly one `briefs` row
-   for the Monday period; a second run is a no-op; a non-Monday period key is
-   refused.
+   for the **just-ended** week's Monday (the Monday seven days before the
+   boundary date, not the current week); a second run is a no-op; a non-Monday
+   period key is refused.
 5. A failing text call records `automation_runs.status = 'failed'` with
    `attempts`; it is retried to the attempts cap (2) and then left failed; the
    failure does not block the other job; a stale `running` row is skipped, not
@@ -992,36 +1108,44 @@ turn.
     the one new GET (17 → 18, 9 GET + 9 POST) and the single-entry assertions are
     unchanged; the close line's copy exists in EN and ZH; the client bundle
     builds with no new dependency.
-11. `npm test` (425 cases at 0.7.3 plus this patch's suites), typecheck,
-    `check:package` green; CI never calls a model or captures the screen (fake
-    or scripted adapters only, R4).
+11. `npm test` (477 cases on the tagged tree: 425 at 0.7.3 plus this patch's 52
+    new cases), typecheck, `check:package` green; CI never calls a model or
+    captures the screen (fake or scripted adapters only, R4).
 
 **Dependencies and owner decisions.** D3 (cost), D4 (catch-up window), D9
 (memory). Safe defaults, all shipping without an answer:
-`automation.catchUpDays: 2` (1–30; older days are `skipped`, never fabricated),
-at most three proposals per day at confidence ≥ 0.6 inside the store's own five
-a day, task sessions only at ≥ 0.8 against an existing active task, and
-proposals-only memory. Each close makes one text-only call and is bounded by the
+`automation.catchUpDays: 2` (1–30; the first day outside the window is
+`skipped`, never fabricated), at most three model proposals per day at
+confidence ≥ 0.6 inside the store's own five a day (weak task-session guesses
+add queue items under that same cap — the landed counting rule above), task
+sessions only at ≥ 0.8 against an existing active task, and proposals-only
+memory. Each close makes one text-only call and is bounded by the
 scheduler's idempotency and two attempts; the `analysis_jobs` token/call ledger
 is not modified by this patch. D1 still governs whether a model may be called at
 all (the text gate blocks `consent: none`), and D2's explicit provider/model
 rule is reused. **Explicitly not in 0.7.4:** the token budget as a hard gate, the
 catch-up/replay of analysis-ledger `skipped` windows, and the 04:00 day tail —
-they are 0.7.5/0.8.0 candidates with the choice taken before 0.7.5 starts; also
-not here: image admission, no `attachments` peer, no per-job automation switch,
-and no panel suppression-management surface. The D4 catch-up in this patch is
-about missed **close jobs** (`automation_runs`), not a replay of analysis-ledger
-skips (0.7.2's decision, re-triaged in the 0.7.3 window and still a 0.7.5/0.8.0
-candidate).
+the owner has not answered, so by default they are **0.8.0 candidates** rather
+than 0.7.5 scope (see the 0.7.5 section); also not here: image admission, no
+`attachments` peer, no per-job automation switch, and no panel
+suppression-management surface. The D4 catch-up in this patch is about missed
+**close jobs** (`automation_runs`), not a replay of analysis-ledger skips
+(0.7.2's decision, re-triaged in the 0.7.3 window and carried to 0.8.0 by
+default).
 
 **Risks and rollback.** The queue becoming noise is mitigated by the
-three-proposal cap, the 0.6 confidence floor, soft/hard suppression, and a
-"nothing worth keeping today is a success" outcome. Wrong task attribution is
+three-proposal cap on the model's own proposals, the 0.6 confidence floor, the
+store's five-a-day cap, soft/hard suppression, and a "nothing worth keeping
+today is a success" outcome — the measured 0.7.4 shape (model proposals plus
+weak session guesses) is the honest limit, not a promise of three items.
+
+Wrong task attribution is
 mitigated by the 0.8 floor, the existing-active-task requirement, the
 proposal-instead-of-attach rule below it, and the 0.7.3 Unlink that removes a
 session without deleting a day's activities. A catch-up storm after a long
-shutdown is bounded by `catchUpDays` and by the `skipped` rows for older days.
-Cost is bounded by one text-only job per day/week and two attempts. Timer leaks,
+shutdown is bounded by `catchUpDays` and by the single `skipped` boundary row
+(older days get no rows). Cost is bounded by one text-only job per day/week and
+two attempts. Timer leaks,
 duplicate periods and double closes are the classic failure here: the injectable
 seam, the `(job, day)` / `(kind, period_key)` uniqueness and the
 double-start/stop tests are the mitigation. Nothing user-visible runs on a
@@ -1033,77 +1157,220 @@ running 0.7.3 on the journal.
 
 ### 0.7.5 — Lint on a schedule, digest in the week
 
-**Theme and motivation.** The memory lint exists (read-only, four findings) but
-only runs when an agent calls it, so the roadmap risk "the store only grows"
-still stands. A weekly scheduled pass closes it, reusing the 0.7.4 scheduler
-instead of building a second timer.
+**Status: in progress — finalised against the `v0.7.4` tree, 2026-11-27.** The
+implementation is in the working tree and untagged; the shape below is the one
+it implements, and the release records the measurement. One theme (R1): the
+read-only memory lint becomes a weekly scheduled pass whose findings become
+review proposals and whose digest is written into the weekly brief. It depends
+on 0.7.4 only and ships under D8's safe default (proposals plus the digest; never
+an automatic repair). It adds **no** route, command, tool, skill, configuration
+key, host peer, dependency, or UI entry — 18 routes and 5 commands are unchanged
+— and it moves the owned schema one step, **v9 → v10**, on its own (R3).
+
+**Theme and motivation.** The memory lint exists (`journal_memory` `action:
+"lint"`: contradictions, superseded-by-newer pairs, unsourced claims, aged
+claims) but only runs when an agent calls it, so Roadmap Risk 2 — memory written
+as the present is stale the moment it is stored — is mitigated only on demand:
+the store ages and contradicts in silence until someone asks. A weekly pass
+closes that gap on the cadence the journal already has, reusing the 0.7.4
+scheduler and its ledger instead of inventing a second timer. It is deliberately
+advisory: findings become proposals in the queue 0.7.3 made decidable, and an
+automatic supersede or forget is out of scope (D8/D9). With it, Phase 4's
+maintenance loop — ingest, query, lint — is complete on the 0.7.x line; the
+remaining Phase 4 gap is the editing path, not the lint.
 
 **Deliverables.**
 
-- `src/journal.ts` — migration **v10** rebuilding `automation_runs` so its
-  `job` CHECK accepts `'lint'`. SQLite cannot alter a CHECK in place, so the
-  migration recreates the table inside one transaction, copies rows, and the
-  test asserts row counts and that both the old and the new job values are
-  accepted afterwards.
-- `src/automation/lint.ts` — a scheduled wrapper over `lintMemoryClaims` that
-  records an `automation_runs` row and turns findings into **proposals only**:
-  deduplicated by the existing `reviewFingerprint`, at most one per claim per
-  week, never an automatic supersede or forget.
-- Scheduler wiring: the weekly pass runs after the weekly close on
-  `automation.weeklyOn`; the weekly brief gains a short "memory health" line in
-  its `payload_json` and body.
-- Docs: `docs/CONFIGURATION.md` (what the weekly pass does and does not repair),
-  `docs/NATIVE_PORT.md` §4 numbering sync, `docs/ROADMAP.md` remain line,
-  `CHANGELOG.md`.
+- `src/journal.ts` — migration **v10** (`JOURNAL_SCHEMA_VERSION = 10`),
+  forward-only (R3/R8), inside `migrateJournal`'s existing single transaction:
+  - **rebuild `automation_runs`** so its `job` CHECK accepts
+    `'day_close' | 'week_close' | 'lint'`. SQLite cannot alter a CHECK in place,
+    so `MIGRATION_10` creates the replacement table (`automation_runs_v10`),
+    copies every v9 row with its id, lifecycle, payload, and timestamps, drops
+    the old table, renames, and recreates `automation_runs_day_idx`; the widened
+    CHECK is the only change to the table shape and no row is rewritten or
+    dropped;
+  - **add nullable `briefs.payload_json TEXT`** for the digest, under a
+    `tableHasColumn` guard inside the same transaction (a journal rewound from a
+    newer fixture could already carry the column; an unconditional `ALTER` would
+    abort the upgrade). Existing briefs keep their body/model with a NULL
+    payload.
+  Migration tests: a fresh journal is v10 with both tables; a v8 journal
+  migrates to v10 in one step keeping its data; a populated v9 fixture rebuilds
+  `automation_runs` (row count and ids preserved) so both the old and the new
+  `job` values are accepted and an unknown one is still rejected, keeps every
+  `briefs` row with a NULL payload, and reopening is a no-op.
+- `src/automation/store.ts` — `AutomationJob` gains `'lint'` (and the `JOBS`
+  validator set), so the ledger is "first-class" for the third job; the brief
+  record gains an optional `payload`, `upsertBrief` serializes it and clears an
+  earlier one when omitted, and a brief's corrupt payload decodes to "no
+  payload" instead of a `database_error` (a run's payload stays strict — the
+  ledger must be trustworthy). The scheduler's `Record<AutomationJob,
+  RetryState>` gains an unused `lint` entry to satisfy the widened union; the
+  lint row's lifecycle is owned by the wrapper below, and the scheduler's close
+  outcome keeps its `{status, error}` shape.
+- `src/automation/lint.ts` — **the scheduled wrapper** over the read-only
+  `lintMemoryClaims`, exported as `runWeeklyLint({journalPath, config,
+  weekMonday, now?, force?, maxProposals?})` and returning
+  `WeeklyLintResult {status: 'complete' | 'skipped', scanned, findings,
+  proposals, summary, reason?}`:
+  - it records its **own** ledger row `automation_runs(job = 'lint', day =
+    <monday>)`, keyed by the Monday of the closed week and validated to be a
+    real Monday. A completed week returns `skipped` with `reason:
+    'already-complete'` and the recorded counts — no scan, no proposals, no row
+    change; `force: true` recomputes the week and rewrites the payload on the
+    same row, keeping its id and attempts;
+  - `lintMemoryClaims({now})` is read-only. Its four lists are flattened in the
+    report's own priority order (contradiction, superseded-by-newer, unsourced,
+    aged) and reduced to **one finding per subject**, strongest kind first (a
+    claim belongs to exactly one subject, so this is at most one proposal per
+    claim per week, while a contradiction's pair stays one item). The kept
+    findings are capped at `DEFAULT_WEEKLY_LINT_MAX_PROPOSALS = 3` (option
+    1–10), so one pass cannot flood the queue;
+  - each kept finding becomes a `kind = 'improvement'` proposal — title
+    `Memory check: <subject>`, body stating the finding and the claims involved
+    plus the reminder that nothing was repaired, confidence 0.7 (clears
+    `MIN_PROPOSAL_CONFIDENCE = 0.5`), `source_day = <monday>`, and an evidence
+    line naming the finding type and claim ids. Proposals go through
+    `proposeReviewItem`, so `reviewFingerprint` (sha256 of kind + normalised
+    title) makes a same-week re-proposal `already-proposed` instead of a
+    duplicate, and the queue's hard/soft suppression and five-a-day cap apply
+    (all of a week's proposals share the Monday as `source_day`);
+  - it **never writes a claim**: no add, supersede, or forget call is made and
+    no row gains `superseded_by` (the tests compare every claim row
+    byte-for-byte before and after);
+  - a clean week is still a result: the run completes with
+    `summary: 'nothing to report'`; otherwise the summary reads like
+    "5 findings across 6 active claims; 3 proposals queued." plus
+    "1 proposal already queued or suppressed." when items were dropped. The
+    completed row's `payload_json` is `{scanned, findings, proposals, summary}`
+    — `findings` is the total across the four lists before per-subject
+    reduction — the machine-readable digest a later briefs view can use;
+  - bookkeeping is all-or-nothing: proposals and the completed run are written
+    in one transaction. A scan failure records the run `failed` when this pass
+    started it and rethrows; a forced rerun that fails leaves the earlier
+    completed week's payload intact rather than downgrading it;
+  - it makes **no model call and has no consent gate of its own** — it reads
+    claims already in the journal — so it still proposes on a week whose model
+    call is gated off; the close itself is recorded `skipped` by the brief's
+    gate.
+- `src/briefs/weekly.ts` — `writeWeeklyBrief` accepts an optional
+  `memoryHealth: WeeklyMemoryHealth {findings, proposals, summary}`. When
+  present, the brief body ends with exactly one paragraph,
+  `Memory health: <summary>`, appended **after** the model's answer — never sent
+  to the model, never a second paragraph — and the row's
+  `payload_json.memory_health` stores the same object; the result echoes
+  `memoryHealth`. A rerun without `force` skips an existing brief and keeps its
+  stored digest; `force` refreshes body and payload. Without `memoryHealth` the
+  brief is exactly the 0.7.4 one.
+- `src/index.ts` — the week-close composition runs `runWeeklyLint` for the same
+  Monday **first** and hands its digest to `writeWeeklyBrief`, inside the
+  existing `ctx.inject(['llm'], …)` / `capture.enabled && analysis.enabled &&
+  automation.enabled` mount, so the pass stays inert on a default profile
+  exactly as in 0.7.4. **Ordering, finalised here:** the digest must be part of
+  the brief write, so the lint runs before the brief within one week-close pass;
+  the earlier draft wording "after the weekly close" is read as "under the same
+  weekly-close trigger", not "after the brief row exists". `describeWeekClose`
+  now takes both results: a blocked gate from either pass records `skipped` with
+  that reason, both passes skipping (an already-written brief beside an
+  already-complete lint) records `skipped` with the first reason, and any other
+  combination is `complete`. A lint throw propagates, so the week close is
+  recorded `failed` and the scheduler's two-attempt retry re-runs it while the
+  lint row has attempts left; the brief is written only after a successful
+  lint.
+- Docs: `docs/CONFIGURATION.md` (the weekly lint and digest; the closes are
+  gated by analysis consent, the lint makes no model call, and there is no new
+  key), `docs/NATIVE_PORT.md` §4 (v10 shipped: the third job value, the
+  `briefs.payload_json` column, and `automation/lint.ts`), `docs/ARCHITECTURE.md`
+  (`automation/lint.ts` in the write path), `docs/PANEL.md` (the digest stays in
+  the `briefs` store; the panel stays at 18 routes and the same close line),
+  `docs/ROADMAP.md` remain line, `CHANGELOG.md` (the `[Unreleased]` entry moves
+  into the release section at the bump).
 
 **Tests and acceptance.**
 
-1. A fixture with a contradiction and an aged claim produces at most one review
-   item per claim for the week; the second run of the same week is a no-op.
-2. Findings never mutate claims: the claim rows are byte-identical before and
-   after the pass, and no claim gains `superseded_by`.
-3. An unsuppressed finding can be proposed again on a later week.
-4. The digest appears once in the weekly brief, and a week with no findings says
-   "nothing to report" rather than nothing.
-5. Migration v9 → v10 keeps every automation row and accepts `'lint'`.
-6. `npm test`, typecheck, `check:package` green.
+1. The first run scans read-only and proposes at most one `improvement` per
+   subject; a fixture with five findings across the four lists yields at most
+   `DEFAULT_WEEKLY_LINT_MAX_PROPOSALS = 3` proposals, and every `memory_claims`
+   row is byte-identical before and after (no `superseded_by`).
+2. A clean or empty week completes with `summary: 'nothing to report'` and
+   records the run, so the weekly brief can say the check ran.
+3. One subject never gets two proposals, even when two finding kinds find it;
+   the proposal cap is honoured and configurable only within 1–10.
+4. A hard-suppressed proposal is never raised again, including in a later week;
+   a soft-discarded one may return for a different week (the new `source_day` is
+   materially new evidence) but not for the same one.
+5. A second run of the same week is `skipped: already-complete` with the
+   recorded counts and writes nothing; `force` recomputes the week and rewrites
+   the payload without duplicating proposals.
+6. A scan failure records the lint run `failed` and propagates, so the week
+   close is recorded `failed` and remains retryable; a forced rerun that fails
+   leaves the earlier completed week's payload intact. Arguments (missing
+   journal path, a non-Monday, an out-of-range cap) are validated before
+   anything is written.
+7. Migration v9 → v10 keeps every `automation_runs` id/row and every `briefs`
+   row, accepts `'lint'` and the old job values while still rejecting an unknown
+   one, and reopening is a no-op; a v8 journal migrates to v10 in one step.
+8. The weekly brief carries the digest exactly once: the body ends with one
+   `Memory health: <summary>` paragraph, the prompt never contains it, the row's
+   `payload_json.memory_health` matches the lint payload, an `already-written`
+   rerun keeps the stored digest, and `force` rewrites it to exactly one
+   paragraph.
+9. The surface does not grow: 18 routes (9 GET + 9 POST), 5 commands, 23 tools,
+   8 skills, one UI entry, no new configuration key; the close line and its copy
+   are untouched; no host peer or dependency is added; CI never calls a model
+   (scripted lint fixtures and fake adapters only, R4).
+10. `npm test` (477 at 0.7.4 plus this patch's suites — the lint suite is
+    twelve cases, plus the brief-digest and store/migration additions),
+    `npm run typecheck`, `npm run check:package` green; the v10 migration test
+    runs in the same suite.
 
-**Dependencies and owner decisions.** D8: proposals plus digest (safe default)
-or digest only. Digest-only drops the proposal path but still needs the same
-`'lint'` job value and so the same v10 rebuild.
+**Dependencies and owner decisions.** D8 only, shipped by its safe default:
+proposals plus the digest. D9 is reused unchanged — the pass writes no claim.
+**Not in 0.7.5:** the three analysis-ledger follow-ups — skipped-window catch-up,
+the token cap as a post-call gate, and the 04:00 day tail. The owner has not
+answered the decision 0.7.2/0.7.3/0.7.4 deferred, so the default is to keep 0.7.5
+single-theme (R1) and carry all three as **0.8.0 candidates**, with the decision
+taken when 0.8.0 is scoped. If the owner answers before 0.7.5 is tagged, taking
+one here is an explicit R1 relaxation: the 0.7.3 section's per-item shape and
+added acceptance assertions apply, and the patch stops being "one table rebuild
+plus one wrapper". Image admission, the briefs reading view, a per-job
+automation switch, and a digest-only variant are not in 0.7.5 either.
 
-**Deferred analysis-ledger follow-ups (candidate, owner decision).** This is the
-recommended home if the owner wants the three analysis-ledger follow-ups before
-0.8.0: skipped-window catch-up (a bounded replay with a per-reason policy under
-D3/D4), the token cap as a post-call gate, and the 04:00 day tail (one bounded
-extra `run()` on the first tick after the boundary). Taking them here relaxes R1
-on purpose: 0.7.5 then has two themes (the scheduled lint and the ledger), so its
-acceptance list grows by the replay/gate/tail assertions and the diff is larger.
-The alternative — and the default — is leaving them to 0.8.0. Either way the
-decision is taken before 0.7.5 starts: 0.7.4 is landed and deliberately
-excludes all three (its D4 catch-up is about missed close jobs only).
-
-**Risks and rollback.** A table rebuild is the one genuinely delicate step in
-the line: one transaction, a populated v9 fixture, row-count and CHECK
-assertions, and no data rewriting. Findings as noise is bounded by the weekly
-cadence, dedupe and suppression. Rollback: `automation.enabled: false` stops the
-pass; v10 is forward-only (R8).
+**Risks and rollback.** A table rebuild is the one genuinely delicate step in the
+line: one transaction, a populated v9 fixture (and a v8 one), row-count and CHECK
+assertions, no data rewriting, the index recreated — the same discipline as v9,
+and the last migration before 0.8.0's cutover rehearsal. "The lint becomes
+noise" is bounded by the weekly cadence, one proposal per subject (at most one
+per claim), the three-proposal cap, the queue's five-a-day cap, the confidence
+floor, and soft/hard suppression. "The lint silently repairs memory" is
+impossible by construction and enforced by the byte-identical test. A lint
+failure is not swallowed: it fails that week's close, records the lint row
+`failed`, and the scheduler's bounded retry gives it one more attempt — a broken
+lint cannot silently drop the brief and pretend the week closed. Rollback:
+`automation.enabled: false` stops the pass without a downgrade; v10 is
+forward-only (R8), so a bad migration is fixed forward.
 
 ### 0.7.6 — Release and compatibility close
 
 **Theme and motivation.** Close the line honestly: every 0.7.x change documented
 and released, the publication decision taken by the owner, and the Phase 4
-cutover rehearsed without flipping any default.
+cutover rehearsed without flipping any default. This is the only patch that
+touches the release trail itself, and it starts from a measured backlog: on
+2026-11-27 the registry has no `dsh-plugin-dayflow` (404), the latest GitHub
+Release is `v0.5.1`, and `v0.7.1`–`v0.7.4` are tags without release notes —
+each carrying value only in the tagged tree.
 
 **Deliverables.**
 
-- GitHub Releases: `npm run release -- patch` already creates them; verify
-  `v0.7.1`–`v0.7.6` each have a release whose notes are the matching CHANGELOG
-  section. `v0.7.1`, `v0.7.2` and `v0.7.3` are tagged but had **no** GitHub
-  Release on 2026-11-27 (the latest published release is `v0.5.1`), so this
-  patch backfills `v0.7.1`–`v0.7.4` by hand (four releases; if `v0.7.4` was cut
-  with a release, verify its notes instead of recreating it); the same rule
-  covers any later tag cut without a release.
+- GitHub Releases: `npm run release -- patch` already creates one for the tag
+  it cuts; verify `v0.7.1`–`v0.7.6` each have a release whose notes are the
+  matching CHANGELOG section. `v0.7.1`, `v0.7.2`, `v0.7.3` and `v0.7.4` are
+  tagged but had **no** GitHub Release on 2026-11-27 (the latest published
+  release is `v0.5.1`), so this patch backfills **`v0.7.1`–`v0.7.5` by hand
+  (five releases)**; `v0.7.6` is cut by the release tool with its own release.
+  If a tag was in fact cut with a release, verify its notes instead of
+  recreating it; the same rule covers any later tag cut without one.
 - npm: a publication checklist, not a publication. `npm pack --dry-run` and
   `check-package.mjs` already gate the file list; confirm the registry name is
   still free, that `docs/` (including this plan) ships in the tarball, and that
@@ -1112,13 +1379,21 @@ cutover rehearsed without flipping any default.
   the npm registry".
 - Docs reconciliation: README/README.zh status line, `docs/ROADMAP.md` status
   and phase remain lines, `docs/NATIVE_PORT.md` phase statuses, the v8/v9/v10
-  numbering **and its §4 v9 shapes** (two automation job values, five statuses,
-  both brief kinds), and its "images stay text-only until 0.7.2" sentence (the
-  contract is text-only for the whole 0.7.x line; image admission is 0.8.0
+  numbering **and its §4 shapes** (v9 shipped: two automation job values, five
+  statuses, both brief kinds; v10 shipped: three job values and
+  `briefs.payload_json`), and its "images stay text-only until 0.7.2" sentence
+  (the contract is text-only for the whole 0.7.x line; image admission is 0.8.0
   material), `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, `docs/PANEL.md`,
   `docs/TOOLS.md` if the surface changed, the deferred analysis-ledger items
-  (skipped-window catch-up, the token gate, the 04:00 tail) as shipped or still
-  deferred, and this file's status column updated to what actually shipped.
+  (skipped-window catch-up, the token gate, the 04:00 tail) recorded as still
+  deferred to 0.8.0, and this file's status column updated to what actually
+  shipped.
+- **CHANGELOG correction:** the `[0.7.4]` section says the weekly close adds "the
+  weekly reflection, the weekly review pass, and the memory lint summary", but
+  the tagged tree closes a week with exactly one brief (`briefs(kind='week')`)
+  and no reflection or lint; those landed (or are landing) in 0.7.5 (the lint and
+  its digest) and the stored week brief is what a later briefs view reads.
+  Rewrite that sentence to match the tagged behaviour rather than the intent.
 - Phase 4 cutover **rehearsal**: a fresh-profile dry run (capture on, consent
   `local` or `none`, analysis on, one real day, next-morning close) with a
   written pass/fail checklist covering permission, frames, cards, brief,
@@ -1136,7 +1411,7 @@ cutover rehearsed without flipping any default.
 **Acceptance.**
 
 1. Six tags exist (`v0.7.1`–`v0.7.6`), each with a GitHub Release whose notes
-   match its CHANGELOG section; the `v0.7.1`–`v0.7.4` releases are backfilled by
+   match its CHANGELOG section; the `v0.7.1`–`v0.7.5` releases are backfilled by
    hand where the tag was cut without one; the tag version guard passes on each.
 2. `npm view dsh-plugin-dayflow version` either shows the authorized version or
    the README explicitly says the line is tagged and unpublished — no
@@ -1214,11 +1489,13 @@ The draft order this plan was asked to evaluate was 0.7.1 analysis foundation,
    interleaving a second workstream into the same modules. It is also why the
    skipped-window catch-up policy is not in 0.7.2: that would add a second
    state-machine workstream (with a money decision behind it) to the first patch
-   that can spend real money. It was re-triaged in the 0.7.3 window and is now a
-   0.7.5/0.8.0 candidate (see 0.7.3), not hidden scope in the panel patch.
+   that can spend real money. It was re-triaged in the 0.7.3 window, stays out
+   of 0.7.4 and the finalised 0.7.5, and is a 0.8.0 candidate by default (see
+   0.7.3), not hidden scope in the panel patch.
 3. **Lint after automation.** The lint pass reuses the 0.7.4 scheduler and
-   `automation_runs`; building it earlier would mean a second timer and a second
-   bookkeeping path, which this line exists to avoid.
+   `automation_runs`; building it earlier would have meant a second timer and a
+   second bookkeeping path, which this line exists to avoid. 0.7.5 is therefore
+   one theme (the scheduled lint and its digest), not two.
 4. **Release close last, and it flips nothing.** A patch line whose last patch
    changed the default `source` would not be a patch line. The default flip is
    the Phase 4 cutover, planned as 0.8.0 (native preview), with 1.0.0 after a
@@ -1236,29 +1513,32 @@ because a decision can be taken at that point instead of before it.
 | --- | --- | --- | --- | --- |
 | D1 | **Analysis destination**: `none`, `local`, or `cloud` | Whether screen frames may leave the machine, and whose model reads them | `none`: capture and the analysis code ship, no frame leaves the machine, the panel says why. Dogfooding a real day waits for the answer | 0.7.1 (code), 0.7.2 (real runs) |
 | D2 | **Provider and model** for analysis | Cost, latency, and which vendor sees the frames | No implicit host default: `analysis.provider` + `analysis.model` must be set explicitly; empty means "not configured" and jobs are `skipped`. 0.7.1 shipped exactly this and 0.7.2's adapter sends the configured pair, so the decision is settled unless the owner wants host defaults | 0.7.1 (settled) |
-| D3 | **Daily budget**: calls and tokens | A runaway loop is a bill, not a bug | 120 calls / 200k tokens per day, shown in status and read from the jobs ledger; the call cap has been a gate since 0.7.1, 0.7.2 surfaces both numbers, and the token cap is still reported-only through 0.7.4 (a post-call gate is a 0.7.5/0.8.0 candidate) | 0.7.2 |
+| D3 | **Daily budget**: calls and tokens | A runaway loop is a bill, not a bug | 120 calls / 200k tokens per day, shown in status and read from the jobs ledger; the call cap has been a gate since 0.7.1, 0.7.2 surfaces both numbers, and the token cap is still reported-only through 0.7.4 (a post-call gate stays a 0.8.0 candidate; 0.7.5 is finalised single-theme) | 0.7.2 |
 | D4 | **Catch-up window** after the machine was off | Closing ten missed days at once is noise and cost | Finalised as the new `automation.catchUpDays` key: an integer 1–30, default **2**, counting back from the due day; older days are marked `skipped`, never fabricated | 0.7.4 |
 | D5 | **Frame retention** after analysis | Debuggability versus leaving screenshots on disk | `keepFramesDays: 0` deletes a frame after its successful analysis; 1–7 days is the debugging alternative | 0.7.1 |
 | D6 | **Suppression management surface** | A hard-suppressed idea must be clearable somewhere | Agent-only in 0.7.x (`journal_review` unsuppress); a panel list is a later patch | 0.7.3 |
 | D7 | **npm publication** | Publishing is hard to undo | Stay "tagged, not on the npm registry" (the README already says so); publish only on explicit authorization with a reviewed `npm pack` | 0.7.6 |
-| D8 | **Lint finding destination** | A finding is only useful if it is seen, and only trustworthy if it is not auto-"fixed" | Weekly digest plus at most one proposal per claim per week; no automatic supersede or forget | 0.7.5 |
+| D8 | **Lint finding destination** | A finding is only useful if it is seen, and only trustworthy if it is not auto-"fixed" | Weekly digest plus at most one proposal per claim per week; no automatic supersede or forget | 0.7.5 (landed) |
 | D9 | **Automatic memory writes** | The product rule is "the agent may notice, only the user may decide" | Automation proposes into the queue; claims are written only through the existing kept-item promotion path. 0.7.4 ships exactly this: its insight pass never writes a claim | 0.7.4 |
 
-**Where the decisions stand after 0.7.3, with 0.7.4 finalised.** D2 is settled
+**Where the decisions stand after 0.7.4, with 0.7.5 finalised.** D2 is settled
 as the explicit provider/model rule above; D5's landed behaviour is
 delete-after-success at `keepFramesDays: 0`, with the engine sweep as the
 fallback; D1 remains unanswered, which keeps the line inert by default
 (`consent: none`, capture off). D3's caps are configured and the call cap is
 enforced; 0.7.2 made the ledger visible (both call and token numbers) and left
 the token number reported-only, and 0.7.4 does not change that — a post-call
-token gate stays a 0.7.5/0.8.0 candidate. D6's safe default is what 0.7.3
+token gate stays a 0.8.0 candidate. D6's safe default is what 0.7.3
 shipped: the panel decides items, and a hard suppression is cleared only through
 the agent's `journal_review` `unsuppress` action — there is no panel suppression
 list in 0.7.x. **D4 and D9 are finalised by the 0.7.4 section:** catch-up is
 bounded by `automation.catchUpDays` (1–30, default 2) with older days `skipped`,
 and automation writes no memory claim — proposals only, through the existing
-kept promotion path. D7 (publish) and D8 (lint destination) are taken at 0.7.6
-and 0.7.5 respectively.
+kept promotion path. D8 (lint destination) is taken by 0.7.5's safe default
+(proposals plus the weekly digest, finalised in its section) and D7 (publish)
+is taken at 0.7.6. The three analysis-ledger follow-ups (skipped-window
+catch-up, the token gate, the 04:00 day tail) are **0.8.0 candidates by
+default** — the owner has not answered, and 0.7.5 intentionally keeps one theme.
 
 Two constraints that are not decisions: the privacy limitation copy from
 Roadmap 3.6 (a paused app's window is skipped, but nothing can tell what is

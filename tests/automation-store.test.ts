@@ -1,11 +1,12 @@
 /**
- * Owned journal schema v9 (`automation_runs`, `briefs`) and the automation store.
+ * Owned journal schema v10 (`automation_runs`, `briefs`) and the automation store.
  *
- * Two things are recorded: a run per scheduled closing job, and the brief the
+ * Two things are recorded: a run per scheduled job, and the brief the closing
  * job produced. Both are idempotent — `(job, day)` decides which run a tick
  * works on, `(kind, period_key)` decides which brief a regeneration rewrites —
  * and a run's retry cap (`attempts`) is what stops a permanently failing job
- * from calling a model forever.
+ * from calling a model forever. Schema v10 rebuilds `automation_runs` so the
+ * weekly memory lint is a third job, and adds the briefs' JSON payload column.
  *
  * These tests use disposable journals under a temporary directory; they never
  * touch the default `$DSH_HOME` journal and never call a model.
@@ -97,15 +98,52 @@ function circularValue(): unknown {
   return value;
 }
 
-test('a fresh journal is schema v9 and carries the automation tables', () => {
+/**
+ * The v9 shapes of the two automation tables, used to rewind a fresh journal to
+ * exactly what an installed 0.7.4 leaves behind: `automation_runs.job` only
+ * accepts the two closing jobs, and `briefs` has no `payload_json`.
+ */
+const V9_AUTOMATION_TABLES = `
+  CREATE TABLE automation_runs (
+    id INTEGER PRIMARY KEY,
+    job TEXT NOT NULL CHECK (job IN ('day_close','week_close')),
+    day TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending','running','complete','failed','skipped')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    payload_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (job, day)
+  );
+  CREATE INDEX automation_runs_day_idx ON automation_runs (day);
+  CREATE TABLE briefs (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('day','week')),
+    period_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    model TEXT,
+    source_id TEXT NOT NULL DEFAULT 'native',
+    source_key TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (kind, period_key)
+  );
+`;
+
+test('a fresh journal is schema v10 and carries the automation tables', () => {
   const path = journalFile('fresh');
   const db = openJournal(path);
   try {
-    assert.equal(JOURNAL_SCHEMA_VERSION, 9);
-    assert.equal(Number(db.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 9);
+    assert.equal(JOURNAL_SCHEMA_VERSION, 10);
+    assert.equal(Number(db.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 10);
     assert.equal(tableCountIn(db, 'automation_runs'), 1);
     assert.equal(tableCountIn(db, 'briefs'), 1);
     assert.deepEqual(indexNamesIn(db, 'automation_runs_'), ['automation_runs_day_idx']);
+    // The rebuild in migration 10 left no staging table behind.
+    assert.equal(tableCountIn(db, 'automation_runs_v10'), 0);
     // Both tables start empty: automation is opt-in.
     assert.equal(listAutomationRuns(db).length, 0);
     assert.equal(listBriefs(db).length, 0);
@@ -114,13 +152,31 @@ test('a fresh journal is schema v9 and carries the automation tables', () => {
     assert.equal(run.attempts, 0);
     assert.equal(run.payload, undefined);
     assert.equal(getBrief(db, 'day', '2026-03-11'), undefined);
+    // The v10 job CHECK accepts the weekly lint job.
+    const lintRun = ensureAutomationRun(db, 'lint', '2026-03-09');
+    assert.equal(lintRun.job, 'lint');
+    assert.equal(startAutomationRun(db, lintRun.id).status, 'running');
+    // The briefs payload column exists and is absent on a brief that wrote none.
+    const payloadColumn = db
+      .prepare("SELECT name FROM pragma_table_info('briefs') WHERE name = 'payload_json'")
+      .get() as Row | undefined;
+    assert.equal(payloadColumn?.name, 'payload_json');
+    const brief = upsertBrief(db, {
+      kind: 'day',
+      periodKey: '2026-03-11',
+      title: 'Wednesday, in short',
+      body: 'A day.',
+      sourceKey: 'timeline:2026-03-11',
+    });
+    assert.equal(brief.payload, undefined);
   } finally {
     db.close();
   }
-  // Reopening a v9 journal is a no-op that keeps its rows.
+  // Reopening a v10 journal is a no-op that keeps its rows.
   const reopened = openJournal(path);
   try {
     assert.equal(getAutomationRun(reopened, 'day_close', '2026-03-11')?.id, 1);
+    assert.equal(getAutomationRun(reopened, 'lint', '2026-03-09')?.job, 'lint');
   } finally {
     reopened.close();
   }
@@ -129,7 +185,7 @@ test('a fresh journal is schema v9 and carries the automation tables', () => {
   assert.equal(viaRead?.day, '2026-03-11');
 });
 
-test('a v8 journal migrates to v9 in one step and keeps its data', () => {
+test('a v8 journal migrates to v10 in one step and keeps its data', () => {
   const path = journalFile('v8-upgrade');
   const legacy = openJournal(path);
   try {
@@ -156,7 +212,7 @@ test('a v8 journal migrates to v9 in one step and keeps its data', () => {
 
   const upgraded = openJournal(path);
   try {
-    assert.equal(Number(upgraded.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 9);
+    assert.equal(Number(upgraded.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 10);
     assert.equal(tableCountIn(upgraded, 'automation_runs'), 1);
     assert.equal(tableCountIn(upgraded, 'briefs'), 1);
     // Every earlier row survives the upgrade.
@@ -180,12 +236,203 @@ test('a v8 journal migrates to v9 in one step and keeps its data', () => {
   // Opening again is a no-op that keeps the rows written after the migration.
   const reopened = openJournal(path);
   try {
-    assert.equal(Number(reopened.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 9);
+    assert.equal(Number(reopened.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 10);
     assert.equal(listAutomationRuns(reopened).length, 1);
     assert.equal(listBriefs(reopened).length, 1);
     assert.equal(Number(reopened.prepare('SELECT COUNT(*) AS count FROM activities').get()?.count), 1);
   } finally {
     reopened.close();
+  }
+});
+
+test('a v9 journal rebuilds automation_runs for lint and adds the briefs payload column', () => {
+  const path = journalFile('v9-upgrade');
+  const seeded = openJournal(path);
+  try {
+    // Rewind the two automation tables to their exact 0.7.4 shapes and version.
+    seeded.exec('DROP TABLE automation_runs');
+    seeded.exec('DROP TABLE briefs');
+    seeded.exec(V9_AUTOMATION_TABLES);
+    seeded
+      .prepare(
+        `INSERT INTO automation_runs (id, job, day, status, attempts, error, payload_json, created_at, updated_at)
+         VALUES (1, 'day_close', '2026-03-11', 'complete', 1, NULL, '{"title":"Done"}',
+                 '2026-03-11 21:00:00', '2026-03-11 21:00:01')`,
+      )
+      .run();
+    seeded
+      .prepare(
+        `INSERT INTO automation_runs (id, job, day, status, attempts, error)
+         VALUES (2, 'week_close', '2026-03-09', 'failed', 2, 'model unavailable')`,
+      )
+      .run();
+    seeded
+      .prepare(
+        `INSERT INTO briefs (id, kind, period_key, title, body, model, source_key)
+         VALUES (1, 'day', '2026-03-11', 'Wednesday, in short', 'A day.', 'gpt-test', 'timeline:2026-03-11')`,
+      )
+      .run();
+    seeded.prepare('UPDATE schema_version SET version = 9').run();
+  } finally {
+    seeded.close();
+  }
+
+  // The v9 file really is v9: its job CHECK refuses lint and briefs has no payload.
+  const legacy = new DatabaseSync(path);
+  try {
+    assert.throws(() => legacy.prepare("INSERT INTO automation_runs (job, day) VALUES ('lint', '2026-11-16')").run());
+    assert.equal(legacy.prepare("SELECT name FROM pragma_table_info('briefs') WHERE name = 'payload_json'").get(), undefined);
+  } finally {
+    legacy.close();
+  }
+
+  const upgraded = openJournal(path);
+  try {
+    assert.equal(Number(upgraded.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 10);
+    // The rebuild keeps every row, column, and value in place.
+    const completeRow = upgraded.prepare('SELECT * FROM automation_runs WHERE id = 1').get() as Row;
+    assert.equal(completeRow.job, 'day_close');
+    assert.equal(completeRow.day, '2026-03-11');
+    assert.equal(completeRow.status, 'complete');
+    assert.equal(completeRow.attempts, 1);
+    assert.equal(completeRow.error, null);
+    assert.equal(completeRow.payload_json, '{"title":"Done"}');
+    assert.equal(completeRow.created_at, '2026-03-11 21:00:00');
+    assert.equal(completeRow.updated_at, '2026-03-11 21:00:01');
+    const failedRow = upgraded.prepare('SELECT * FROM automation_runs WHERE id = 2').get() as Row;
+    assert.equal(failedRow.status, 'failed');
+    assert.equal(failedRow.attempts, 2);
+    assert.equal(failedRow.error, 'model unavailable');
+    assert.equal(Number(upgraded.prepare('SELECT COUNT(*) AS count FROM automation_runs').get()?.count), 2);
+    // The rebuilt table has exactly the v9 columns, in the same order.
+    assert.deepEqual(
+      (upgraded.prepare("SELECT name FROM pragma_table_info('automation_runs') ORDER BY cid").all() as Row[]).map(
+        (row) => row.name,
+      ),
+      ['id', 'job', 'day', 'status', 'attempts', 'error', 'payload_json', 'created_at', 'updated_at'],
+    );
+    // The rebuilt table is the only one left and its day index is back.
+    assert.equal(tableCountIn(upgraded, 'automation_runs_v10'), 0);
+    assert.deepEqual(indexNamesIn(upgraded, 'automation_runs_'), ['automation_runs_day_idx']);
+    // The old unique key still holds across the rebuild.
+    assert.throws(() => upgraded.prepare("INSERT INTO automation_runs (job, day) VALUES ('day_close', '2026-03-11')").run());
+    // The new job is accepted by the rebuilt CHECK and works through the store.
+    const lintRun = ensureAutomationRun(upgraded, 'lint', '2026-11-16');
+    assert.equal(lintRun.job, 'lint');
+    assert.equal(startAutomationRun(upgraded, lintRun.id).attempts, 1);
+    assert.equal(completeAutomationRun(upgraded, lintRun.id, { findings: 0 }).status, 'complete');
+    // The v9 brief keeps its row; the nullable payload column reads as absent.
+    const brief = getBrief(upgraded, 'day', '2026-03-11');
+    assert.equal(brief?.title, 'Wednesday, in short');
+    assert.equal(brief?.model, 'gpt-test');
+    assert.equal(brief?.payload, undefined);
+    assert.equal((upgraded.prepare('SELECT payload_json FROM briefs WHERE id = 1').get() as Row).payload_json, null);
+    assert.equal(Number(upgraded.prepare('SELECT COUNT(*) AS count FROM briefs').get()?.count), 1);
+  } finally {
+    upgraded.close();
+  }
+
+  // Reopening a v10 journal does no migration work and keeps the rows.
+  const reopened = openJournal(path);
+  try {
+    assert.equal(Number(reopened.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 10);
+    assert.equal(listAutomationRuns(reopened).length, 3);
+    assert.equal(listBriefs(reopened).length, 1);
+  } finally {
+    reopened.close();
+  }
+});
+
+test('the lint job is a first-class ledger job', () => {
+  const db = openTempJournal('lint-job');
+  try {
+    const run = ensureAutomationRun(db, 'lint', '2026-11-16');
+    assert.equal(run.job, 'lint');
+    assert.equal(run.status, 'pending');
+    assert.equal(run.attempts, 0);
+    // The same (job, week) is one row; the next Monday is another.
+    assert.equal(ensureAutomationRun(db, 'lint', '2026-11-16').id, run.id);
+    const nextWeek = ensureAutomationRun(db, 'lint', '2026-11-23');
+    assert.notEqual(nextWeek.id, run.id);
+
+    const started = startAutomationRun(db, run.id);
+    assert.equal(started.status, 'running');
+    assert.equal(started.attempts, 1);
+    const payload = { scanned: 6, findings: 5, proposals: 3, summary: '5 findings across 6 active claims; 3 proposals queued.' };
+    const completed = completeAutomationRun(db, run.id, payload);
+    assert.equal(completed.status, 'complete');
+    assert.deepEqual(completed.payload, payload);
+    assert.equal(getAutomationRun(db, 'lint', '2026-11-16')?.status, 'complete');
+
+    assert.deepEqual(
+      listAutomationRuns(db, { job: 'lint' }).map((item) => item.id).sort((left, right) => left - right),
+      [run.id, nextWeek.id].sort((left, right) => left - right),
+    );
+    assert.deepEqual(
+      listAutomationRuns(db, { job: 'lint', status: 'pending' }).map((item) => item.id),
+      [nextWeek.id],
+    );
+    assert.equal(listAutomationRuns(db, { job: 'day_close' }).length, 0);
+
+    // The CHECK still refuses a job name the store does not know.
+    assert.throws(() => db.prepare("INSERT INTO automation_runs (job, day) VALUES ('month_close', '2026-11-30')").run());
+    expectCode(() => ensureAutomationRun(db, 'month_close' as never, '2026-11-16'), 'invalid_input');
+  } finally {
+    db.close();
+  }
+});
+
+test('a brief payload round-trips as JSON and is optional', () => {
+  const db = openTempJournal('brief-payload');
+  try {
+    const payload = { memory_health: { findings: 3, proposals: 2, summary: '3 findings across 6 active claims; 2 proposals queued.' } };
+    const first = upsertBrief(db, {
+      kind: 'week',
+      periodKey: '2026-03-09',
+      title: 'Week of March 9',
+      body: 'The week.',
+      payload,
+      sourceKey: 'timeline:week:2026-03-09',
+    });
+    assert.deepEqual(first.payload, payload);
+    assert.deepEqual(getBrief(db, 'week', '2026-03-09')?.payload, payload);
+    assert.deepEqual(listBriefs(db, { kind: 'week' })[0]?.payload, payload);
+
+    // Rewriting without a payload clears it: the row holds the latest result.
+    const cleared = upsertBrief(db, {
+      kind: 'week',
+      periodKey: '2026-03-09',
+      title: 'Week of March 9',
+      body: 'The week, revised.',
+      sourceKey: 'timeline:week:2026-03-09',
+    });
+    assert.equal(cleared.id, first.id);
+    assert.equal(cleared.payload, undefined);
+    assert.equal(getBrief(db, 'week', '2026-03-09')?.payload, undefined);
+
+    // A payload JSON cannot represent is refused before the row changes.
+    expectCode(
+      () =>
+        upsertBrief(db, {
+          kind: 'week',
+          periodKey: '2026-03-09',
+          title: 'Week of March 9',
+          body: 'The week, revised.',
+          payload: circularValue(),
+          sourceKey: 'timeline:week:2026-03-09',
+        }),
+      'invalid_input',
+    );
+    assert.equal(getBrief(db, 'week', '2026-03-09')?.body, 'The week, revised.');
+
+    // An unreadable payload does not make the readable brief fail.
+    db.prepare("UPDATE briefs SET payload_json = '{not json' WHERE id = ?").run(first.id);
+    assert.equal(getBrief(db, 'week', '2026-03-09')?.payload, undefined);
+    assert.equal(listBriefs(db).length, 1);
+    db.prepare("UPDATE briefs SET payload_json = 'null' WHERE id = ?").run(first.id);
+    assert.equal(getBrief(db, 'week', '2026-03-09')?.payload, undefined);
+  } finally {
+    db.close();
   }
 });
 

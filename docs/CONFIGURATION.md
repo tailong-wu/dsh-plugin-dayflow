@@ -60,6 +60,26 @@ up to the run's two-attempt cap, and a missed close older than the
 and the panel's close-state line plus `GET /api/dayflow/automation/status`
 report the schedule and the last stored closes. Defaults are shown.
 
+0.7.5 adds a **weekly memory lint** to the weekly close. Once a week, as part
+of the weekly close, a read-only pass (`src/automation/lint.ts`) applies the
+memory check behind `journal_memory` `action: "lint"` to the dated claims and
+turns each finding into **review proposals only** — at most one proposal per
+claim per week (kind `improvement`), deduplicated by the existing review
+fingerprint and bounded by the existing suppression and daily cap. It never
+supersedes or forgets a claim and writes nothing to `memory_claims`; the pass
+makes no model call, so a week whose model call is gated off still gets the
+proposals while the close itself is recorded `skipped`. It records one
+`automation_runs` row with `job: 'lint'` keyed to the week's Monday, so
+re-running the same week is a no-op, and the week's brief gains a short
+**Memory health** digest (also mirrored in its `payload_json.memory_health`);
+a week with no findings says "nothing to report" rather than showing an empty
+section. That is the safe default for lint findings — proposals plus a digest,
+never an automatic repair (a digest-only weekly pass was considered and not
+taken). There is no new configuration key: the pass rides `automation.enabled`
+and `automation.weeklyOn` with the automation scheduler, so a profile with
+automation off or not mounted (capture and analysis off, or no host model
+service) runs no lint either.
+
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `analysis.enabled` | `true` | Run the frame analyser (also needs capture enabled). |
@@ -75,7 +95,7 @@ report the schedule and the last stored closes. Defaults are shown.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `automation.enabled` | `true` | Run the scheduled day and week closes (still gated by the analysis consent/provider/model). |
+| `automation.enabled` | `true` | Run the scheduled day and week closes and the weekly memory lint (the closes are still gated by the analysis consent/provider/model; the lint makes no model call). |
 | `automation.dailyAt` | `04:00` | Local time the day closes, as `HH:MM` (00:00–23:59). |
 | `automation.weeklyOn` | `monday` | Weekday of the weekly close, `monday`–`sunday` (lowercase). |
 | `automation.catchUpOnStart` | `true` | Run missed closes after the host starts. |

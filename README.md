@@ -16,7 +16,7 @@ journal imported from it once, and nothing leaves the Mac.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.7.4` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
+> **Status:** `v0.7.5` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
 > README describes — install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
@@ -207,6 +207,11 @@ triggers one close by hand, the Journal insights view gains a compact **close-st
 line (`Day closes 04:00 · last close … · Week close Mon · catch-up 2 days`), and
 `GET /api/dayflow/automation/status` answers the same schedule and last-close data. The schema change is
 purely additive: existing tables and panel payloads are unchanged.
+
+0.7.5 adds the weekly **memory lint** to the weekly close: it runs the read-only claim check, files at
+most one review proposal per claim per week, never edits, supersedes, or forgets a claim, and writes a short
+memory-health digest into that week's brief — with schema v10 rebuilding `automation_runs` to record the
+`lint` job and adding the brief's digest column, and no new route, command, or configuration key.
 
 Verify it locally without touching real data:
 

@@ -97,16 +97,16 @@ function isSchemaValidationError(error: unknown): boolean {
 // Migrations
 // ---------------------------------------------------------------------------
 
-test('a new journal migrates to schema v9 and creates the automation tables', () => {
-  assert.equal(JOURNAL_SCHEMA_VERSION, 9);
+test('a new journal migrates to schema v10 and creates the automation tables', () => {
+  assert.equal(JOURNAL_SCHEMA_VERSION, 10);
   const path = journalPath();
 
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 9);
+    assert.equal(schemaVersion(db), 10);
     for (const table of ['capture_state', 'analysis_jobs', 'automation_runs', 'briefs']) {
       assert.equal(tableExists(db, table), true, `${table} is created by v9`);
     }
-    // The rest of v8 is still there: v9 is additive.
+    // The rest of v8 is still there: the v9/v10 migrations are additive.
     for (const table of ['activities', 'screenshots', 'long_tasks', 'memory_claims', 'reflections']) {
       assert.equal(tableExists(db, table), true, `${table} survives v9`);
     }
@@ -114,11 +114,11 @@ test('a new journal migrates to schema v9 and creates the automation tables', ()
 
   // Reopening an already-current journal is a no-op rather than another migration.
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 9);
+    assert.equal(schemaVersion(db), 10);
   });
 });
 
-test('a v8 journal upgrades to v9 and keeps its tasks and memory claims', () => {
+test('a v8 journal upgrades to v10 and keeps its tasks and memory claims', () => {
   const path = journalPath();
 
   withJournalDb(path, (db) => {
@@ -129,15 +129,16 @@ test('a v8 journal upgrades to v9 and keeps its tasks and memory claims', () => 
     db.prepare(
       "INSERT INTO memory_claims (kind, subject, body, observed_on) VALUES ('preference', 'capture switch', 'on 2026-10-19, capture was off by default', '2026-10-19')",
     ).run();
-    // Rewind to a real v8 journal: the tables v9 adds are absent, the version says 8.
+    // Rewind to a real v8 journal: v9/v10 add automation_runs and briefs; v8
+    // already had analysis_jobs, so only the v9 tables are dropped.
     db.exec('DROP TABLE automation_runs');
     db.exec('DROP TABLE briefs');
-    db.prepare('UPDATE schema_version SET version = 8 WHERE version = 9').run();
+    db.prepare('UPDATE schema_version SET version = 8 WHERE version = 10').run();
     assert.equal(schemaVersion(db), 8);
   });
 
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 9);
+    assert.equal(schemaVersion(db), 10);
     for (const table of ['capture_state', 'analysis_jobs', 'automation_runs', 'briefs']) {
       assert.equal(tableExists(db, table), true, `${table} exists after the upgrade`);
     }

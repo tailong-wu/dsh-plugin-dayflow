@@ -92,7 +92,12 @@ card placed at its time and tinted with its category colour.
   close failed, and grey when automation is off; a failed or missing read
   degrades to the quiet grey line instead of an error. Like the analysis line
   it is status, not a control: no button, no new view, no header entry, and
-  the copy is in both languages.
+  the copy is in both languages. The weekly close's stored brief now carries a
+  short **memory health** digest in its body and `payload_json`; because 0.7.x
+  has no brief-reading view in the panel, that digest stays in the journal's
+  `briefs` store and the close-state line keeps reporting only the schedule and
+  the last week close — no route, line, button, or view is added, and the panel
+  stays at its 18 host Fetch routes.
 
 ### Decisions in the panel
 
