@@ -5,7 +5,7 @@
  * and grow that journal.
  *
  * The builder must be read-only in the strongest sense: a fresh install (no
- * journal file) yields four empty lists without creating the file, and repeated
+ * journal file) yields five empty lists without creating the file, and repeated
  * reads leave the journal byte-for-byte unchanged.
  *
  * These tests use disposable journals under a temporary directory; they never
@@ -234,13 +234,13 @@ function analysisConfig(overrides: Partial<ResolvedConfig['analysis']> = {}): Re
   return { ...makeRuntime('/nonexistent/dayflow/chunks.sqlite').config.analysis, ...overrides };
 }
 
-test('a missing journal answers four empty lists without creating the journal', async () => {
+test('a missing journal answers five empty lists without creating the journal', async () => {
   const journalPath = journalFile('missing');
   assert.equal(existsSync(journalPath), false);
   const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
 
   const insights = buildPanelInsights(runtime);
-  assert.deepEqual(insights, { tasks: [], review: [], memory: [], reflections: [] });
+  assert.deepEqual(insights, { tasks: [], review: [], memory: [], reflections: [], briefs: [] });
   assert.equal(existsSync(journalPath), false, 'a read must not create the journal');
 
   const response = await fetchInsights(fakeHost(runtime));
@@ -252,8 +252,48 @@ test('a missing journal answers four empty lists without creating the journal', 
     review: [],
     memory: [],
     reflections: [],
+    briefs: [],
   });
   assert.equal(existsSync(journalPath), false, 'serving the route must not create the journal');
+});
+
+test('the insights payload carries the stored briefs, and an empty journal answers []', () => {
+  const journalPath = journalFile('briefs-payload');
+  const db = openJournal(journalPath);
+  try {
+    db.prepare(
+      `INSERT INTO briefs (kind, period_key, title, body, model, payload_json, source_id, source_key,
+                           created_at, updated_at)
+       VALUES ('week', '2026-11-16', 'Week of 2026-11-16', 'The week in one page.', 'model-x', ?,
+               'native', 'automation:week:2026-11-16', '2026-11-23 06:00:00', '2026-11-23 06:00:00')`,
+    ).run(JSON.stringify({ memory_health: { findings: 1, proposals: 1, summary: 'one finding.' } }));
+    db.prepare(
+      `INSERT INTO daily_standup_entries
+         (source_id, source_key, standup_day, payload_json, is_deleted, created_at, updated_at)
+       VALUES ('native', 'automation:day:2026-11-20', '2026-11-20', ?, 0,
+               '2026-11-21 04:00:00', '2026-11-21 04:00:00')`,
+    ).run(JSON.stringify({ highlights: [{ text: 'Landed the reading view' }] }));
+  } finally {
+    db.close();
+  }
+
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const insights = buildPanelInsights(runtime);
+  assert.ok(Array.isArray(insights.briefs), 'briefs is always an array');
+  assert.deepEqual(
+    insights.briefs.map((entry) => [entry.kind, entry.period_key]),
+    [
+      ['day', '2026-11-20'],
+      ['week', '2026-11-16'],
+    ],
+  );
+  assert.deepEqual(insights.briefs[1]?.memory_health, { findings: 1, proposals: 1, summary: 'one finding.' });
+
+  // No journal is a fresh install: an empty array, and no file is created.
+  const freshPath = journalFile('briefs-fresh');
+  const fresh = buildPanelInsights(makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath: freshPath }));
+  assert.deepEqual(fresh.briefs, []);
+  assert.equal(existsSync(freshPath), false, 'reading briefs must not create the journal');
 });
 
 test('the insights payload maps active tasks, open review items, active claims, and reflections', () => {
@@ -363,6 +403,22 @@ test('the insights payload maps active tasks, open review items, active claims, 
     });
     weekReflectionId = weekReflection.id;
     assert.equal(weekReflection.period_key, '2026-11-23', 'a week lands on its Monday');
+
+    // Briefs: the weekly close's row (with the lint digest payload) and a native
+    // standup for a day without a brief row. Both must reach the same list.
+    db.prepare(
+      `INSERT INTO briefs (kind, period_key, title, body, model, payload_json, source_id, source_key, created_at, updated_at)
+       VALUES ('week', '2026-11-16', 'Week of 2026-11-16', ?, 'analysis-model-x', ?, 'native',
+               'automation:week:2026-11-16', '2026-11-23 06:00:00', '2026-11-23 06:00:00')`,
+    ).run(
+      'A week of journal read paths.\n\nMemory health: nothing to report.',
+      JSON.stringify({ memory_health: { findings: 2, proposals: 1, summary: 'nothing to report.' } }),
+    );
+    db.prepare(
+      `INSERT INTO daily_standup_entries
+         (source_id, source_key, standup_day, payload_json, is_deleted, created_at, updated_at)
+       VALUES ('native', 'automation:day:2026-11-24', '2026-11-24', ?, 0, '2026-11-25 04:00:00', '2026-11-25 04:00:00')`,
+    ).run(JSON.stringify({ highlights: [{ text: 'Shipped the briefs view' }], blockersBody: 'None' }));
   } finally {
     db.close();
   }
@@ -441,6 +497,26 @@ test('the insights payload maps active tasks, open review items, active claims, 
   const weekSummary = insights.reflections.find((reflection) => reflection.kind === 'week');
   assert.ok(weekSummary);
   assert.equal(weekSummary.period_key, '2026-11-23');
+
+  // Briefs: the week row keeps its digest, the standup normalises to a day
+  // entry, and the newest period sorts first.
+  assert.equal(insights.briefs.length, 2);
+  assert.deepEqual(insights.briefs[0], {
+    kind: 'day',
+    period_key: '2026-11-24',
+    title: 'Standup · 2026-11-24',
+    body: '- Shipped the briefs view\n- None',
+    updated_at: '2026-11-25 04:00:00',
+  });
+  assert.deepEqual(insights.briefs[1], {
+    kind: 'week',
+    period_key: '2026-11-16',
+    title: 'Week of 2026-11-16',
+    body: 'A week of journal read paths.\n\nMemory health: nothing to report.',
+    model: 'analysis-model-x',
+    updated_at: '2026-11-23 06:00:00',
+    memory_health: { findings: 2, proposals: 1, summary: 'nothing to report.' },
+  });
 });
 
 test('the insights route coexists with the other panel routes and answers JSON', async () => {
@@ -450,6 +526,12 @@ test('the insights route coexists with the other panel routes and answers JSON',
   try {
     taskId = createLongTask(db, { title: 'Serve the insights payload', description: '' }).id;
     saveReflection(db, { kind: 'day', period: '2026-11-24', body: 'The route answer is stable.' });
+    // The same single GET carries the stored briefs: no second route, no second request.
+    db.prepare(
+      `INSERT INTO briefs (kind, period_key, title, body, source_id, source_key)
+       VALUES ('week', '2026-11-16', 'Week of 2026-11-16', 'The route carries the brief.', 'native',
+               'automation:week:2026-11-16')`,
+    ).run();
   } finally {
     db.close();
   }
@@ -506,6 +588,9 @@ test('the insights route coexists with the other panel routes and answers JSON',
   assert.deepEqual(payload, buildPanelInsights(runtime));
   assert.equal(payload.tasks[0]?.id, taskId);
   assert.equal(payload.reflections.length, 1);
+  assert.equal(payload.briefs.length, 1, 'the one GET carries the stored brief');
+  assert.equal(payload.briefs[0]?.kind, 'week');
+  assert.equal(payload.briefs[0]?.period_key, '2026-11-16');
 });
 
 test('a corrupt journal answers a JSON error instead of a payload', async () => {

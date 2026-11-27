@@ -1,17 +1,25 @@
 # Patch plan: the 0.8.x line
 
-> **Status:** planned 2026-11-27 against `v0.7.6` (annotated tag, commit
-> `007c287`, which is `main` HEAD and the commit that closed the 0.7.x line).
-> The previous line is **closed**: seven tags `v0.7.0`–`v0.7.6`, each with a
-> GitHub Release, 494 green tests at that tag, schema **v10**, **18** panel routes, **5**
-> slash commands, the native port through Phase 3 text-only, Phase 4 rehearsed
-> but not cut over, and **no npm publication** (the registry answers 404). This
-> plan is the execution order for the next line. It is a decision-level plan,
-> not a commitment of dates, and it is written so every patch below either
-> ships under the safe default of [§6](#6-owner-decisions-and-safe-defaults) or
-> waits, scoped, for the owner decision that changes it — **0.8.0 and 0.8.1
-> ship without any answer; 0.8.2 and 0.8.3 are scoped but do not start until
-> D1/D2/D10/D11 are answered; 0.8.4 closes whatever shipped.**
+> **Status:** **0.8.0 and 0.8.1 have landed and been released; 0.8.2 is the next
+> progress.** `v0.8.0` is an annotated tag on commit `f4191b9`, which is `main`
+> HEAD and the commit that closed the patch, with a GitHub Release marked
+> **Latest**; that tree is **521** green tests, schema **v10**, **18** panel
+> routes, **5** slash commands, and still **no npm publication** (the registry
+> answers 404). This plan was written against `v0.7.6` (annotated tag, commit
+> `007c287`, which closed the 0.7.x line — seven tags and seven GitHub
+> Releases, 494 green tests at that tag, the native port through Phase 3
+> text-only, Phase 4 rehearsed but not cut over) as the execution order for
+> this line. It is a decision-level plan, not a commitment of dates, and every
+> patch below either ships under the safe default of
+> [§6](#6-owner-decisions-and-safe-defaults) or waits, scoped, for the owner
+> decision that changes it — **0.8.0 shipped and 0.8.1 ships without any
+> answer; 0.8.2 and 0.8.3 are scoped but do not start until D1/D2/D10/D11 are
+> answered; 0.8.4 closes whatever shipped.** What actually shipped in 0.8.0,
+> and where it deviated from the finalised design, is recorded in **Landed
+> shape and deviations** at the end of §0.8.0; 0.8.1 is finalised against the
+> `v0.8.0` tree in §0.8.1.
+>
+> **Last revised:** 2026-11-27, against the `v0.8.0` tree (`f4191b9`).
 >
 > This file supersedes the *forward-looking* half of
 > [`PATCH_PLAN.md`](PATCH_PLAN.md) §6 (its "0.8.0 candidate" wording is the
@@ -28,26 +36,26 @@
 ## 1. Starting point, measured
 
 Facts checked against the repository, the tag list, the GitHub release list, and
-the registry on 2026-11-27, on the `v0.7.6` tree at `007c287`; `npm test` was
-re-run for this revision (494 pass, 0 fail, 0 skipped, 0 todo), `npm run
-rehearsal` was re-run (20/20 checks passed), and `npm run typecheck` /
-`npm run check:package` are green. They are the baseline every patch below
-assumes; a patch that invalidates one updates this table.
+the registry on 2026-11-27, on the `v0.8.0` tree at `f4191b9`; `npm test` was
+re-run for this revision (521 pass, 0 fail, 0 skipped, 0 todo — 494 at
+`v0.7.6`, so 0.8.0 added 27 cases), and the release list was read (`v0.8.0` is
+`Latest`, with the seven 0.7.x releases beneath it). They are the baseline every
+patch below assumes; a patch that invalidates one updates this table.
 
 | Fact | Value | Checked at |
 | --- | --- | --- |
-| Baseline for this line | `0.7.6`, annotated tag `v0.7.6` (commit `007c287`); `main` is the same commit. The 0.7.x line is closed — this is its last patch, not a development head | `package.json`, `git tag`, `git log` |
-| Release trail | Seven tags `v0.7.0`–`v0.7.6` and **seven GitHub Releases** (`gh release list` ends at `v0.7.6`, marked Latest); the release tool (`npm run release -- patch`) is proven by 0.7.6 | `gh release list --limit 20`, `scripts/release.mjs` |
+| Baseline for this line | `0.8.0`, annotated tag `v0.8.0` (commit `f4191b9`); `main` is the same commit. The 0.7.x line is closed; 0.8.0 is the line's first shipped patch and the baseline for 0.8.1 | `package.json`, `git tag`, `git log` |
+| Release trail | Eight tags — `v0.7.0`–`v0.7.6` and `v0.8.0` — and **eight GitHub Releases**; the newest (`v0.8.0`) is marked Latest. Cut by `npm run release -- patch`, the tool 0.7.6 proved | `gh release list --limit 20`, `scripts/release.mjs` |
 | npm | `npm view dsh-plugin-dayflow version` answers **404** — never published; D7 still unanswered, so the safe default stays "tagged here, not on the registry" | `npm view dsh-plugin-dayflow version` |
-| Tests | 494 cases, green on the tag (`npm test`: 494 pass, 0 fail, 0 skipped, 0 todo; 493 at `v0.7.5`, 477 at `v0.7.4`, 425 at `v0.7.3`, 408 at `v0.7.2`, 384 at `v0.7.1`); CI runs macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
-| Tools / skills / commands | 23 tools registered by default (17 with `edits: false`) plus `dayflow_install_dayflow` behind `allowInstall: false`; 8 skills; 5 slash commands (`dayflow-task`, `dayflow-remember`, `dayflow-reflect`, `dayflow-analyze`, `dayflow-run-close`) | `src/index.ts`, `src/tools/`, `src/commands.ts`, `tests/plugin.test.ts` |
-| Panel | 18 exact host Fetch routes (9 GET + 9 POST), one UI entry (one header button, one panel tab), one insights payload | `src/panel-contract.ts`, `tests/panel.test.ts` |
-| Owned schema | **v10** (`automation_runs` accepts `'lint'`; `briefs.payload_json`); no patch on the 0.7.x line after 0.7.5 moved it | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
-| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed in 0.7.0; Phase 2 (analysis pipeline + worker/status/panel) in 0.7.1–0.7.2; Phase 3's text-only automation slice in 0.7.4; the Phase 4 lint remainder in 0.7.5. **Phase 4 itself is rehearsed only** — `source: owned` is not a default, no real week has been recorded, and the whole line is text-only | `src/capture/`, `src/analyse/`, `src/briefs/`, `src/automation/`, `docs/NATIVE_PORT.md` |
-| Phase 4 rehearsal | `docs/CUTOVER_REHEARSAL.md` plus `npm run rehearsal`: a repository-side fixture dry run (fake provider, scripted analyser, throwaway journal) that walks capture → analysis → day close → day insights → weekly lint → weekly brief → reopen; **20/20 checks passed** on 2026-11-27, restart delta zero. Neither the script nor its test ships in the tarball. The written real-capture step needs the owner and Screen Recording permission and was **not** run | `npm run rehearsal`, `docs/CUTOVER_REHEARSAL.md` §2 |
-| 0.7.6's own scope | Docs-and-release only: no plugin source (`src/`), schema, route, command, tool, skill, config key, default, host peer, or dependency change; the only executable additions are the rehearsal script and its test | `git diff v0.7.5..v0.7.6 --stat` |
+| Tests | 521 cases, green on the tag (`npm test`: 521 pass, 0 fail, 0 skipped, 0 todo; 494 at `v0.7.6`). 0.8.0 added 27 cases in 8 files: `tests/analyse-skips.test.ts` (new) plus `analyse-pipeline`, `analyse-status`, `analyse-worker`, `capture-state`, `day`, `client-format`, and `panel-insights`. CI runs macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
+| Tools / skills / commands | 23 tools registered by default (17 with `edits: false`) plus `dayflow_install_dayflow` behind `allowInstall: false`; 8 skills; 5 slash commands (`dayflow-task`, `dayflow-remember`, `dayflow-reflect`, `dayflow-analyze`, `dayflow-run-close`) — unchanged by 0.8.0 | `src/index.ts`, `src/tools/`, `src/commands.ts`, `tests/plugin.test.ts` |
+| Panel | 18 exact host Fetch routes (9 GET + 9 POST), one UI entry (one header button, one panel tab), one insights payload — unchanged by 0.8.0 (the status payload gained one additive field, no route) | `src/panel-contract.ts`, `tests/panel.test.ts` |
+| Owned schema | **v10** (`automation_runs` accepts `'lint'`; `briefs.payload_json`); 0.8.0 changed no migration and no table | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
+| Native port | Phase 0 (provider + Swift helper) and Phase 1 (capture engine) landed in 0.7.0; Phase 2 (analysis pipeline + worker/status/panel) in 0.7.1–0.7.2; Phase 3's text-only automation slice in 0.7.4; the Phase 4 lint remainder in 0.7.5; **0.8.0 closed the three analysis-ledger follow-ups** (token gate, transient-skip catch-up, 04:00 day tail). **Phase 4 itself is rehearsed only** — `source: owned` is not a default, no real week has been recorded, and the whole line is text-only | `src/capture/`, `src/analyse/`, `src/briefs/`, `src/automation/`, `docs/NATIVE_PORT.md` |
+| Phase 4 rehearsal | `docs/CUTOVER_REHEARSAL.md` plus `npm run rehearsal`: a repository-side fixture dry run (fake provider, scripted analyser, throwaway journal) that walks capture → analysis → day close → day insights → weekly lint → weekly brief → reopen; **20/20 checks passed** on 2026-11-27 at `v0.7.6`, restart delta zero, and 0.8.0 changed no input the fixture exercises. Neither the script nor its test ships in the tarball. The written real-capture step needs the owner and Screen Recording permission and was **not** run | `npm run rehearsal`, `docs/CUTOVER_REHEARSAL.md` §2 |
+| 0.8.0's own scope | One theme, one integration point: the ledger. Source changes in `src/analyse/skips.ts` (new), `pipeline.ts`, `worker.ts`, `status.ts`, plus `src/capture/state.ts`, `src/day.ts`, `src/client/insights.tsx`, `src/client/locale.ts`; 8 test files. No schema, route, command, tool, skill, config key, default, host peer, or dependency change. Tagged `v0.8.0` and released as Latest | `git diff v0.7.6..v0.8.0 --stat` |
 | Host cohort | DSH dev dependencies `0.2.1-rc.2`, peers `^0.2.0-rc.2`. `@deepseek-ai/dsh-llm` is declared and used through a structural seam; `@deepseek-ai/dsh-attachment` is **not** a dependency — that is what keeps the line text-only | `package.json`, `src/analyse/host.ts` |
-| Owner decisions | D1 (analysis destination) unanswered; D2 (provider/model) settled as explicit configuration; D3 (budget) caps configured and the call cap enforced, the token cap reported only; D7 (npm) unanswered. D4/D5/D6/D8/D9 remain as [PATCH_PLAN.md](PATCH_PLAN.md) §6 records them | `PATCH_PLAN.md` §6, `docs/CONFIGURATION.md` |
+| Owner decisions | D1 (analysis destination) unanswered; D2 (provider/model) settled as explicit configuration; D3 (budget) caps configured and **both** gates now enforced (calls pre-call, tokens post-call with a pre-call already-spent guard); D7 (npm) unanswered; D10/D11 unanswered. D4/D5/D6/D8/D9 remain as [PATCH_PLAN.md](PATCH_PLAN.md) §6 records them | `PATCH_PLAN.md` §6, `docs/CONFIGURATION.md` |
 
 **Landed on the 0.7.x line, therefore not in this plan:** the owned schema and
 importer, the read tools, the review queue, long tasks, dated memory, the
@@ -57,23 +65,33 @@ and worker, the automation scheduler with `automation.catchUpDays`, the panel's
 capture / analysis / close lines, the 18 routes, the 5 commands, the 23 tools,
 and the 8 skills. All of it is tagged, tested, and released.
 
-**The three debts this line exists to pay.** 0.7.2 left three ledger holes and
-0.7.2–0.7.6 deliberately did not fill them, because each patch kept one theme:
+**The three debts this line was opened to pay — and 0.8.0 paid all three.**
+0.7.2 left three ledger holes and 0.7.2–0.7.6 deliberately did not fill them,
+because each patch kept one theme:
 
-1. **The token cap is not a gate.** `GET /api/dayflow/analysis/status` shows
-   `tokensToday` and `dailyTokenBudget`, and `analysisTokenTotalsForDay` exists
-   in `src/analyse/jobs.ts`, but only the call cap (`maxCallsPerDay`) is
-   enforced. A provider whose input tokens are large can spend far past the
-   token number the profile shows.
-2. **Skipped windows are terminal.** `skipped` is written when the consent
-   gate, the pause flag, or an unset provider/model/analyser refuses a window,
-   and the pipeline's idempotency rule treats `skipped` like `complete`. Fixing
-   a config mistake after a blocked day therefore never analyses that day — the
-   frames sit there, unread, forever.
-3. **The 04:00 day boundary drops the tail.** The worker runs the pipeline for
+1. **The token cap was not a gate.** `GET /api/dayflow/analysis/status` showed
+   `tokensToday` and `dailyTokenBudget`, and `analysisTokenTotalsForDay` existed
+   in `src/analyse/jobs.ts`, but only the call cap (`maxCallsPerDay`) was
+   enforced, so a provider whose input tokens were large could spend far past
+   the token number the profile showed. 0.8.0 makes the token budget a
+   post-call gate with a pre-call already-spent guard.
+2. **Skipped windows were terminal.** `skipped` was written when the consent
+   gate, the pause flag, or an unset provider/model/analyser refused a window,
+   and the pipeline's idempotency rule treated `skipped` like `complete`, so
+   fixing a config mistake after a blocked day never analysed that day. 0.8.0
+   replays the configuration-caused skips for today and yesterday, and never
+   the money ones.
+3. **The 04:00 day boundary dropped the tail.** The worker ran the pipeline for
    `dayWindowContaining(now)`, so the last window before the boundary (frames
-   captured between the final pre-boundary tick and 04:00) belongs to the old
-   day and is never analysed: after 04:00 every tick asks for the new day.
+   captured between the final pre-boundary tick and 04:00) belonged to the old
+   day and was never analysed: after 04:00 every tick asked for the new day.
+   0.8.0 runs one bounded tail for yesterday per boundary behind a persistent
+   checkpoint.
+
+All three landed together in `v0.8.0`, decision-free and with no schema, route,
+command, tool, skill, config key, or default change. The exact shipped shape,
+and the places where implementation diverged from this plan, are in **Landed
+shape and deviations** at the end of §0.8.0.
 
 **What is deliberately not in this plan:** the owned-journal write path (the
 editing tools still go through Dayflow), the `dsh dayflow import` CLI, the
@@ -105,9 +123,11 @@ deliverable, because it is surface with no user and no acceptance.
 
 **O2 — Every default-sensitive patch proves its default.** The config-defaults
 diff is reviewed as part of the patch, and there is a test that a profile with
-defaults runs nothing new. For 0.8.0 that test matters twice: the patch both
-*gates spending* and *starts spending* (the day tail), and the safe default has
-to be shown inert (capture off and/or `consent: none` still means no call).
+defaults runs nothing new. 0.8.0 shipped that test: the patch both *gates
+spending* and *starts spending* (the day tail), and the safe default is shown
+inert — capture off and/or `consent: none` still means no call, no tail call,
+and no journal creation by the status read. 0.8.1 adds no call path, so its
+default proof is the empty read-only Briefs section.
 
 **O3 — Version slots are semantic, and a deferred slot does not renumber the
 line.** 0.8.2 is the image slot and 0.8.3 is the cutover slot. If the owner has
@@ -140,28 +160,32 @@ backfilling afterwards.
 
 | Patch | Theme | Roadmap item | Depends on | Decisions | Risk | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| **0.8.0** | **Analysis ledger follow-ups:** the token budget becomes a post-call gate, transient skips replay within yesterday, and the 04:00 boundary gets a one-shot day-tail run | Native port Phase 2 remainder / analysis ledger | — (built on `v0.7.6`) | D3 caps only (safe default) | Medium | **planned — finalised, ready to implement** |
-| **0.8.1** | **Briefs reading view:** the stored day/week briefs appear in the insights payload and the existing panel view; no new tab, no new route, no model call | Phase 3 standup/brief surface | 0.8.0 tree | none | Low | **planned** |
-| **0.8.2** | **Image admission (owner-gated):** an optional host attachment/vision contract, a config-gated image path, the `privacy_apps` redaction list and the Roadmap 3.6 limitation copy; default `includeImages: false` and fully inert | Native port Phase 2 image slice / Roadmap 3.6 | 0.8.0/0.8.1 tree | **D1, D2, D11** | High | **owner-gated — scope only** |
-| **0.8.3** | **Phase 4 cutover (owner-gated):** `source: owned` becomes the default for a fresh capture-enabled profile with no Dayflow database, the first-run walkthrough lands, and the real week is recorded | Native port Phase 4 / 1.0.0 prerequisite | 0.8.0–0.8.2 tree, real week | **D1, D2, D10** | High | **owner-gated — scope only** |
-| **0.8.4** | **Release close:** every shipped 0.8.x tag gets its release, the npm state is settled without publishing, docs and counts are reconciled, and deferred slots are named for the next line | Release closure | everything shipped | D7 (publish only) | Low | **planned (after 0.8.3 or its deferral)** |
-| *0.8.5* | *Reserved contingency — only if 0.8.0 has to split before its tag (§5). Not planned work.* | — | — | — | — | *reserved* |
+| **0.8.0** | **Analysis ledger follow-ups:** the token budget becomes a post-call gate, transient skips replay for today and yesterday, and the 04:00 boundary gets a one-shot day-tail run | Native port Phase 2 remainder / analysis ledger | — (built on `v0.7.6`) | D3 caps only (safe default) | Medium | **landed** — `v0.8.0` (`f4191b9`, GitHub Release Latest), 521 tests; shipped shape and deviations in §0.8.0 |
+| **0.8.1** | **Briefs reading view:** the stored day/week briefs appear in the insights payload and the existing panel view; no new tab, no new route, no model call; 537 tests (521 at 0.8.0) | Phase 3 standup/brief surface | 0.8.0 tree (`v0.8.0`) | none | Low | **landed** (`v0.8.1`) |
+| **0.8.2** | **Image admission (owner-gated):** an optional host attachment/vision contract, a config-gated image path, the `privacy_apps` redaction list and the Roadmap 3.6 limitation copy; default `includeImages: false` and fully inert | Native port Phase 2 image slice / Roadmap 3.6 | 0.8.0/0.8.1 tree | **D1, D2, D11** | High | **owner-gated — scope only (owner has not answered)** |
+| **0.8.3** | **Phase 4 cutover (owner-gated):** `source: owned` becomes the default for a fresh capture-enabled profile with no Dayflow database, the first-run walkthrough lands, and the real week is recorded | Native port Phase 4 / 1.0.0 prerequisite | 0.8.0–0.8.2 tree, real week | **D1, D2, D10** | High | **owner-gated — scope only (owner has not answered)** |
+| **0.8.4** | **Release close:** every shipped 0.8.x tag gets its release, the npm state is settled without publishing, docs and counts are reconciled, and deferred slots are named for the next line | Release closure | everything shipped | D7 (publish only) | Low | **planned (after 0.8.1–0.8.3 or their deferral)** |
+| *0.8.5* | *Reserved contingency — not used: 0.8.0 was tagged whole, so the pre-tag split window (§5.5) is closed. Not planned work.* | — | — | — | — | *reserved, unused* |
 
-Order rationale: 0.8.0 first because it is decision-free, closes the three named
-debts, and makes the money ledger honest **before** anything can flip a default;
-0.8.1 next because it is the decision-free visible win that makes 0.7.4/0.7.5's
-stored output readable; the gated 0.8.2/0.8.3 follow in the roadmap's own order
-(image before cutover) so the default flip is the last functional change of the
-line; 0.8.4 closes it and flips nothing. Details in §5.
+Order rationale: 0.8.0 went first because it was decision-free, closed the three
+named debts, and made the money ledger honest **before** anything can flip a
+default — it shipped as `v0.8.0`; 0.8.1 is next because it is the decision-free
+visible win that makes 0.7.4/0.7.5's stored output readable for the first time;
+the gated 0.8.2/0.8.3 follow in the roadmap's own order (image before cutover)
+so the default flip is the last functional change of the line; 0.8.4 closes it
+and flips nothing. Details in §5.
 
 ### 0.8.0 — Analysis ledger follow-ups
 
-**Status: planned and finalised for implementation against `v0.7.6`.** One
-theme (R1): *the analysis ledger becomes money-bounded and self-healing instead
-of a timer with three holes.* It is decision-free: it adds no model, no host
-peer, no schema change, no route, no command, no tool, and no configuration
-key. It is the first patch of the line and can be handed to an implementer as
-written below.
+**Status: landed and released** — annotated tag `v0.8.0` on commit `f4191b9`,
+GitHub Release marked Latest, 521 green tests, schema still **v10**. One theme
+(R1): *the analysis ledger becomes money-bounded and self-healing instead of a
+timer with three holes.* It is decision-free: it added no model, no host peer,
+no schema change, no route, no command, no tool, and no configuration key.
+Sections A–C below are the finalised design the implementation started from;
+where the plan's own text would now mislead, it has been corrected in place, and
+every correction is listed in **Landed shape and deviations** at the end of this
+section, which is authoritative where the two disagree.
 
 **Motivation, in three sentences.** The token count is displayed but never
 stops a call, so a profile can exceed the budget the panel shows. A skipped
@@ -195,6 +219,11 @@ mean three patches touching the same three modules.
    spent total, and the 04:00 boundary is what resets the budget because the day
    key changes. A day-tail run for yesterday spends yesterday's remaining
    budget, not today's.
+
+*As shipped, one guard is added between steps 1 and 2 — a **pre-call
+token-already-spent check** — and the post-call gate is skipped when the
+crossing lands on the run's last window. Both are part of the money contract
+and are recorded in **Landed shape and deviations**.*
 
 **Why a post-call gate, and not a pre-call estimate.** Output tokens are
 unknown before the call, so a pre-call token gate would have to estimate — and
@@ -249,7 +278,12 @@ one testable function rather than an `if` chain in the pipeline):
 | `budget-tokens` | token cap (part A) | **no** | same |
 | anything else | future reasons | **no** | forward-compatible default is "do not replay" |
 
-**Mechanics.** In `src/analyse/jobs.ts`, `replaySkippedAnalysisJob(db, id)`:
+**Mechanics (as shipped).** The whitelist and the replay live together in the
+new pure module `src/analyse/skips.ts`: `TRANSIENT_SKIP_REASONS` (the eight
+configuration reasons in the table above) plus `isTransientSkipReason`, and
+`replaySkippedAnalysisWindows({ journalPath, now, daysBack = 1, limit = 200 })`
+performs one bounded pass over **today and yesterday** (the 04:00-bounded day
+windows; never older days). The pass:
 
 - moves a row `skipped → queued` with a **conditional** `UPDATE` (`WHERE id = ?
   AND status = 'skipped'`), so a race between a worker tick and a manual
@@ -260,21 +294,23 @@ one testable function rather than an `if` chain in the pipeline):
   like a fresh window, and a replayed call that fails is handled by the existing
   `ANALYSIS_MAX_ATTEMPTS` logic (a `failed` window is never treated as a skip);
 - preserves the previous skip reason in the existing `analysis_jobs.payload_json`
-  column as a bounded audit object (`{"last_skip": {"reason": …, "at": …}}`), so
-  the reason does not disappear when `error` is cleared at start;
-- refuses a non-transient reason and a row that is not `skipped` (the caller
-  asks first, the function checks again — the function is the enforcement
-  point, the classifier is the policy).
+  column as `replayed_from` / `replayed_at` (alongside the row's previous
+  payload keys), so the reason does not disappear when `error` is cleared at
+  start;
+- classifies every candidate first and requeues only the transient ones; the
+  pass reports `considered` / `replayed` / `byReason`, so a permanent skip is
+  counted but never moved.
 
-`startAnalysisJob` is **not** relaxed: only this explicit replay path can requeue
-a skip. The pipeline's idempotency branch becomes: a `skipped` job is terminal
-unless the run's gate is currently open **and** `isTransientAnalysisSkip(job.error)`
-**and** the row has attempts left — in which case the pipeline replays it and
-continues into the normal call path.
+`startAnalysisJob` is **not** relaxed, and the pipeline's idempotency branch is
+**not** relaxed either: a `skipped` job is still terminal inside a run. The
+replay is a worker-level step that runs *after* the day's own pipeline run, and
+only when that run was not `blocked`, so the tick after a configuration repair
+requeues the rows and the next tick analyses them; yesterday's replayed windows
+are picked up by the day tail that runs immediately after in the same tick.
 
-**Bounding.** Replay happens only inside a run for the day being run. Runs
-happen for today (every tick, as today) and for yesterday (one day-tail run per
-boundary, part C). There is no sweep over older days, no replay on plugin
+**Bounding.** The pass considers today plus `daysBack` earlier days (yesterday
+by default; `daysBack` 0–366 and `limit` 1–1000 are per-pass bounds, not
+configuration keys) — there is no sweep over older days, no replay on plugin
 startup, and no new configuration key. The cost of a catch-up is bounded by the
 day's own remaining call and token budgets and by the number of transiently
 skipped windows; a day that was fully skipped and then repaired can therefore
@@ -290,8 +326,9 @@ the new day, so that final window has no job and is never analysed. The same
 mechanism is what makes a consent fix after the boundary unable to replay the
 old day's skips.
 
-**What it does.** On the first tick after a day boundary, after today's run, the
-worker runs the pipeline **once for yesterday**. A checkpoint key
+**What it does.** On the first tick after a day boundary, after today's run —
+and after the catch-up pass of part B when that pass runs — the worker runs the
+pipeline **once for yesterday**. A checkpoint key
 (`analysis_tail_checked_on`, value = today's day key) makes it once per
 boundary: a second tick on the same day, or a restart on the same day, does not
 repeat it.
@@ -310,9 +347,11 @@ repeat it.
 - **A run-level throw leaves it unwritten** and the worker's existing backoff
   applies.
 - **The tail cannot change today's outcome.** It runs after today's run, in its
-  own `try/catch`; a tail failure is logged (`analysis.day_tail`) and never
-  turns a good tick into a failed one. Today's run keeps writing the worker's
-  `lastOutcome` / `lastError`.
+  own `try/catch`; a tail failure is logged (`analysis.day_tail`), never turns a
+  good tick into a failed one, and never enters the backoff count. As shipped it
+  *is* recorded on the worker's `lastError` (a deviation from the plan's
+  "today's run keeps `lastError` untouched"); `lastOutcome` and the loop stay
+  the day's own.
 
 **What bounds the tail.** One day; yesterday's own remaining call and token
 budgets; stored frames only. The existing `maxWindows` option is deliberately
@@ -322,11 +361,10 @@ cost is bounded by the budget gates and the ledger's idempotency instead, and a
 "bounded run" here means one day, not one window count.
 
 **Where the checkpoint lives.** The existing runtime key/value table
-(`capture_state`), through two small generic helpers added next to the typed
-capture state (`readStateValue(db, key)` / `writeStateValue(db, key, value)`),
-and `previousDayKey(dayKey)` added to `src/day.ts` (derived from the day window
-start minus one millisecond, so it is DST-safe; a 24-hour subtraction is not).
-No migration.
+(`capture_state`), through two generic helpers added beside the typed capture
+state — shipped as `readCaptureStateValue(db, key)` /
+`writeCaptureStateValue(db, key, value)` — and `previousDayKey(dayKey)` added to
+`src/day.ts` (a pure calendar-day step, so it is DST-safe). No migration.
 
 > Rejected alternative: schema **v11** with a dedicated `analysis_state` table.
 > It is a table for one key, it puts a migration in the first patch of the line,
@@ -336,56 +374,68 @@ No migration.
 > second analysis checkpoint appears later, moving to a dedicated table is a
 > later patch's decision, not this one's.
 
-#### File-level deliverables
+#### File-level deliverables (as shipped)
 
 | File | Change |
 | --- | --- |
-| `src/analyse/skips.ts` | **new.** `TRANSIENT_ANALYSIS_SKIP_REASONS` and `isTransientAnalysisSkip(reason)`: pure, no database, forward-compatible default `false`. |
-| `src/analyse/jobs.ts` | `analysisTokenBudgetExhausted`; `replaySkippedAnalysisJob` (conditional requeue + bounded audit payload); keep `analysisTokenTotalsForDay` as the single sum. |
-| `src/analyse/pipeline.ts` | Post-call token gate; replay branch in the idempotency check; `skipRemainingForBudget` gains a reason parameter; `budgetKind` on the result. |
-| `src/analyse/worker.ts` | The day-tail attempt (after today's run, own `try/catch`, log event); checkpoint read/write; `previousDayKey` use. |
-| `src/analyse/status.ts` | Additive `tokenBudgetExhausted` on the payload (pure read, no journal creation). |
-| `src/day.ts` | `previousDayKey(dayKey)` (DST-safe, tested across a DST date). |
-| `src/capture/state.ts` | Generic `readStateValue` / `writeStateValue` beside the typed capture helpers (no new table). |
-| `src/panel-contract.ts` | Additive status-payload field only; no route constant changes. |
-| `src/client/insights.tsx`, `src/client/locale.ts` | The one-line "token budget reached … paused until 04:00" copy, EN + ZH. |
-| `tests/analyse-skips.test.ts` (new), `tests/analyse-jobs.test.ts`, `tests/analyse-pipeline.test.ts`, `tests/analyse-worker.test.ts`, `tests/analyse-status.test.ts`, `tests/panel.test.ts` | The new cases below. |
-| `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, `docs/NATIVE_PORT.md`, `docs/PANEL.md`, `docs/ROADMAP.md`, `CHANGELOG.md`, README status if visible | Docs travel with the tag (R6). |
+| `src/analyse/skips.ts` | **new.** `TRANSIENT_SKIP_REASONS` (the eight configuration reasons), `isTransientSkipReason`, and `replaySkippedAnalysisWindows` (bounded today+yesterday pass, conditional requeue, `replayed_from`/`replayed_at` audit); pure policy, no model call, no configuration. |
+| `src/analyse/pipeline.ts` | Pre-call already-spent token guard, post-call token gate (reason `budget-tokens`), `budgetKind: 'calls' \| 'tokens'`, and the reason parameter on `skipRemainingForBudget`. |
+| `src/analyse/worker.ts` | Catch-up call after a non-blocked run; the day tail after it (own `try/catch`, `analysis.day_tail` logging); checkpoint read/write; `previousDayKey` use. |
+| `src/analyse/status.ts` | Additive `tokenBudgetExhausted` computed from the ledger (pure read, no journal creation). |
+| `src/day.ts` | `previousDayKey(dayKey)`, a pure calendar-day step (tests cover a day step and refusal of non-days). |
+| `src/capture/state.ts` | Generic `readCaptureStateValue` / `writeCaptureStateValue` beside the typed helpers (no new table). |
+| `src/client/insights.tsx`, `src/client/locale.ts` | One amber analysis state and two locale keys (`analysisTokenBudget`, `analysisTokenBudgetHint`), EN + ZH; no new control. |
+| `src/panel-contract.ts` | **Unchanged** as shipped: the status type lives in `src/analyse/status.ts` and the contract re-exports it; no route constant changed. |
+| `src/analyse/jobs.ts` | **Unchanged** as shipped: no new helper; `analysisTokenTotalsForDay` stayed the single ledger sum, and `replaySkippedAnalysisJob` was not added (the replay is the pass in `skips.ts`). |
+| `tests/analyse-skips.test.ts` (new), `tests/analyse-pipeline.test.ts`, `tests/analyse-status.test.ts`, `tests/analyse-worker.test.ts`, `tests/capture-state.test.ts`, `tests/day.test.ts`, `tests/client-format.test.ts`, `tests/panel-insights.test.ts` | 27 new cases (listed under Landed shape and deviations). |
+| `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, `docs/NATIVE_CAPTURE.md`, `docs/NATIVE_PORT.md`, `docs/PANEL.md`, `docs/ROADMAP.md`, `CHANGELOG.md`, `README.md`, `README.zh.md` | Docs travelled with the tag (R6); all landed before or in `v0.8.0`. |
 
 #### Acceptance (the patch's own test list)
 
-- [ ] A day whose first completed call records tokens at or above
+All items below passed at `v0.8.0`; the deviations are named in the subsection
+that follows. The 27 new cases carry them.
+
+- [x] A day whose first completed call records tokens at or above
       `dailyTokenBudget` makes **no second call**; remaining windows are
       `skipped` with reason `budget-tokens`; the completed row keeps its usage;
       `outcome: 'budget'`, `budgetKind: 'tokens'`.
-- [ ] A token gate that trips on the **last** window does not report
+- [x] A token gate that trips on the **last** window does not report
       `outcome: 'budget'` (nothing was stopped); `tokenBudgetExhausted` is still
       true for the day.
-- [ ] The call gate still wins when it trips first: `budgetKind: 'calls'`,
+- [x] The call gate still wins when it trips first: `budgetKind: 'calls'`,
       reason `budget`, unchanged behaviour.
-- [ ] A new day key starts a fresh budget; a later run for the same day sees the
+- [x] A run that starts after an earlier crossing makes no call at all: the
+      pre-call already-spent guard refuses the window before it starts, so a
+      second run on the same day cannot spend a second crossing call.
+- [x] A new day key starts a fresh budget; a later run for the same day sees the
       same spent total.
-- [ ] NULL/absent usage counts as zero and cannot trip or hide the gate.
-- [ ] A run blocked by `consent:none` (or `provider-unset`, `model-unset`,
-      `paused`, `analyser-unset`) and then repaired analyses exactly the skipped
-      windows on the next run, makes one call per window, and writes no
-      duplicate card (the existing unique `(source_id, source_key)` keys stay
-      the second guard).
-- [ ] `budget`, `budget-tokens`, `failed`, and unknown reasons are **not**
+- [x] NULL/absent usage counts as zero and cannot trip or hide the gate.
+- [x] A run blocked by `consent:none` (or `provider-unset`, `model-unset`,
+      `paused`, `analyser-unset`) and then repaired has exactly the skipped
+      windows requeued on the next non-blocked tick's catch-up pass, analysed
+      one call per window by the following run (yesterday's in the day tail of
+      the same tick), with no duplicate card — the existing unique
+      `(source_id, source_key)` keys stay the second guard.
+- [x] `budget`, `budget-tokens`, `failed`, and unknown reasons are **not**
       replayed; attempts are never reset; the audit payload keeps the last skip
-      reason; a second replay of a completed row is refused.
-- [ ] At a fixed clock just after 04:00, one tick closes yesterday's tail and
+      reason as `replayed_from` / `replayed_at`; a transient reason on a
+      non-`skipped` row is not requeued.
+- [x] At a fixed clock just after 04:00, one tick closes yesterday's tail and
       analyses today as before; a second tick on the same day does not repeat
       the tail; a restart on the same day does not repeat it.
-- [ ] A **blocked** tail retries on the next tick and replays once the gate
-      opens; a tail that throws leaves the checkpoint unwritten and does not
-      fail the tick.
-- [ ] Default profile: capture off or `consent: none` means no call, no tail
-      call, and no journal creation by the status read.
-- [ ] Route set stays exactly **18**; commands stay **5**; tools/skills
+- [x] A **blocked** tail retries on the next tick and replays once the gate
+      opens; a tail that throws leaves the checkpoint unwritten, does not fail
+      the tick, and is retried.
+- [x] Default profile: capture off or `consent: none` means no call, no tail
+      call, and no journal creation by the status read; a blocked run does not
+      run the catch-up.
+- [x] The additive `tokenBudgetExhausted` status field is a pure read, and the
+      panel's amber state is drawn before the stopped/idle tones in both
+      languages.
+- [x] Route set stays exactly **18**; commands stay **5**; tools/skills
       unchanged; schema stays **v10**; no config key added (the defaults diff is
       empty).
-- [ ] The suite makes no network call and uses the existing fake analyser seam
+- [x] The suite makes no network call and uses the existing fake analyser seam
       (R4).
 
 #### Decisions, risk, rollback
@@ -410,10 +460,12 @@ No migration.
   replays happen only when the gate is *currently open* — a deliberate
   configuration change is the trigger — never for budget skips, and the old
   reason stays in the audit payload.
-- **Order of implementation inside the patch:** token gate first, then catch-up,
-  then tail. The token gate must be in the same tag because the tail is the
-  first path that can spend without the owner watching; shipping the tail
-  without the gate would be exactly the failure mode D3 exists to prevent.
+- **Order of implementation inside the patch (kept):** token gate first, then
+  catch-up, then tail — and the token gate shipped in the same tag, because the
+  tail is the first path that can spend without the owner watching. Shipping
+  the tail without the gate would have been exactly the failure mode D3 exists
+  to prevent. The pre-call already-spent guard was added during implementation
+  and is the one contract addition recorded in Landed shape and deviations.
 - **Rollback:** no schema change, so the tag is revertible and an older build
   can still open the journal (R8); at the profile level, `analysis.consent:
   none` (or capture off) stops every call the patch can make, and
@@ -423,23 +475,132 @@ No migration.
 
 #### Definition of done
 
-The shared checklist in §4, plus this section's acceptance list, plus the
-docs above, plus a `CHANGELOG.md` entry under `[Unreleased]` that names the three
-follow-ups in one line each and states that the default profile still spends
-nothing.
+Done at `v0.8.0`: the shared checklist in §4, this section's (now checked)
+acceptance list, the docs above (all landed with the tag), and the
+`CHANGELOG.md` `[0.8.0]` section naming the three follow-ups in one line each
+and stating that the default profile still spends nothing. The suite grew
+494 → 521.
+
+#### Landed shape and deviations (0.8.0)
+
+Checked against the `v0.8.0` tree (`f4191b9`), `git diff v0.7.6..v0.8.0`, and
+the landed tests. Where this subsection and the plan text above disagree, this
+subsection is what shipped.
+
+**The gate order that shipped.** Per run, the consent and analyser gates run
+first (they are run-level: no window job is started while they refuse). Per
+window, the order is:
+
+1. **idempotency** — `complete` / `skipped` / stale `running` / exhausted
+   `failed` windows are never started again; `skipped` stays terminal, because
+   the pipeline was **not** given a replay branch;
+2. **calls pre-call gate** — `countAnalysisCallsForDay >= maxCallsPerDay` skips
+   the rest with reason `budget`, `budgetKind: 'calls'`;
+3. **token-already-spent pre-call guard** — the added step. The day's recorded
+   tokens are read *before* a call; at or above `dailyTokenBudget` the remaining
+   windows are skipped with reason `budget-tokens`, `budgetKind: 'tokens'`.
+   This is what stops a *later* run (or the day tail) from spending a second
+   crossing call after an earlier run crossed the cap. The plan had no pre-call
+   token check; this is the one behavioural addition beyond it;
+4. **start → call → complete + write** — a paid call stays complete;
+5. **post-call token gate** — re-reads the ledger only when another window
+   remains (`index + 1 < limit`). A crossing on the run's last window stops
+   nothing and the run keeps `analysed`; the next run is refused by step 3. A
+   failed re-read after a paid window is swallowed (the spend is already
+   recorded) and never turns a paid window into a failure.
+
+`budgetKind` is exactly `'calls' | 'tokens'` and appears only with
+`outcome: 'budget'`; `blockedReason` still appears only with `blocked`, and no
+`blockedKind` exists.
+
+**What did not land as planned, and why.**
+
+- **No `jobs.ts` change.** `analysisTokenBudgetExhausted` and
+  `replaySkippedAnalysisJob` were not added. The status route computes
+  `tokenBudgetExhausted` from the existing `analysisTokenTotalsForDay` +
+  `dailyTokenBudget`, and the pipeline has a private `tokenBudgetReached` helper
+  over the same sum; keeping `analysisTokenTotalsForDay` the single ledger read
+  was simpler than a second helper. `src/analyse/jobs.ts` is untouched by the
+  patch.
+- **No `panel-contract.ts` change.** The status payload type lives in
+  `src/analyse/status.ts`, and the contract re-exports it; adding the field
+  needed no contract edit and no route constant changed (routes stay 18).
+- **The catch-up is a worker-level bulk pass, not a pipeline replay branch.**
+  `src/analyse/skips.ts` exports `TRANSIENT_SKIP_REASONS`,
+  `isTransientSkipReason`, and `replaySkippedAnalysisWindows`; the pass requeues
+  the rows and the *next* run analyses them (yesterday's are picked up by the
+  day tail that follows in the same tick). This keeps the pipeline idempotency
+  rule ("a skip is terminal") intact and makes the replay one conditional
+  `UPDATE` with a lost-race-safe result. The audit object landed as
+  `replayed_from` / `replayed_at`, not `last_skip`; the row's previous payload
+  keys are preserved.
+- **Catch-up needs the gate open, and runs after the day's run.** The worker
+  runs today's pipeline, then — only when that run was not `blocked` — the
+  catch-up pass, then the day tail. Requiring a non-blocked run is what avoids
+  requeue/re-skip oscillation. A catch-up failure logs `analysis.catch_up` and
+  leaves `lastOutcome` / `lastError` untouched.
+- **The tail records a throw on `lastError`.** The plan said a tail failure
+  would not touch the worker's `lastError`; the shipped code sets it (and logs
+  `analysis.day_tail`). `lastOutcome`, the backoff count, and the loop are still
+  untouched, so the tail still cannot fail the tick or change today's outcome.
+- **The checkpoint helpers are named `readCaptureStateValue` /
+  `writeCaptureStateValue`** (not `readStateValue` / `writeStateValue`) and are
+  generic over `capture_state` keys. `previousDayKey` is a pure calendar-day
+  step in `src/day.ts`, not a millisecond subtraction.
+- **Panel copy shipped as two locale keys and one amber tone**
+  (`analysisTokenBudget` / `analysisTokenBudgetHint`, EN + ZH), drawn after the
+  consent block and before the stopped/idle split. No new style file, no button,
+  no route.
+
+**Surface check.** Schema stays **v10**; routes stay exactly **18** (9 GET + 9
+POST); commands stay **5**; tools (23, plus `dayflow_install_dayflow` behind its
+flag) and skills (8) are unchanged; no config key, default, host peer, or
+dependency was added; the suite is **521** (27 new cases) and stays network-free
+on the fake analyser seam.
+
+**Verification (the 27 new cases, by file).**
+
+- `tests/analyse-pipeline.test.ts`: the post-call gate skips the rest of the
+  run; a crossing on the last window stops nothing; a spend below the budget
+  analyses every window.
+- `tests/analyse-skips.test.ts` (new): only the eight configuration reasons are
+  transient; the pass covers today and yesterday; `daysBack` widens one day at a
+  time; `limit` caps one pass; attempts are not reset; a malformed payload is
+  replaced by the audit object; the window follows the 04:00 boundary, not the
+  calendar instant; a transient reason on a non-`skipped` row is not requeued;
+  an empty journal replays nothing and the default clock is used; malformed
+  parameters are `invalid_input`.
+- `tests/analyse-status.test.ts`: `tokenBudgetExhausted` turns true only once
+  the day's tokens reach the budget; absent usage counts as zero.
+- `tests/analyse-worker.test.ts`: catch-up requeues a transient skip for the
+  next tick; a blocked gate does not run the catch-up; the first tick of a day
+  closes yesterday's tail once and checkpoints today; a second tick and a
+  same-day restart do not repeat it; a blocked tail writes no checkpoint and
+  retries; a failed tail leaves the day's outcome alone and is retried.
+- `tests/capture-state.test.ts`: a generic value round-trips under any key; an
+  empty key is refused.
+- `tests/day.test.ts`: a day key steps back exactly one calendar day;
+  `previousDayKey` refuses labels that are not days.
+- `tests/client-format.test.ts`: the analysis line names the spent daily token
+  budget in both languages.
+- `tests/panel-insights.test.ts`: the analysis status payload carries the
+  additive `tokenBudgetExhausted: false` without creating the journal.
 
 ### 0.8.1 — Briefs reading view
 
-**Status: planned.** One theme (R1): *the journal's most condensed output
-becomes readable where the rest of the journal is read — one entry, no new tab,
-no model call.*
+**Status: landed in `v0.8.1`, 2026-11-27 — finalised against `v0.8.0`
+(`f4191b9`).** The implementation is already running in three scopes whose shape
+this section fixes: the host read module + payload + tests, the client section +
+copy + styles + tests, and the docs. One theme (R1): *the journal's most
+condensed output becomes readable where the rest of the journal is read — one
+entry, no new tab, no model call.*
 
 **Motivation.** 0.7.4's weekly close writes one `briefs` row per week (with
 0.7.5's `Memory health: …` digest and `payload_json.memory_health`), and the
 daily close writes a standup into `daily_standup_entries`. Both are stored,
 both are summarised text a person would actually read, and the panel renders
 **neither**: the only way to read them is a tool call. The roadmap has carried
-the "briefs reading view" as remaining work since the line closed, and the
+the "briefs reading view" as remaining work since the 0.7 line closed, and the
 tools are the only reader today. This patch is that view.
 
 **Shape.**
@@ -448,70 +609,107 @@ tools are the only reader today. This patch is that view.
   `briefs: PanelBriefSummary[]` field. The route set stays exactly 18; there is
   no second GET for a list an existing call can carry, and no second panel
   request. Additive means an old client is unaffected.
-- **One read module.** New `src/briefs/read.ts` exports
-  `listPanelBriefs(journalPath, { limit })`:
-  - reads the live `briefs` rows (both kinds — a day brief can exist from an
-    import even though the native daily close stores a standup instead), via the
-    existing `listBriefs` in `src/automation/store.ts`;
-  - reads the most recent native standups from `daily_standup_entries`
-    (`is_deleted = 0`, existing decoder shape: highlights / tasks / blockers)
-    and normalises each into the same shape as a day brief
-    (`kind: 'day'`, `period_key = standup_day`, title `Standup · <day>`, body
-    rendered as plain lines);
-  - de-duplicates per `(kind, period_key)`, preferring the `briefs` row;
+- **One read module.** New `src/briefs/read.ts`, a pure reader that exports
+  `PanelBriefSummary` (`kind: 'day' | 'week'`, `period_key`, `title`, `body`,
+  optional `model`, `updated_at`, optional `memory_health` as
+  `{ findings, proposals, summary }` when the weekly digest is present),
+  `PANEL_BRIEF_DEFAULT_LIMIT = 10`, `PANEL_BRIEF_MAX_LIMIT = 20`, and
+  `listPanelBriefs(journalPath, { limit?, now? })` (async; `now` is an
+  injectable clock for tests). It:
+  - reads the live `briefs` rows of both kinds via the existing `listBriefs` in
+    `src/automation/store.ts`, carrying `title` / `body` / `model` /
+    `updated_at` and the `payload_json.memory_health` value when present;
+  - reads the most recent native standups from `daily_standup_entries` with
+    `source_id = 'native'` and `is_deleted = 0`, newest `standup_day` first, and
+    normalises each into a day entry using the existing decoder shape
+    (highlights / tasks / blockers): `kind: 'day'`, `period_key = standup_day`,
+    title `Standup · <day>`, body as plain `- ...` lines (the title line when
+    the payload has no content), `updated_at` from the row's `updated_at`
+    (falling back to `created_at`);
+  - de-duplicates per `(kind, period_key)` and prefers the `briefs` row;
   - sorts by `period_key` descending (ties by `updated_at` descending) and caps
-    at 10.
+    at `limit` (default 10, 1..20; anything else is `invalid_input`).
   A missing or unreadable journal answers `[]` without creating the file, the
-  same tolerance the rest of the insights payload has.
-- **One client section.** The existing Journal insights view gains a `Briefs`
-  block after the current blocks (tasks → review → memory → reflections →
+  same tolerance the rest of the insights payload has; a malformed brief or
+  standup `payload_json` is degraded, never thrown; it calls no model and writes
+  nothing.
+- **Contract additions.** `src/panel-contract.ts` gains `PanelBriefSummary` and
+  one required additive field on `PanelInsights`: `briefs:
+  PanelBriefSummary[]`. The client uses the type only, so the client bundle
+  gains no runtime dependency on the server module. `buildPanelInsights`
+  (`src/panel.ts`) fills the field without a write path and extends its empty
+  literal from four lists to five, keeping the "missing journal answers empty
+  lists and never creates the file" rule. No route constant changes.
+- **One client section.** The existing Journal insights view gains a read-only
+  `Briefs` block after reflections (tasks → review → memory → reflections →
   briefs). Each entry is a collapsed row with a day/week badge, the title, and
-  its updated date; expanding it shows the body. The weekly memory-health
-  paragraph is already part of the brief body, so it shows inside the entry, not
-  as a second surface.
-- **No new tab, header button, or settings page** (R9); no new config key; no
-  schema change; no model call; no new host peer.
+  its updated date; activating the row expands the body (activating it again
+  collapses), with `aria-expanded` and keyboard operation. The weekly
+  memory-health paragraph is part of the brief body, so it shows inside the
+  entry, not as a second surface. Empty data shows one localized empty line, and
+  the `isBlank` / empty-state check grows from four lists to five. No new tab,
+  header button, settings page, or control (R9).
+- **No new surface.** No config key, schema change, route, command, tool, skill,
+  host peer, or dependency; no model call; the default profile sees an empty,
+  read-only section.
 - **Locale keys** in `src/client/locale.ts`: section title, the two badges, the
-  empty line, expand/collapse — EN and ZH, like every other panel string.
-- **Contract additions** in `src/panel-contract.ts`: `PanelBriefSummary`
-  (`kind`, `period_key`, `title`, `body`, optional `model`, `updated_at`,
-  optional `memory_health`) and the additive `briefs` field on `PanelInsights`.
-  `buildPanelInsights` (`src/panel.ts`) fills it inside the same single journal
-  read and extends its empty literal from four lists to five, keeping the
-  "missing journal answers empty lists and never creates the file" rule.
+  empty line, and the expand/collapse labels — EN and ZH, with the two
+  dictionaries kept key-identical (the existing test enforces it).
+- **Styles** in `src/client/styles.ts`: badge, row, expanded body, and narrow
+  sidebar wrapping, reusing the existing `--dsw-*` tokens and card style.
 
-**File-level deliverables:** `src/briefs/read.ts` (new),
-`src/panel-contract.ts`, `src/panel.ts` (`buildPanelInsights` fills the field),
-`src/client/insights.tsx`, `src/client/locale.ts`,
-`tests/panel-insights.test.ts`, `tests/panel.test.ts`, plus docs
-(`docs/PANEL.md`, `docs/ROADMAP.md`, `CHANGELOG.md`, README status if visible).
+**File-level deliverables:** `src/briefs/read.ts` (new), `src/panel-contract.ts`
+(type + additive field), `src/panel.ts` (`buildPanelInsights`),
+`src/client/insights.tsx` (section), `src/client/locale.ts`,
+`src/client/styles.ts`, `tests/briefs-read.test.ts` (new),
+`tests/panel-insights.test.ts`, `tests/client-format.test.ts`, plus docs
+(`docs/PANEL.md`, `docs/NATIVE_PORT.md`, `README.md`, `README.zh.md`,
+`CHANGELOG.md`, this file, `docs/ROADMAP.md`). No change outside these files.
 
 **Acceptance:**
 
 - [ ] The insights payload contains the week brief with its memory-health digest
-      paragraph.
-- [ ] A day with only a native standup appears as a day entry; a `briefs` day
-      row and a standup for the same day de-duplicate to one entry.
-- [ ] Deleted standups are hidden; malformed `payload_json` is handled the way
-      the existing decoder handles it (never a thrown route).
-- [ ] Order and the cap of 10 are asserted; an empty journal answers `[]` and
-      does not create the journal file.
-- [ ] The route set stays exactly 18 and the single-entry test is unchanged; no
-      model adapter is involved; the default profile shows an empty section.
-- [ ] Both locales carry every new string; the client bundle test passes.
+      paragraph and the additive `briefs` array; the empty literal has five
+      lists, and a fresh install answers `briefs: []` without creating the
+      journal.
+- [ ] A day with only a native standup appears as a day entry with the
+      `Standup · <day>` title and a plain-line body; a `briefs` day row and a
+      standup for the same day de-duplicate to one entry, with the `briefs` row
+      winning.
+- [ ] Deleted standups (`is_deleted = 1`) are hidden; a malformed
+      `payload_json` degrades to an empty/partial entry and never throws the
+      route.
+- [ ] Order (`period_key` descending, ties `updated_at` descending) and the cap
+      (10 by default, 20 maximum, invalid `limit` refused) are asserted.
+- [ ] The route set stays exactly 18, the single-entry test is unchanged, no
+      model adapter is involved, and the default profile shows the empty
+      section.
+- [ ] The payload stays read-only: repeated reads leave the journal
+      byte-for-byte unchanged (the existing read-only proof extends to briefs).
+- [ ] Both locales carry every new string and the dictionaries are
+      key-identical; the client bundle test passes and the workspace
+      typechecks.
+- [ ] No new config key, schema version, route, command, tool, skill, peer, or
+      dependency; no style outside `src/client/styles.ts`.
 
-**Decisions:** none. **Risk:** payload growth (bounded by the cap and by brief
-length, which the prompts already cap) and duplicate-looking day/week entries
-(mitigated by the badges and the dedupe rule). **Rollback:** the field is
-additive and the section is read-only; reverting removes UI and payload field
-with no state to migrate.
+**Decisions:** none — 0.8.1 ships under the safe defaults of §6, like 0.8.0.
+**Risk:** payload growth (bounded by the cap of 10 and by brief length, which the
+prompts already cap) and duplicate-looking day/week entries (mitigated by the
+badges and the dedupe rule). **Rollback:** the field is additive and the section
+is read-only; reverting removes UI and payload field with no state to migrate
+and no schema change.
+
+**Definition of done:** the shared checklist in §4, this section's acceptance
+list, the docs and `CHANGELOG.md` `[Unreleased]` entry landing with the tag, and
+the counts surfaced there (**18** routes, **5** commands, schema **v10**)
+unchanged.
 
 ### 0.8.2 — Image admission (owner-gated)
 
-**Status: scoped, not started. Do not implement this patch until every gate
-below is met in writing.** One theme (R1): *pixels are admitted through a
-config-gated, privacy-limited contract — the first time the plugin sends
-anything but text.*
+**Status: scoped, not started, owner-gated.** Do not implement this patch until
+every gate below is met in writing; the owner has not answered as of `v0.8.0`
+(2026-11-27). One theme (R1): *pixels are admitted through a config-gated,
+privacy-limited contract — the first time the plugin sends anything but text.*
 
 **Why this is gated rather than default-safe.** Three independent decisions
 meet here: whether frames may leave the Mac at all (D1), which provider/model
@@ -587,10 +785,11 @@ config first, then revert; the added table is additive and old builds ignore it
 
 ### 0.8.3 — Phase 4 cutover (owner-gated)
 
-**Status: scoped, not started. Do not implement until the entry criteria
-below are met in writing and the owner is present for the flip and the real
-week.** One theme (R1): *the owned journal becomes the default source of truth
-for a fresh capture-enabled profile — the point the whole port exists for.*
+**Status: scoped, not started, owner-gated.** Do not implement until the entry
+criteria below are met in writing and the owner is present for the flip and the
+real week; the owner has not answered as of `v0.8.0` (2026-11-27). One theme
+(R1): *the owned journal becomes the default source of truth for a fresh
+capture-enabled profile — the point the whole port exists for.*
 
 **What "cutover" means here.** `source: owned` becomes the default when capture
 is enabled and no Dayflow database exists, so a fresh profile records and reads
@@ -664,27 +863,30 @@ same journal.
 
 ### 0.8.4 — Release close
 
-**Status: planned, after 0.8.3 or after the owner-gated slots are formally
-deferred.** One theme (R1): *close the line honestly — every shipped tag is a
-release, the npm state is explicit, and the docs match the tagged tree.* Like
-0.7.6 it **flips nothing**: no plugin source, schema, route, command, config
-key, or default change. Its executable artefacts are documentation and release
-operations only.
+**Status: planned, after 0.8.1 and after 0.8.3 or after the owner-gated slots
+are formally deferred.** One theme (R1): *close the line honestly — every
+shipped tag is a release, the npm state is explicit, and the docs match the
+tagged tree.* Like 0.7.6 it **flips nothing**: no plugin source, schema, route,
+command, config key, or default change. Its executable artefacts are
+documentation and release operations only.
 
 **A. Release trail.** One GitHub Release per shipped tag (`v0.8.0`, `v0.8.1`,
 and `v0.8.2` / `v0.8.3` if they shipped), cut by `npm run release -- patch`
 (the tool 0.7.6 proved), with each body taken from that version's CHANGELOG
-section, version guards per tag, and no tag ever re-cut or moved. The release
-notes state which reserved slots shipped and which were deferred, and why.
+section, version guards per tag, and no tag ever re-cut or moved. `v0.8.0`'s
+release already exists and is Latest, so the close **verifies** it rather than
+re-cutting it. The release notes state which reserved slots shipped and which
+were deferred, and why.
 
 **B. npm — a decision and a check, not a publication.** D7 is still open, so the
 safe default remains **do not publish**: `npm view` must still answer 404, the
 READMEs keep "tagged here, not yet on the npm registry", `npm run check:package`
-is green, the tarball is reviewed, and the `package.json` diff against `v0.7.6`
-is exactly the version bump plus whatever shipped (no unbudgeted dependency
-change; 0.8.2's optional attachment peer appears only if that patch shipped). If
-the owner authorises publication in writing, it is a separate reviewed step with
-a token and 2FA, and the tag does not change.
+is green, the tarball is reviewed, and the `package.json` diff against the line's
+last shipped tag (`v0.8.0` as of this revision) is exactly the version bump plus
+whatever shipped (no unbudgeted dependency change; 0.8.2's optional attachment
+peer appears only if that patch shipped). If the owner authorises publication in
+writing, it is a separate reviewed step with a token and 2FA, and the tag does
+not change.
 
 **C. Docs reconciliation.** The line has one version map and every doc agrees
 with it: `0.8.0` = ledger follow-ups, `0.8.1` = briefs view, `0.8.2` = image
@@ -742,30 +944,36 @@ rollback stated, and the patch's own section corrected if reality diverged.
 
 This line adds:
 
-- [ ] The money ledger test: the configured call/token cap cannot be exceeded by
+- [x] The money ledger test: the configured call/token cap cannot be exceeded by
       more than the single crossing call, and budget skips are not replayed
-      (0.8.0).
-- [ ] The idempotency proof: running the same catch-up twice, or restarting
+      (0.8.0 — 27 cases, landed).
+- [x] The idempotency proof: running the same catch-up twice, or restarting
       across the day boundary twice, produces no second call and no duplicate
-      row.
-- [ ] The decision-gate proof: a default profile (capture off and/or
-      `consent: none`) runs nothing new; for a gated patch, the gate list in §6
-      is quoted in the PR description with the owner's answer.
+      row (0.8.0 — landed; `tests/analyse-skips` and `analyse-worker`).
+- [x] The decision-gate proof: a default profile (capture off and/or
+      `consent: none`) runs nothing new (0.8.0 — landed); for a gated patch, the
+      gate list in §6 is quoted in the PR description with the owner's answer.
+- [x] The read-only proof for the briefs view: a fresh install answers an empty
+      `briefs` list without creating the journal, repeated reads leave the
+      journal byte-for-byte unchanged, and no model adapter is involved
+      (0.8.1).
 - [ ] The compatibility proof for a new peer or host service: with the service
       absent, the plugin loads and stays text-only (0.8.2 only).
 - [ ] A default flip has a rollback test that restores the old source by config
       alone (0.8.3 only).
-- [ ] `docs/ROADMAP.md` remain lines change only for work that actually landed.
+- [x] `docs/ROADMAP.md` remain lines change only for work that actually landed
+      (0.8.0 and 0.8.1 updated them; 0.8.2 remains owner-gated).
 
 ## 5. Sequencing rationale
 
-1. **The ledger patch first, because it is the only one that needs no answer.**
-   0.8.0 closes the three debts 0.7.2 named, all in modules that already exist,
-   with a fake analyser and a temporary journal. It also has to land **before**
-   any default flip: the day tail is the first path that can spend without the
-   owner watching, so the token gate and the tail are deliberately in the same
-   tag. If the line did the cutover first, a fresh profile would get a default
-   that is only bounded by the call cap and a reported-only token number.
+1. **The ledger patch went first, because it was the only one that needed no
+   answer.** 0.8.0 closed the three debts 0.7.2 named, all in modules that
+   already existed, with a fake analyser and a temporary journal. It also had to
+   land **before** any default flip: the day tail is the first path that can
+   spend without the owner watching, so the token gate and the tail are
+   deliberately in the same tag. If the line had done the cutover first, a fresh
+   profile would get a default that is only bounded by the call cap and a
+   reported-only token number. It shipped as `v0.8.0`.
 2. **The briefs view second, because it is the cheapest visible win.** It is
    read-only, route-free, model-free, and it makes 0.7.4/0.7.5's stored output
    readable for the first time. It also lands before the gated patches touch the
@@ -785,26 +993,22 @@ This line adds:
 4. **Release close last, and it flips nothing.** Same rule as 0.7.6: a patch
    line whose last patch changes a default would not be a patch line, and a
    release patch that also changes behaviour cannot be verified as a release.
-5. **If 0.8.0 must split, split it before its tag.** The preferred scope keeps
-   the three follow-ups together because they are one ledger and their tests are
-   independent. If implementation shows the catch-up state machine needs more
-   than this plan (a new config key, a schema change, or a replay loop that the
-   simple requeue cannot express), **stop before tagging 0.8.0** and re-split:
-   0.8.0 = token gate + tail, 0.8.1 = catch-up, 0.8.2 = briefs, 0.8.3 = image,
-   0.8.4 = cutover, 0.8.5 = release close. Renumbering is only allowed in that
-   window, before the first tag of the line; afterwards O3 applies and a slot is
-   deferred rather than renumbered. This is why 0.8.5 is listed as reserved.
-6. **No hotfix patch first.** The `v0.7.6` tree is green, released, and the line
-   starts from a decision-free patch; nothing in the repository records a defect
-   to fix before 0.8.0.
+5. **0.8.0 did not need to split.** It was tagged whole, so the pre-tag
+   renumbering window is closed: after the first tag of the line, O3 applies and
+   an unshipped slot is deferred rather than renumbered. The reserved 0.8.5 row
+   stays listed only as the unused contingency it was; no future renumbering is
+   allowed.
+6. **No hotfix patch first.** The `v0.7.6` tree was green and released, the line
+   started from a decision-free patch, and 0.8.0 shipped with nothing in the
+   repository recording a defect that would justify a hotfix before 0.8.1.
 
-**Line exit criteria.** The 0.8.x line is done when: 0.8.0 and 0.8.1 shipped;
-0.8.2 and 0.8.3 either shipped or are explicitly deferred in 0.8.4's notes with
-their blocking decision; every shipped tag has a GitHub Release; the npm state
-is explicit; `docs/ROADMAP.md`, `docs/NATIVE_PORT.md`,
-`docs/CUTOVER_REHEARSAL.md`, README/README.zh, and this file agree on the
-version map and the final counts; and the next step is named (1.0.0 after a real
-week, or the owner decision that unblocks a deferred slot).
+**Line exit criteria.** The 0.8.x line is done when: 0.8.0 has shipped (it has)
+and 0.8.1 has shipped; 0.8.2 and 0.8.3 either shipped or are explicitly
+deferred in 0.8.4's notes with their blocking decision; every shipped tag has a
+GitHub Release; the npm state is explicit; `docs/ROADMAP.md`,
+`docs/NATIVE_PORT.md`, `docs/CUTOVER_REHEARSAL.md`, README/README.zh, and this
+file agree on the version map and the final counts; and the next step is named
+(1.0.0 after a real week, or the owner decision that unblocks a deferred slot).
 
 ## 6. Owner decisions and safe defaults
 
@@ -813,9 +1017,9 @@ for this line. Every row has a default that ships without an answer.
 
 | Id | Decision | Why it matters | Status 2026-11-27 | Safe default if unanswered | Gates |
 | --- | --- | --- | --- | --- | --- |
-| D1 | **Analysis destination**: `none`, `local`, or `cloud` | Whether screen metadata (and later pixels) may leave the machine, and whose model reads them | Unanswered | `none`: capture and analysis code ship, nothing leaves the machine, the panel says why. Also means no real cutover week with analysis | 0.8.0 code path is inert; 0.8.2, 0.8.3 blocked |
+| D1 | **Analysis destination**: `none`, `local`, or `cloud` | Whether screen metadata (and later pixels) may leave the machine, and whose model reads them | Unanswered | `none`: capture and analysis code ship, nothing leaves the machine, the panel says why. Also means no real cutover week with analysis | 0.8.0 landed inert (no call without consent); 0.8.2, 0.8.3 blocked |
 | D2 | **Provider and model** for analysis | Cost, latency, and which vendor sees the data | Settled as an explicit rule: `analysis.provider` + `analysis.model` must be set; empty means "not configured" and jobs are skipped | Explicit pair or skip; no implicit host default | 0.8.2 needs a **vision-capable** pair; 0.8.3 needs any working pair |
-| D3 | **Daily budget**: calls and tokens | A runaway loop is a bill, not a bug | Caps configured (120 calls / 200k tokens); the call cap is enforced, the token cap has been reported-only through 0.7.6 | **0.8.0 enforces the configured token cap as a post-call gate.** No retroactive spend, no automatic replay of budget skips, no automatic cloud replay without authorisation. Changing a cap is a config value, not a patch | 0.8.0 |
+| D3 | **Daily budget**: calls and tokens | A runaway loop is a bill, not a bug | Caps configured (120 calls / 200k tokens); **both are enforced since 0.8.0** — calls as a pre-call gate, tokens as a post-call gate with a pre-call already-spent guard | **0.8.0 landed the configured token cap as a post-call gate.** No retroactive spend, no automatic replay of budget skips, no automatic cloud replay without authorisation. Changing a cap is a config value, not a patch | 0.8.0 (landed) |
 | D4 | **Catch-up window** after the machine was off (automation closes) | Closing ten missed days at once is noise and cost | Settled and landed: `automation.catchUpDays` (1–30, default 2), older days `skipped`, never fabricated | Unchanged on this line | — |
 | D5 | **Frame retention** after analysis | Debuggability versus screenshots on disk | Settled and landed: `keepFramesDays: 0` deletes a frame after successful analysis; the sweep is the fallback | Unchanged; the image patch (if it ships) respects it | 0.8.2 informs |
 | D6 | **Suppression management surface** | A hard-suppressed idea must be clearable somewhere | Settled for 0.7.x: agent-only (`journal_review` unsuppress); no panel list | Unchanged; not on this line | — |
@@ -835,8 +1039,9 @@ for this line. Every row has a default that ships without an answer.
   model pair), plus the real-week entry criteria in §0.8.3.
 - Before **0.8.4** can publish to npm: D7 (explicit). No answer means no
   publish and the line still closes.
-- **Nothing is needed for 0.8.0 or 0.8.1.** They ship under the safe defaults
-  above; that is the point of ordering them first.
+- **Nothing is needed for 0.8.0 or 0.8.1.** 0.8.0 shipped under the safe
+  defaults without an answer, and 0.8.1 ships the same way; that is the point of
+  ordering them first.
 
 **What changes if the owner answers.** D1=`local` + D2 + D11 unblock 0.8.2;
 D1=`cloud` adds the 3.6 copy requirement and a higher review bar for the image
@@ -846,13 +1051,14 @@ step to 0.8.4 (reviewed tarball, token, 2FA), not a new patch. No answer changes
 
 ## 7. How to run one patch
 
-1. Branch `patch/0.8.N-<theme>` from the previous **shipped** tag (`v0.7.6` for
-   0.8.0; the previous 0.8.x tag after that).
+1. Branch `patch/0.8.N-<theme>` from the previous **shipped** tag (`v0.8.0` for
+   0.8.1; the previous 0.8.x tag after that).
 2. Write the failing tests first from the patch's acceptance list, on the
-   existing fake-adapter seam; 0.8.0's tests need no network, permission, or
-   real clock.
+   existing fake-adapter seam; 0.8.1's tests need no network, permission, or
+   real clock either.
 3. Implement; keep the integration point single (`src/index.ts`), and for 0.8.0
-   keep the gate order exactly as §0.8.0 A states it.
+   keep the gate order exactly as §0.8.0 A and its Landed shape and deviations
+   record it.
 4. Update the patch's docs and the CHANGELOG `[Unreleased]` entry in the same
    commit; for a gated patch, quote the owner's answer and the §6 gate list in
    the PR description.

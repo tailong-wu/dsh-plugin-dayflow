@@ -65,13 +65,14 @@ card placed at its time and tinted with its category colour.
 
 - The panel's month/week switch has a third view, **Journal insights**: it lists
   what the agent has learned — active long tasks (with progress and stalled
-  marks), the open review queue, recent date-stamped memory claims, and stored
-  day/week reflections. It is a view inside the panel, not a second tab or
-  button, so the plugin keeps one entry. The task, memory, and reflection blocks
-  also take an inline add, and a newly added task can be offered a history scan
-  (see [Quick capture](QUICK_CAPTURE.md)); the review queue has no add row — its
-  items are the agent's proposals — but each one can be decided in place, and a
-  task session can be unlinked (see below).
+  marks), the open review queue, recent date-stamped memory claims, stored
+  day/week reflections, and the stored day and week **briefs** (read-only; see
+  [Briefs in the panel](#briefs-in-the-panel)). It is a view inside the panel,
+  not a second tab or button, so the plugin keeps one entry. The task, memory,
+  and reflection blocks also take an inline add, and a newly added task can be
+  offered a history scan (see [Quick capture](QUICK_CAPTURE.md)); the review
+  queue has no add row — its items are the agent's proposals — but each one can
+  be decided in place, and a task session can be unlinked (see below).
 - Above those sections sit three quiet status lines. The first is the native
   capture strip (permission, today's frame count, Pause/Resume). The second
   reports the **analysis worker** as read-only: off, waiting for consent, a
@@ -100,12 +101,12 @@ card placed at its time and tinted with its category colour.
   close failed, and grey when automation is off; a failed or missing read
   degrades to the quiet grey line instead of an error. Like the analysis line
   it is status, not a control: no button, no new view, no header entry, and
-  the copy is in both languages. The weekly close's stored brief now carries a
-  short **memory health** digest in its body and `payload_json`; because 0.7.x
-  has no brief-reading view in the panel, that digest stays in the journal's
-  `briefs` store and the close-state line keeps reporting only the schedule and
-  the last week close — no route, line, button, or view is added, and the panel
-  stays at its 18 host Fetch routes.
+  the copy is in both languages. The weekly close's stored brief carries a
+  short **memory health** digest in its body and `payload_json`, and 0.8.1
+  makes it readable: the week brief appears in the insights view's **Briefs**
+  block with that digest inside its expanded body (see below). The close-state
+  line itself still reports only the schedule and the last week close — it adds
+  no route, line, or button, and the panel stays at its 18 host Fetch routes.
 
 ### Decisions in the panel
 
@@ -138,6 +139,31 @@ card placed at its time and tinted with its category colour.
   languages.
 - **Nothing else moved.** Deciding is still the same **Journal insights** view:
   no schema change, no model call, no second tab, and no new header button.
+
+### Briefs in the panel
+
+- The **Briefs** block sits at the end of the **Journal insights** view, after
+  the task, review, memory, and reflection sections. It is the reading view for
+  the text the automation already stores: the weekly close's briefs (with the
+  **memory health** digest) and the native daily standups, which are normalised
+  into day briefs so the two kinds share one list.
+- Each entry is a collapsed row: a **Day** or **Week** badge, the title, and its
+  updated date. Opening a row shows the brief body; the weekly
+  `Memory health: …` paragraph is part of that body, not a second surface. An
+  entry with an empty body reads as **(untitled)**, like the other rows.
+- The block is **read-only**. It has no add row, no decision row, and no button
+  beyond expanding a row, so the view keeps its existing controls. The entries
+  arrive inside the existing `GET /api/dayflow/insights` answer as the additive
+  `briefs` field: the panel adds no request and stays at its **18 host Fetch
+  routes** — nine `GET` and nine `POST` — with no tab, header button, or
+  settings page, and the plugin keeps its single entry point.
+- The list is bounded and ordered: newest period first, at most ten entries, one
+  entry per kind and period (a stored brief wins over a standup for the same
+  day). A standup deleted in the journal is not shown, and an unreadable stored
+  payload is skipped instead of failing the view.
+- When nothing has been stored yet the block keeps its quiet **No briefs yet**
+  line — a default profile shows an empty Briefs section, exactly like the other
+  blocks, and reading it makes no model call.
 
 ### Automation status
 
@@ -178,7 +204,9 @@ card placed at its time and tinted with its category colour.
   `GET /api/dayflow/automation/status` (see
   [Native capture](NATIVE_CAPTURE.md)). Together with the icon route
   below, those are the panel's host Fetch routes — eighteen in all, nine `GET`
-  and nine `POST`. It never touches the database itself.
+  and nine `POST`. The insights answer carries every section of the view, the
+  additive `briefs` list included, in that one response, so the Briefs block
+  adds no request. It never touches the database itself.
 - The three new writes require `confirm: true` in the body — the same guard the
   `journal_review` tool uses — and answer with the store's own payload:
   - `POST /api/dayflow/review` takes

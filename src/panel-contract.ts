@@ -9,9 +9,12 @@
  */
 
 import type { AnalysisStatusPayload } from './analyse/status.js';
+import type { PanelBriefSummary } from './briefs/read.js';
 import type { MemoryClaimPayload } from './memory.js';
 import type { ReviewItemPayload } from './review.js';
 import type { LongTaskPayload } from './tasks.js';
+
+export type { PanelBriefMemoryHealth, PanelBriefSummary } from './briefs/read.js';
 
 /** One timeline card, as the panel renders it. */
 export interface PanelCard {
@@ -160,6 +163,11 @@ export interface PanelInsights {
   review: PanelReviewItem[];
   memory: PanelClaimSummary[];
   reflections: PanelReflectionSummary[];
+  /**
+   * The stored day/week briefs, newest period first; the additive 0.8.1 field.
+   * An old client ignores it, and a fresh install answers an empty list.
+   */
+  briefs: PanelBriefSummary[];
 }
 
 /** Body the panel sends to add one long task. */

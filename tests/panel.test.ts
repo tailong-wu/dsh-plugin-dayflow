@@ -489,7 +489,7 @@ test('insights are empty for a fresh install and never create the journal', () =
   const journalPath = journalFile('absent');
   const runtime = makeRuntime(fixture.path, { journalPath });
 
-  const empty: PanelInsights = { tasks: [], review: [], memory: [], reflections: [] };
+  const empty: PanelInsights = { tasks: [], review: [], memory: [], reflections: [], briefs: [] };
   assert.deepEqual(buildPanelInsights(runtime), empty);
   assert.equal(existsSync(journalPath), false);
 });
@@ -656,5 +656,6 @@ test('the insights route answers JSON from the owned journal', async () => {
     review: [],
     memory: [],
     reflections: [],
+    briefs: [],
   });
 });

@@ -235,7 +235,7 @@ end.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 521 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, cutover rehearsal, bundle
+npm test            # 537 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, cutover rehearsal, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

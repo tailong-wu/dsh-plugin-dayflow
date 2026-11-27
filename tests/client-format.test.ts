@@ -290,6 +290,39 @@ test('the insights copy exists in both dictionaries', () => {
   assert.equal(zhT('activeTasksCount', { count: 3 }), '3 个进行中');
 });
 
+test('the read-only briefs copy exists in both dictionaries', () => {
+  // Every label the foldable Briefs section renders; the two dictionaries share
+  // the key set, so a missing language fails in the consistency test above.
+  const fixed = ['briefsSection', 'noBriefs', 'briefDayBadge', 'briefWeekBadge'];
+  for (const key of fixed) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+    assert.doesNotMatch(EN[key] ?? '', /\{\w+\}/, `English copy for ${key} has no placeholder`);
+    assert.doesNotMatch(ZH[key] ?? '', /\{\w+\}/, `Chinese copy for ${key} has no placeholder`);
+  }
+  // The day and week badges stay distinct labels so a folded row names its kind.
+  assert.equal(enT('briefDayBadge'), 'Day');
+  assert.equal(enT('briefWeekBadge'), 'Week');
+  assert.equal(zhT('briefDayBadge'), '日');
+  assert.equal(zhT('briefWeekBadge'), '周');
+  // Each row's expand/collapse label names the brief it folds, so both
+  // dictionaries must carry the same interpolation point and resolve it.
+  for (const key of ['briefExpand', 'briefCollapse']) {
+    assert.match(EN[key] ?? '', /\{title\}/);
+    assert.match(ZH[key] ?? '', /\{title\}/);
+  }
+  assert.equal(enT('briefExpand', { title: 'Week of 2026-10-19' }), 'Expand brief: Week of 2026-10-19');
+  assert.equal(zhT('briefExpand', { title: 'Week of 2026-10-19' }), '展开简报：Week of 2026-10-19');
+  assert.equal(enT('briefCollapse', { title: 'Mon, Oct 19' }), 'Collapse brief: Mon, Oct 19');
+  assert.equal(zhT('briefCollapse', { title: 'Mon, Oct 19' }), '收起简报：Mon, Oct 19');
+  // The updated-date chip is the row's only other placeholder; both languages
+  // must carry it so neither leaks a raw `{date}`.
+  assert.match(EN['briefUpdated'] ?? '', /\{date\}/);
+  assert.match(ZH['briefUpdated'] ?? '', /\{date\}/);
+  assert.equal(enT('briefUpdated', { date: 'Nov 26' }), 'Updated Nov 26');
+  assert.equal(zhT('briefUpdated', { date: '11月26日' }), '更新于 11月26日');
+});
+
 test('the review decision and session unlink copy exists in both dictionaries', () => {
   // Every label the interactive review queue and the task session row render;
   // the two dictionaries share the key set, so a missing language fails here.

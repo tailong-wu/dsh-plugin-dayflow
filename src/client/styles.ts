@@ -1167,6 +1167,10 @@ export const PANEL_CSS = `
   --dfp-accent: var(--dsw-static-green-500);
 }
 
+.dfp-insights-section.is-briefs {
+  --dfp-accent: color-mix(in srgb, var(--dsw-static-blue-500) 55%, var(--dsw-static-green-500));
+}
+
 .dfp-insights-section-head {
   display: flex;
   align-items: center;
@@ -1370,6 +1374,97 @@ export const PANEL_CSS = `
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
   line-height: 17px;
+}
+
+/* The read-only Briefs list. Each row is one button: the badge, title, and
+ * stored date sit on the head, and the full body folds out underneath it. The
+ * list row carries no padding of its own so the whole head is the target. */
+
+.dfp-brief {
+  padding: 0;
+}
+
+/* The head owns the hover tint; the row itself stays flat. */
+.dfp-brief:hover {
+  background: transparent;
+}
+
+.dfp-brief-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px 8px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.dfp-brief-head:hover {
+  background: color-mix(in srgb, var(--dfp-accent) 6%, transparent);
+}
+
+.dfp-brief-head:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: -2px;
+}
+
+.dfp-brief-head .dfp-insights-row-title {
+  flex: 1;
+}
+
+.dfp-brief-head .dfp-insights-date {
+  flex: none;
+}
+
+/* The fold mark: a small rotated corner that points down when closed. */
+.dfp-brief-chevron {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-inline-start: 3px;
+  border-right: 1.5px solid var(--dsw-alias-label-tertiary);
+  border-bottom: 1.5px solid var(--dsw-alias-label-tertiary);
+  transform: rotate(45deg) translate(-1px, -1px);
+  transition: transform 120ms ease;
+}
+
+.dfp-brief-chevron.is-open {
+  transform: rotate(-135deg) translate(-1px, -1px);
+}
+
+.dfp-brief-body {
+  padding: 0 12px 10px 14px;
+}
+
+/* The stored body is shown verbatim: newlines and the closing
+ * "Memory health: …" paragraph keep their shape, and long words wrap. */
+.dfp-brief-text {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A docked sidebar leaves about 280px: the date drops under the title on its
+ * own line instead of squeezing the title into the chevron. */
+@container (max-width: 300px) {
+  .dfp-brief-head {
+    flex-wrap: wrap;
+  }
+
+  .dfp-brief-head .dfp-insights-date {
+    order: 3;
+    flex-basis: 100%;
+  }
 }
 
 /* The ToDo-style add row under an editable section. */

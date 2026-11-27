@@ -17,7 +17,7 @@ cloud analysis.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.8.0` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
+> **Status:** `v0.8.1` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
 > README describes — install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
@@ -82,7 +82,7 @@ remains owner-gated later in the 0.8.x line.
 
 ## Install
 
-No `0.8.x` release is on the registry yet (`v0.8.0` is tagged in this repository). Until one is,
+No `0.8.x` release is on the registry yet (`v0.8.1` is tagged in this repository). Until one is,
 install from a checkout — that builds the development line described here; once published, run
 `dsh plugin --profile web add dsh-plugin-dayflow`.
 
@@ -155,7 +155,10 @@ entry point off entirely.
   marks, the open review queue, recent dated memory claims, stored reflections, and three
   compact status lines (capture, analysis, and the scheduled close). The tasks, memory,
   and reflections blocks take a line of your own, and review items are decided in place
-  while task sessions can be unlinked — no agent turn.
+  while task sessions can be unlinked — no agent turn. The view also reads the stored day
+  and week **briefs** — collapsed rows you expand, with the weekly brief's memory-health
+  digest inside the body — read-only, and still one tab, one header button, and 18 host
+  Fetch routes.
 
 ![One day open in the panel](docs/day.en.png)
 
@@ -298,7 +301,7 @@ default, and the capture/analysis/automation blocks are in
 ```sh
 npm install
 npm run build                # TypeScript → lib/, plus the client bundle
-npm test                     # build, type-check, and run the 521-test suite
+npm test                     # build, type-check, and run the 537-test suite
 npm run typecheck            # type-check sources and tests together
 npm run smoke                # read this Mac's real Dayflow database
 npm run native:smoke         # capture provider only; writes nothing

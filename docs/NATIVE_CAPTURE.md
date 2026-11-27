@@ -26,7 +26,7 @@ closes the day and week on a scheduler, and `0.7.5` adds the weekly memory lint.
 call, transiently blocked windows are re-queued, and a 04:00 tail covers the day
 just ended. Every model call is text-only: the analysis call sends the frontmost
 app, window title, and frame hash, and the closes send activity text; no image is
-ever sent on the 0.7.x/0.8.0 line. Everything below is off by default.
+ever sent on the 0.7.x/0.8.x lines. Everything below is off by default.
 
 - **Capture is off by default.** Setting `capture.enabled: true` starts the
   engine with the plugin. The engine does not depend on the panel, so it runs
@@ -77,7 +77,8 @@ ever sent on the 0.7.x/0.8.0 line. Everything below is off by default.
   that brief; both are proposals-only — automation never writes, supersedes, or
   forgets a memory claim. `/dayflow-run-close` triggers one close by hand and
   the panel's close-state line reports the schedule and the last closes. There is
-  no weekly reflection and no briefs-reading view on the 0.7.x line. Keys and
+  no weekly reflection on the 0.7.x line; the stored day/week briefs became
+  readable in the panel in 0.8.1. Keys and
   gates are in [CONFIGURATION.md](CONFIGURATION.md); the route is in
   [PANEL.md](PANEL.md).
 - **The ledger heals itself (0.8.0).** On a tick whose gate is open, windows a
@@ -97,7 +98,7 @@ ever sent on the 0.7.x/0.8.0 line. Everything below is off by default.
 - **Not yet (owner-gated or later in the 0.8.x line):** image admission and
   downscaling (pixels need a host attachment peer and image decisions, so the
   model keeps receiving app / window-title / hash metadata), the `source: owned`
-  default flip (Phase 4, owner-gated), and a panel view for the stored briefs.
+  default flip (Phase 4, owner-gated).
   Native cards live only in the owned backend's timeline, not in the Dayflow
   backend's; the plan is in [NATIVE_PORT.md](NATIVE_PORT.md) and
   [PATCH_PLAN_0.8.md](PATCH_PLAN_0.8.md).

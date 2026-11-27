@@ -1,11 +1,12 @@
 /**
- * The insights view: the journal's long tasks, review queue, memory claims, and
- * reflections on one page, shown inside the single Dayflow panel.
+ * The insights view: the journal's long tasks, review queue, memory claims,
+ * reflections, and the generated day/week briefs on one page, shown inside the
+ * single Dayflow panel.
  *
- * The host answers all four lists in one response, so the view has a single
+ * The host answers all five lists in one response, so the view has a single
  * load state and a single refresh: no section can be stale while another is
  * fresh. Every section is still optional — an empty journal shows one quiet
- * empty state instead of four.
+ * empty state instead of five.
  *
  * A compact capture line above the sections shows the native capture switches,
  * the macOS Screen Recording permission, today's frame count, and the persisted
@@ -40,6 +41,12 @@
  * hard-suppressing the item. A long task's linked days each carry an Unlink,
  * so a mis-scanned day can be detached without opening a second view; attaching
  * still happens only through the history scan's own Link button.
+ *
+ * The briefs are the view's one read-only list: each generated day or week brief
+ * folds to a single row with its kind badge, title, and stored updated date, and
+ * expands in place to the full body — the weekly brief's closing
+ * "Memory health: …" paragraph included. The section adds no button, no second
+ * view, and no entry point beyond pressing a row, and it never calls a model.
  * @module dsh-plugin-dayflow/client/insights
  */
 
@@ -48,6 +55,7 @@ import type { FormEvent, ReactNode } from 'react';
 
 import type {
   PanelAutomationStatus,
+  PanelBriefSummary,
   PanelCaptureStatus,
   PanelInsights,
   PanelReviewItem,
@@ -246,7 +254,29 @@ function firstLine(body: string): string {
 
 /** Whether the journal holds nothing to show at all. */
 function isBlank(data: PanelInsights): boolean {
-  return data.tasks.length === 0 && data.review.length === 0 && data.memory.length === 0 && data.reflections.length === 0;
+  return (
+    data.tasks.length === 0 &&
+    data.review.length === 0 &&
+    data.memory.length === 0 &&
+    data.reflections.length === 0 &&
+    data.briefs.length === 0
+  );
+}
+
+/**
+ * The stored brief `updated_at` as the short date the journal shows.
+ *
+ * The store keeps SQLite `CURRENT_TIMESTAMP` text (`YYYY-MM-DD HH:MM:SS`) and
+ * an importer may write an ISO instant; both start with the stored day, which
+ * is what the row shows. A value with no leading day passes through unchanged
+ * rather than being guessed at.
+ * @param updatedAt - the stored timestamp.
+ * @param t - the bound translator.
+ * @returns the short local date, or the raw value when unreadable.
+ */
+function briefDate(updatedAt: string, t: Translate): string {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(updatedAt);
+  return match === null ? updatedAt : shortDate(match[0], t);
 }
 
 /** The dot that separates two facts on one row. */
@@ -488,13 +518,64 @@ function TaskSessions(props: {
 }
 
 /**
+ * One generated brief in the read-only Briefs list, expanding in place.
+ *
+ * The head is a real button, so Enter and Space toggle the row with no custom
+ * key handling, while `aria-expanded` and `aria-controls` expose the state and
+ * the body it governs. The body itself stays in the DOM so that control always
+ * names a real element, and is folded with `hidden` while the row is closed. It
+ * is the stored text verbatim and never truncated: a weekly brief's closing
+ * "Memory health: …" digest is the final paragraph the user reads here. The row
+ * owns its open flag, so folding one brief never moves another.
+ * @param props - the brief and the translator.
+ * @returns the row, with its body underneath while it is open.
+ */
+function BriefRow(props: { brief: PanelBriefSummary; t: Translate }): ReactNode {
+  const { brief, t } = props;
+  const [open, setOpen] = useState(false);
+  const bodyId = `dfp-brief-body-${brief.kind}-${brief.period_key}`;
+  const week = brief.kind === 'week';
+  const updated = briefDate(brief.updated_at, t);
+  const toggleLabel = open
+    ? t('briefCollapse', { title: brief.title })
+    : t('briefExpand', { title: brief.title });
+  const body = brief.body.trim() === '' ? t('untitled') : brief.body;
+
+  return (
+    <li className="dfp-insights-row dfp-brief">
+      <button
+        type="button"
+        className="dfp-brief-head"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        aria-label={toggleLabel}
+        title={toggleLabel}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className={`dfp-insights-badge is-${week ? 'week' : 'day'}`}>
+          {week ? t('briefWeekBadge') : t('briefDayBadge')}
+        </span>
+        <span className="dfp-insights-row-title">{brief.title}</span>
+        <span className="dfp-insights-date" title={t('briefUpdated', { date: updated })}>
+          {updated}
+        </span>
+        <span className={`dfp-brief-chevron${open ? ' is-open' : ''}`} aria-hidden="true" />
+      </button>
+      <div className="dfp-brief-body" id={bodyId} hidden={!open}>
+        <p className="dfp-brief-text">{body}</p>
+      </div>
+    </li>
+  );
+}
+
+/**
  * One titled block with its count, its own empty message, its rows, and an
  * optional add row that stays reachable even when the block is empty.
  * @param props - the block's title, item count, empty copy, rows, and add row.
  * @returns the section.
  */
 function Section(props: {
-  tone: 'tasks' | 'review' | 'memory' | 'reflections';
+  tone: 'tasks' | 'review' | 'memory' | 'reflections' | 'briefs';
   title: string;
   count: number;
   empty: string;
@@ -923,7 +1004,7 @@ function ScanPrompt(props: {
 /**
  * Render the insights view.
  * @param props - the injected reader and translator.
- * @returns the four journal sections, or one of the page states.
+ * @returns the five journal sections, or one of the page states.
  */
 export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNode {
   const [data, setData] = useState<PanelInsights | undefined>(undefined);
@@ -1051,6 +1132,8 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   };
   // Tasks share one scale so the bars compare within the visible list.
   const maxTaskMinutes = Math.max(1, ...(data?.tasks.map((task) => task.total_minutes) ?? []));
+  // The host caps and orders the briefs; the section renders them as read.
+  const briefs = data?.briefs ?? [];
 
   // Each add writes the owned journal directly, then refreshes the whole view so
   // the new row and its section count arrive together with no local merge.
@@ -1342,6 +1425,19 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
                   </li>
                 );
               })}
+            </ul>
+          </Section>
+
+          <Section
+            tone="briefs"
+            title={t('briefsSection')}
+            count={briefs.length}
+            empty={t('noBriefs')}
+          >
+            <ul className="dfp-insights-list">
+              {briefs.map((brief) => (
+                <BriefRow key={`${brief.kind}:${brief.period_key}`} brief={brief} t={t} />
+              ))}
             </ul>
           </Section>
         </>

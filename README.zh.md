@@ -17,7 +17,7 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.8.0` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
+> **状态：** `v0.8.1` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
 > ——请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
@@ -73,7 +73,7 @@ peer，也是分析路径唯一调用的 host 服务；整条线保持 text-only
 
 ## 安装
 
-`0.8.x` 还没有发布到 registry（`v0.8.0` 已在本仓库打 tag）。在发布之前请从源码 checkout 安装——
+`0.8.x` 还没有发布到 registry（`v0.8.1` 已在本仓库打 tag）。在发布之前请从源码 checkout 安装——
 那装的正是本文描述的开发线；发布之后执行 `dsh plugin --profile web add dsh-plugin-dayflow` 即可。
 
 ### Desktop App
@@ -134,7 +134,9 @@ profile 也可以把入口整个关掉。
   分析排队中的日期显示琥珀色脉冲，有记录的日期才画彩色弧段。
 - **Journal insights（洞察）** 是第三个视图：进行中的长任务（含进度与停滞标记）、待决回顾队列、
   最近的带日期记忆 claim、已保存的反思，以及三条紧凑状态行（采集、analysis 和定时收盘）。任务、记忆和
-  反思块都支持内联添加，回顾队列与任务 session 则可在面板内就地决定/解绑，不需要 agent turn。
+  反思块都支持内联添加，回顾队列与任务 session 则可在面板内就地决定/解绑，不需要 agent turn。视图还能
+  阅读已保存的 day/week **briefs**：折叠行展开就是正文，周 brief 的记忆健康摘要也在正文内；纯只读，
+  仍然只有一个标签页、一个头部按钮和 18 条 host Fetch 路由。
 
 ![面板中展开的一天](docs/day.zh.png)
 
@@ -257,7 +259,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 ```sh
 npm install
 npm run build                # TypeScript → lib/，以及 client bundle
-npm test                     # 构建、类型检查并运行 521 个测试
+npm test                     # 构建、类型检查并运行 537 个测试
 npm run typecheck            # 同时类型检查源码与测试
 npm run smoke                # 读取本机真实 Dayflow 数据库
 npm run native:smoke         # 只测采集 provider，不写入任何数据

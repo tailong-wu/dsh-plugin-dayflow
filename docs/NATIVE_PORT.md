@@ -15,13 +15,17 @@ digest in the weekly brief. **0.8.0 lands the analysis-ledger follow-ups**:
 the token budget becomes a post-call gate, configuration-caused skips replay
 within today and yesterday, and the 04:00 boundary gets a one-shot day tail —
 with no schema, route, command, tool, skill, or configuration-key change and no
-change to a cap value; a default profile still makes no call. **The whole
+change to a cap value; a default profile still makes no call. **0.8.1 lands the
+briefs reading view**: the insights payload gains an additive `briefs` list and
+the existing Journal insights view gains a read-only, expandable **Briefs**
+block — with no new route (the panel stays at 18 host Fetch routes), tab,
+button, configuration key, schema change, host peer, or model call. **The whole
 shipped line is text-only**: a window travels as app / window-title / frame-hash
-metadata, never as pixels. Image admission and the briefs reading view remain
-for later phases; image admission (pixels plus the `@deepseek-ai/dsh-attachment`
-host service) and the `source: owned` default flip are **owner-gated later in
-the 0.8.x line**, not 0.8.0 — 0.7.6 only rehearses the cutover checklist
-(`docs/CUTOVER_REHEARSAL.md`), and 0.8.0 does not flip it.
+metadata, never as pixels. Image admission — pixels plus the
+`@deepseek-ai/dsh-attachment` host service — remains for a later phase; it and
+the `source: owned` default flip are **owner-gated later in the 0.8.x line**,
+not 0.8.0 or 0.8.1 — 0.7.6 only rehearses the cutover checklist
+(`docs/CUTOVER_REHEARSAL.md`), and neither release flips it.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -75,9 +79,11 @@ Missing (the rest of the port):
 - Image preprocessing (downscale) and image admission for analysis; dedupe and
   retention already run in the capture engine, and the shipped line sends app /
   window title / hash metadata rather than pixels.
-- The briefs surface: the daily/weekly briefs are written to the owned store,
-  but the panel has no briefs view yet, and the failed/skipped close history is
-  only visible through `automation_runs` and the status line.
+- A close-history surface: failed and skipped closes are recorded in
+  `automation_runs` and summarised on the status line, but there is no view of
+  the history itself. (The briefs reading view that used to be listed here
+  landed in 0.8.1: the stored day and week briefs are readable in the panel's
+  insights view — see Phase 3 below.)
 - The owned store as the default source for a fresh install, and the first-run
   walkthrough (Phase 4).
 
@@ -135,10 +141,10 @@ Design rules:
   Journal insights view; no second button, tab, or settings surface.
 - **Text only on the shipped line; pixels are owner-gated.** The image steps in
   the diagram (`saveImage`, an image argument to `ctx.llm.stream`) describe the
-  target if image admission is approved. 0.8.0 remains text-only: the plugin
-  sends app / window-title / frame-hash metadata, so the host `attachments`
-  service is still not a peer of the shipped line and image admission is an
-  owner-gated later patch in the 0.8.x line.
+  target if image admission is approved. 0.8.0 and 0.8.1 remain text-only: the
+  plugin sends app / window-title / frame-hash metadata, so the host
+  `attachments` service is still not a peer of the shipped line and image
+  admission is an owner-gated later patch in the 0.8.x line.
 
 ---
 
@@ -158,6 +164,7 @@ New host modules (children of `src/`):
 | `analyse/prompt.ts` | system prompt, JSON schema, few-shot examples, category list injection |
 | `analyse/pipeline.ts` | window grouping, call execution, JSON validation, card sessionisation, pre-call and post-call budget gates, activity/observation writes |
 | `briefs/daily.ts`, `briefs/weekly.ts` | standup/daily and weekly brief generation from activities |
+| `briefs/read.ts` | `listPanelBriefs`: the panel's read-only briefs list — stored `briefs` rows plus native standups, de-duplicated per (kind, period), newest first, capped, tolerant of a missing journal or a bad payload, no model call |
 | `automation/store.ts` | the `automation_runs` ledger and the `briefs` store; no model, no scheduler |
 | `automation/consent.ts` | the pure text-analysis gate: enabled/consent/provider/model before any call |
 | `automation/scheduler.ts` | host timers, day-boundary jobs, catch-up, `automation_runs`, failure backoff |
@@ -674,14 +681,14 @@ changed default.
   `analysis.consent: 'none'` (or capture off) stops every call the patch can
   make.
 
-**Still deferred after 0.8.0.** The analysis-ledger debts are closed; what
-remains is owner-gated rather than scheduled by default: image admission and
-downscaling (the model sees app / window-title / hash metadata, not screen
-pixels) and the Phase 4 `source: owned` default flip are **owner-gated later in
-the 0.8.x line**, and a panel view for reading the stored briefs is planned
-later in the 0.8.x line. The daily/weekly briefs plus the automation scheduler
-landed in 0.7.4's Phase 3 slice, the weekly lint in 0.7.5, and the ledger
-follow-ups above in 0.8.0.
+**Still deferred after 0.8.1.** The analysis-ledger debts are closed and the
+briefs reading view landed in 0.8.1, so what remains is owner-gated rather than
+scheduled by default: image admission and downscaling (the model sees app /
+window-title / hash metadata, not screen pixels) and the Phase 4 `source: owned`
+default flip are **owner-gated later in the 0.8.x line**. The daily/weekly
+briefs plus the automation scheduler landed in 0.7.4's Phase 3 slice, the weekly
+lint in 0.7.5, the ledger follow-ups above in 0.8.0, and the panel's reading view
+for the stored briefs in 0.8.1.
 
 **Acceptance.** A scripted replay (30 stored frames + scripted model adapter,
 no network) yields deterministic activities and a rendered day view; replaying
@@ -697,8 +704,9 @@ was on screen.
 ### Phase 3 — Cards, briefs, and insights automation (about 1 week)
 
 **Status: the text-only automation slice is complete (0.7.4); the scheduled
-weekly memory lint landed in 0.7.5.** The day and week close themselves now,
-behind the same analysis consent/provider/model gate and without any image:
+weekly memory lint landed in 0.7.5, and the stored briefs became readable in
+the panel in 0.8.1.** The day and week close themselves now, behind the same
+analysis consent/provider/model gate and without any image:
 
 - **Schema v9.** Two additive tables — `automation_runs` (one row per attempted
   day/week close: period, status, attempts, error, timestamps, so a re-run is a
@@ -728,9 +736,11 @@ behind the same analysis consent/provider/model gate and without any image:
   weekly reflection is not scheduled on the shipped line. The weekly memory lint
   is the separate 0.7.5 pass below.
 - **Observable surface.** `/dayflow-run-close` (a manual trigger for testing and
-  catch-up), the panel's compact close-state line, and
+  catch-up), the panel's compact close-state line,
   `GET /api/dayflow/automation/status` (enabled/running, `dailyAt`, `weeklyOn`,
-  `catchUpDays`, the last day/week close, and the next close time).
+  `catchUpDays`, the last day/week close, and the next close time), and — since
+  0.8.1 — the read-only **Briefs** block in the Journal insights view that
+  renders the stored briefs from the additive `briefs` field.
 - **Scheduled memory lint (`src/automation/lint.ts`, 0.7.5).** As part of the
   weekly close, a read-only pass over the dated claims (`lintMemoryClaims`, the
   same check `journal_memory` `action: "lint"` exposes) turns each finding into
@@ -753,11 +763,22 @@ behind the same analysis consent/provider/model gate and without any image:
   NULL payload. Stored closes survive the rebuild, and both the old and the new
   job values are accepted afterwards; the migration asserts the row count before
   and after.
-- **Still deferred after 0.8.0:** image admission and downscaling (the model
+- **Briefs reading view (0.8.1).** The stored briefs are now readable where the
+  rest of the journal is: `GET /api/dayflow/insights` gains an additive
+  `briefs: PanelBriefSummary[]` field, and the insights view ends with a
+  read-only, expandable **Briefs** block. New `src/briefs/read.ts` exports
+  `listPanelBriefs`: it reads the live `briefs` rows plus the most recent native
+  `daily_standup_entries` (each standup normalised into a day entry), merges them
+  per `(kind, period_key)` with the stored brief winning, sorts the newest period
+  first, and caps the list at 10. A missing journal answers `[]` and creates no
+  file; a malformed payload is tolerated; no model is called. The weekly
+  **`Memory health: …`** digest shows inside the expanded brief body. The change
+  adds no route (the panel stays at 18 host Fetch routes), tab, button,
+  configuration key, schema change, or host peer.
+- **Still deferred after 0.8.1:** image admission and downscaling (the model
   sees app / window-title / hash metadata, not screen pixels), owner-gated later
-  in the 0.8.x line; a panel view for reading the stored briefs, planned later in
-  the 0.8.x line — the memory-health digest lives with the brief, so the panel's
-  close-state line still shows only the schedule and the last close. (0.8.0
+  in the 0.8.x line. The close-state line still shows only the schedule and the
+  last close, and a failed/skipped close history has no view of its own. (0.8.0
   closed this bullet's other item: configuration-caused analysis skips now
   replay within today and yesterday.)
 
@@ -873,7 +894,10 @@ adapters in CI; 0.7.5 added the scheduled weekly memory lint and its digest in
 the weekly brief; 0.8.0 closed the analysis-ledger follow-ups — the post-call
 token gate, transient-skip catch-up within today and yesterday, and the 04:00
 day tail — without adding a schema, route, command, tool, skill, or configuration
-key. Phase 4 is the cutover, owner-gated later in the 0.8.x line.
+key; 0.8.1 made the stored day/week briefs readable in the insights view — an
+additive `briefs` field on the existing payload plus a read-only expandable
+block, and still no new route, tab, button, configuration key, schema change, or
+model call. Phase 4 is the cutover, owner-gated later in the 0.8.x line.
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three
 parallel workstreams, plus one real week of dogfooding before `1.0.0`.
