@@ -7,6 +7,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import z from '@deepseek-ai/schemastery';
+import type Schema from '@deepseek-ai/schemastery';
 
 import { resolveDatabasePath } from './db.js';
 import { DayflowError } from './errors.js';
@@ -343,8 +344,15 @@ const AutomationSchema = z
   })
   .default({});
 
-/** Schema applied by the DSH loader before {@link resolveConfig} runs. */
-export const Config = z.object({
+/**
+ * Schema applied by the DSH loader before {@link resolveConfig} runs.
+ *
+ * The explicit `Schema` annotation keeps the emitted declaration portable: with
+ * two schemastery copies in the tree (the host's and a dependency's), the
+ * inferred shape would otherwise be named through a nested `node_modules` path.
+ * It is type-only; validation and defaults are unchanged.
+ */
+export const Config: Schema = z.object({
   databasePath: z
     .string()
     .default('')

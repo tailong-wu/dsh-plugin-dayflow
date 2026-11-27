@@ -1,7 +1,9 @@
 # Patch plan: the 0.9.x line
 
-> **Status:** **the 0.9.x line is closed at `v0.9.1`, and it was
-> decision-free by construction.** The 0.8.x line closed at its release-close
+> **Status:** **the 0.9.x line's functional scope is closed at `v0.9.1`, and it
+> was decision-free by construction; the line is reopened for exactly one
+> maintenance patch — 0.9.2, DSH `0.2.2-rc.5` compatibility — which is in
+> progress.** The 0.8.x line closed at its release-close
 > patch: `v0.8.4` is an annotated tag on commit `e298813`, the commit that
 > closed the line, with a GitHub Release (Latest until `v0.9.0`). That tree is
 > **537** green tests, schema **v10**, **18** panel routes (9 `GET` + 9 `POST`),
@@ -24,8 +26,8 @@
 > command, tool, skill, default, host peer, or model call was added** — the line
 > stayed at 18 routes, 5 commands, schema v10, and text-only.
 >
-> **0.9.1 is the line's second and final patch, reopened into the close-history
-> surface and landed** (`v0.9.1`, annotated tag on commit `ce0827e`, GitHub
+> **0.9.1 is the line's second and final functional patch, reopened into the
+> close-history surface and landed** (`v0.9.1`, annotated tag on commit `ce0827e`, GitHub
 > Release **Latest**, **557** green tests — 544 at `v0.9.0`, so 0.9.1 added 13).
 > The automation ledger has recorded every attempted day close, week
 > close, and weekly memory lint in `automation_runs` since schema v9, with the
@@ -43,26 +45,40 @@
 > **The earlier 0.9.1 candidate — docs/README parity — is withdrawn:** the 0.9.0
 > docs pass covered README/README.zh, PANEL, ARCHITECTURE, CHANGELOG, ROADMAP,
 > and this file, so no drift is known, and a docs-only release with no
-> user-visible change would be release noise. **No 0.9.2 exists: the line is
-> closed at `v0.9.1`** (see §0.9.1). The `dsh dayflow import` CLI is **not on
-> this line** (see *The CLI import is not 0.9 material*).
+> user-visible change would be release noise. **The line is reopened for exactly
+> one maintenance patch, 0.9.2 — DSH `0.2.2-rc.5` compatibility — which is in
+> progress** (see §0.9.2). It is not a product patch and changes no decision: the
+> installed DSH app moved to `0.2.2-rc.5` after `v0.9.1` was cut, while this tree
+> still declares `0.2.0-rc.2`/`0.2.1-rc.2` and pins its seven DSH dev
+> dependencies at `0.2.1-rc.2`, so the release the plugin actually runs on was
+> never declared or verified; 0.9.2 closes that declaration-and-verification gap
+> with no behaviour, default, schema, route, command, tool, skill, configuration
+> key, runtime dependency, or host peer change, and the line returns to
+> maintenance after its tag. The `dsh dayflow import` CLI is **not on this line**
+> (see *The CLI import is not 0.9 material*).
 >
 > **Owner-gated work does not enter 0.9.** Image admission (D1/D2/D11, the
 > former 0.8.2 scope), the Phase 4 `source: owned` cutover (D10 plus a real
 > captured week, the former 0.8.3 scope), any npm publish (D7), and the
 > owned-journal write path stay deferred; the 1.0.0 prerequisites in §4 are
-> unchanged and untouched by the line, 0.9.1 included. This plan supersedes the
+> unchanged and untouched by the line, 0.9.1 and 0.9.2 included. This plan
+> supersedes the
 > *forward-looking* half of [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G
 > (its "0.9 candidate" wording is the 0.8 record; from this revision the
 > decision-free items are scheduled here). The 0.8.x plan is frozen as history:
 > the line it describes is tagged and released. [`PATCH_PLAN.md`](PATCH_PLAN.md)
 > is the 0.7.x record and stays frozen too.
 >
-> **Last revised:** 2026-11-27, third revision of the day: 0.9.0 is measured on
+> **Last revised:** 2026-11-27, fourth revision of the day: 0.9.0 is measured on
 > its released tree (`v0.9.0`, `d0f9b5a`) and 0.9.1 on its released tree
 > (`v0.9.1`, `ce0827e`); 0.9.1 was re-scoped from the docs-parity candidate to
-> the close-history surface and has landed. The starting-point table keeps the
-> `v0.8.4` baseline the line was designed from, with all measurements dated.
+> the close-history surface and has landed. The line has since been reopened for
+> the 0.9.2 host-compatibility maintenance patch: the installed DSH app moved to
+> **`0.2.2-rc.5`**, the declared compatibility map and the dev-dependency cohort
+> were left one release behind, and §0.9.2 fixes exactly that with no product
+> change. The starting-point table keeps the `v0.8.4` baseline the line was
+> designed from, with all measurements dated; its host-cohort row carries the
+> `0.2.2-rc.5` measurement.
 >
 > Related documents: [`ROADMAP.md`](ROADMAP.md) carries the phases, the
 > iterations tables, and what remains; [`PANEL.md`](PANEL.md) is the view 0.9.0
@@ -84,16 +100,16 @@ dated below; when an operation invalidates one, it updates this table. The
 
 | Fact | Value | Checked at |
 | --- | --- | --- |
-| Baseline for this line | **landed through `0.9.1`**, annotated tag `v0.9.1` (commit `ce0827e`), whose `package.json` version is `0.9.1`; the first patch's tag is `v0.9.0` (commit `d0f9b5a`). The line was designed from and branched off `v0.8.4` (`e298813`) | `package.json`, `git tag`, `git log` |
+| Baseline for this line | **landed through `0.9.1`**, annotated tag `v0.9.1` (commit `ce0827e`), whose `package.json` version is `0.9.1`; the first patch's tag is `v0.9.0` (commit `d0f9b5a`). The line was designed from and branched off `v0.8.4` (`e298813`). **0.9.2 is appended after the close**: it starts from `main` at `2383117` (the 0.9.1 tree plus docs runs) and is the one patch that reopens the line | `package.json`, `git tag`, `git log` |
 | Release trail | **21 tags / 21 GitHub Releases** across the repository; **`v0.9.1`** (`ce0827e`) is `Latest` and its body is the CHANGELOG `[0.9.1]` section, **`v0.9.0`** (`d0f9b5a`) was `Latest` before it, while `v0.8.4`'s body names 0.8.2/0.8.3 deferred with their blocking decisions. The 0.8 line's tags are exactly `v0.8.0` (`f4191b9`), `v0.8.1` (`af002c3`), `v0.8.4` (`e298813`), and the 0.9 line's are exactly `v0.9.0` and `v0.9.1`. The `v0.6.0` gap the tagged 0.8.4 docs record as history was **backfilled** as a release-only operation after that close (release published 2026-11-27 06:26Z), so no tag lacked a Release before this line | `gh release list --limit 30`, `git tag`, `gh release view v0.9.1` |
 | npm | `npm view dsh-plugin-dayflow version` answers **404** — never published; D7 still unanswered, so the safe default stays "tagged here, not on the registry" (checked again on the `v0.9.1` tree) | `npm view`, README/README.zh |
-| Tests | **557** cases, green on the tag (`npm test`: 557 pass, 0 fail, 0 skipped, 0 todo; 544 at `v0.9.0`, 537 at `v0.8.4`, 521 at `v0.8.0`, 494 at `v0.7.6`). 0.9.0 added 7 in 2 files (`tests/panel.test.ts`: the three-route agreement and the empty month/week no-journal test; `tests/client-format.test.ts`: 5 cases) and 0.9.1 added 13 in 3 files: 11 reader cases in a new `tests/automation-read.test.ts`, one payload case in `tests/panel-insights.test.ts` (whose two "five empty lists" literals became six), and one copy case in `tests/client-format.test.ts`; `tests/panel.test.ts` gained only two `closes: []` literals. CI runs macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `npm test`, `.github/workflows/ci.yml` |
+| Tests | **557** cases, green on the tag (`npm test`: 557 pass, 0 fail, 0 skipped, 0 todo; 544 at `v0.9.0`, 537 at `v0.8.4`, 521 at `v0.8.0`, 494 at `v0.7.6`). 0.9.0 added 7 in 2 files (`tests/panel.test.ts`: the three-route agreement and the empty month/week no-journal test; `tests/client-format.test.ts`: 5 cases) and 0.9.1 added 13 in 3 files: 11 reader cases in a new `tests/automation-read.test.ts`, one payload case in `tests/panel-insights.test.ts` (whose two "five empty lists" literals became six), and one copy case in `tests/client-format.test.ts`; `tests/panel.test.ts` gained only two `closes: []` literals. CI runs macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24. **0.9.2 re-runs the whole suite on the `0.2.2-rc.5` dev dependencies**; 557 is the floor, the count is recorded at the cut, and no case may be dropped or weakened | `npm test`, `.github/workflows/ci.yml` |
 | Tools / skills / commands | 23 tools registered by default (17 with `edits: false`) plus `dayflow_install_dayflow` behind `allowInstall: false`; 8 skills; 5 slash commands (`dayflow-task`, `dayflow-remember`, `dayflow-reflect`, `dayflow-analyze`, `dayflow-run-close`) — neither 0.9.0 nor 0.9.1 changes any of these | `src/index.ts`, `src/commands.ts`, `tests/plugin.test.ts` |
 | Panel | 18 exact host Fetch routes (9 GET + 9 POST), one UI entry (one header button, one panel tab), one insights payload. The read views are `/api/dayflow/day`, `/api/dayflow/month`, `/api/dayflow/week`, and all three days share one type (`PanelDay`); the insights answer gains 0.8.1's `briefs` and 0.9.1's `closes` — neither 0.9 patch adds a route | `src/panel-contract.ts`, `src/panel.ts`, `tests/panel.test.ts`, `tests/client-bundle.test.ts` |
 | Owned schema | **v10** (`automation_runs` accepts `'lint'`; `briefs.payload_json`); 0.8.4, 0.9.0, and 0.9.1 changed no migration and no table — 0.9.1 only reads the existing `automation_runs` | `src/journal.ts` → `JOURNAL_SCHEMA_VERSION` |
 | The gap 0.9.0 closed (history) | At the `v0.8.4` baseline `PanelDay` declared `goal?: PanelGoal \| null` and `ratings?: PanelRating[]`, and the **day** route filled them while `buildPanelMonth` and `buildPanelWeek` built their days through `dayPayload()` and never attached either field; `tests/panel.test.ts` asserted that absence and `docs/PANEL.md` described it as intended ("the month and week payloads are unchanged, so only opening a day pays for those reads"). 0.9.0 filled the fields, flipped those tests to the three-route agreement, and corrected the doc prose | `src/panel.ts` (`buildPanelDay`/`buildPanelMonth`/`buildPanelWeek`), `src/panel-contract.ts`, `tests/panel.test.ts`, `docs/PANEL.md` |
 | The gap 0.9.1 closes | `automation_runs` has recorded every attempted close since schema v9 — `job` (`day_close`/`week_close`/`lint`), `day`, `status` (`pending`/`running`/`complete`/`failed`/`skipped`), `attempts`, `error`, `updated_at` — but the panel exposes only live state: the scheduler's close-state line carries the schedule, whether a close is running, and at most the *last* day close and the *last* week close as `{day, status, at}` (primed from the ledger when memory has none). The lint job, the attempt counts, the stored error or skip reason, and every older row have no view. [`NATIVE_PORT.md`](NATIVE_PORT.md) §1 *Missing* names this gap ("A close-history surface … there is no view of the history itself"), and its Phase 3 record repeats that a failed/skipped history "has no view of its own". 0.9.1 closes it with one additive payload list and one read-only block | `src/automation/store.ts` (`automation_runs`, `listAutomationRuns`), `src/automation/scheduler.ts` (status line and `primeFromLedger`), `src/panel-contract.ts` (`PanelAutomationStatus`), [`NATIVE_PORT.md`](NATIVE_PORT.md) §1 and Phase 3 |
-| Host cohort | DSH dev dependencies `0.2.1-rc.2`, peers `^0.2.0-rc.2`. `@deepseek-ai/dsh-llm` is declared and used through a structural seam; `@deepseek-ai/dsh-attachment` is **not** a dependency — the line stays text-only, as 0.8.4 left it | `package.json`, `src/analyse/host.ts` |
+| Host cohort | **At `v0.9.1`:** DSH dev dependencies `0.2.1-rc.2`, peers `^0.2.0-rc.2`, and `dsh.compatibility.dshReleases` listing `0.2.0-rc.2` and `0.2.1-rc.2`. **Measured on this machine (2026-11-27):** the installed DSH app is **`0.2.2-rc.5`** (`CFBundleShortVersionString` and `CFBundleVersion` from `/Applications/DeepSeek Harness.app/Contents/Info.plist`); the npm registry carries that full cohort (`@deepseek-ai/dsh-tools` etc. all answer `0.2.2-rc.5`); the host bundle itself ships `@deepseek-ai/cordis` 4.1.0 and `@deepseek-ai/schemastery` 3.19.0. **0.9.2 is the row that closes the gap.** `@deepseek-ai/dsh-llm` is declared and used through a structural seam; `@deepseek-ai/dsh-attachment` is **not** a dependency — the line stays text-only, as 0.8.4 left it | `package.json`, `npm view`, the app bundle's `package.json`/`Info.plist`, `src/analyse/host.ts` |
 | Owner decisions | D1 (analysis destination) unanswered; D2 settled as explicit configuration; D3 caps enforced; D7 (npm) unanswered; **D10/D11 unanswered**. None of them gates 0.9.0: the patch adds no model call, no egress, no default change, and no privacy surface | `PATCH_PLAN.md` §6, `PATCH_PLAN_0.8.md` §6 |
 
 **Landed on the 0.7.x and 0.8.x lines, therefore not in this plan:** the owned
@@ -108,12 +124,30 @@ this line:** 0.9.0 — the month/week goal and rating surfaces — is tagged as
 the 0.8.4 close; and 0.9.1 — the close-history surface — is tagged as `v0.9.1`
 with a GitHub Release and 557 tests (the new `src/automation/read.ts`, the
 additive `PanelInsights.closes` field, and the read-only block in the existing
-Journal insights view); see §0.9.1.
+Journal insights view); see §0.9.1. **Appended after the close:** 0.9.2 — DSH
+`0.2.2-rc.5` compatibility — has landed and changes no behaviour, default,
+wire, or dependency set; it declares and verifies the release the plugin already
+runs on. See §0.9.2.
+
+**What the host-compatibility gap is, measured.** The host's admission check does
+not read `dsh.compatibility.dshReleases`: it evaluates a plugin's own
+`engines.dsh` range when present, otherwise every `@deepseek-ai/dsh`/`dsh-*` peer
+range against the running version, with prereleases included
+(`plugin-compatibility.ts` in the 0.2.2-rc.5 app bundle; the
+`v0.2.1-alpha.3` `plugin-engines-dsh` upgrade guide documents the rule). This
+plugin declares no `engines.dsh`, and its `^0.2.0-rc.2` peers **already admit**
+`0.2.2-rc.5`, so nothing is refused and no runtime defect is claimed. What is
+stale is the declared-compatibility record (`dshReleases` lists two releases
+while the host runs a third) and the verification line (the dev dependency pins
+and lock are `0.2.1-rc.2`, so the suite has never run against the 0.2.2-rc.5
+cohort). 0.9.2 fixes exactly those two things; that is why it is a
+maintenance-class patch rather than an emergency fix.
 
 **What this line is, in one sentence:** the last stored-data gap in the panel
 and the last stored history the native port records as missing — made visible
 without adding a route, a decision, or a dependency: shipped as `v0.9.0` and
-`v0.9.1`.
+`v0.9.1`; and then the one host-compatibility declaration-and-verification patch
+the harness's own move made necessary, 0.9.2.
 
 ## 2. Iteration rules
 
@@ -153,14 +187,26 @@ across the three payloads, not a visual review.
 
 **P5 — A holding line ends deliberately.** 0.9 is not the next product step; it
 is what can be shipped while the product step waits on the owner. It shipped two
-patches: **0.9.0** (the month/week goal and rating surfaces) and **0.9.1** (the
-close-history surface, the one remaining *stored-history* read gap the native
-port records as missing), and it is now closed at `v0.9.1`. The next action is
-still the five owner questions (§4), not another theme. The docs-parity
-candidate was withdrawn rather than merely deferred: 0.9.0's docs pass covered
-parity and the docs were released with the tag, so no drift is known, and a
-docs-only release with no user-visible change is release noise — the line's
-second slot was better spent on a gap a user can see.
+functional patches: **0.9.0** (the month/week goal and rating surfaces) and
+**0.9.1** (the close-history surface, the one remaining *stored-history* read gap
+the native port records as missing), and its functional scope is now closed at
+`v0.9.1`. The next action is still the five owner questions (§4), not another
+theme. The docs-parity candidate was withdrawn rather than merely deferred:
+0.9.0's docs pass covered parity and the docs were released with the tag, so no
+drift is known, and a docs-only release with no user-visible change is release
+noise — the line's second slot was better spent on a gap a user can see.
+
+**P6 — A compatibility patch is maintenance, not a theme.** 0.9.2 exists because
+the harness moved under the line, not because a new theme was invented. It may
+change only: the declared compatibility map, the DSH development-dependency pins,
+the lockfile, a minimal source adaptation if the new declarations require one,
+and the tests/docs/release metadata that travel with the tag. It must not change
+behaviour, a default, the schema, a route, a command, a tool, a skill, a
+configuration key, a runtime dependency, or the host peer set, and its suite count
+cannot fall; if the new cohort's own declarations force a toolchain pin or a
+non-DSH peer range to move, that is recorded as a declared deviation, never as a
+new dependency or peer. It is decision-free like the rest of the line and does not
+extend the product.
 
 ## 3. The patches
 
@@ -170,6 +216,7 @@ second slot was better spent on a gap a user can see.
 | --- | --- | --- | --- | --- | --- | --- |
 | **0.9.0** | **Month/week goal and rating surfaces:** fill `PanelDay.goal`/`ratings` on the month and week payloads from the same readers the day route uses, and render them read-only in the calendar cells, the week columns, and the day hover card; no schema, config, route, command, tool, skill, or peer change; routes stay 18 and commands 5 | Phase 3 goal/rating read surfaces (the last stored-data panel gap) / 0.8.4 §G2's first candidate | — (branched from `v0.8.4`) | none | Low | **landed** — `v0.9.0` (`d0f9b5a`), GitHub Release (Latest at the time), 544 tests; shipped shape and deviations in §0.9.0 *Landed shape and deviations* |
 | **0.9.1** | **Close-history surface (reopened, landed):** the recent scheduled closes the automation already records — day close, week close, and the weekly memory lint — join the existing insights payload as one additive `closes` list, and the existing Journal insights view gains one read-only Close history block (job, period, status, attempt count, error summary, updated date); no new route (still 18), no schema, config key, command, tool, skill, peer, write path, or model call | Native port Phase 3 remainder / [`NATIVE_PORT.md`](NATIVE_PORT.md) §1 *Missing* ("A close-history surface") | `v0.9.0` | none | Low | **landed** — `v0.9.1` (`ce0827e`), GitHub Release Latest, 557 tests (544 → +13); reopened from the withdrawn docs-parity candidate (see §0.9.1) |
+| **0.9.2** | **DSH `0.2.2-rc.5` compatibility (maintenance, landed):** declare `0.2.2-rc.5` in `dsh.compatibility.dshReleases`, move the seven DSH SDK dev dependencies (`dsh-llm`, `dsh-skill`, `dsh-system-prompt`, `dsh-tools`, `dsh-util-values`, `dsh-client-connection`, `dsh-client-ui-primitives`) and the lock from `0.2.1-rc.2` to `0.2.2-rc.5`, add the three client host peers as devDependencies so `npm ci` resolves the cohort's cordis peers, apply a minimal source/typing adaptation only if the new declarations require one, and re-run suite/typecheck/build/package; no behaviour, default, schema, config key, route, command, tool, skill, runtime dependency, or host peer change | Maintenance — host-compatibility declaration and verification (decision-free) | `v0.9.1` | none | Low | **landed** (`v0.9.2`) — after the tag/Release the line returns to maintenance (see §0.9.2) |
 | *CLI import* | `dsh dayflow import` — one command over the existing importer | Phase 2 completion / 1.0.0 runbook | cutover line | none | Medium | **not on 0.9** — recommended for the cutover line; a new entry point (5 → 6 commands) belongs beside the no-Dayflow runbook (see *The CLI import is not 0.9 material*) |
 
 Order rationale: 0.9.0 went first and landed because it was the only remaining
@@ -179,9 +226,12 @@ first-ranked 0.9 candidate. 0.9.1 was reopened after the release because the
 native-port record still names a real one: the close history the automation has
 stored since 0.7.4 had no view, so a failed or skipped close was visible once on
 the status line and then only in the logs. That was the last such gap that needed
-no owner answer, which made it the line's last patch rather than a new theme. It
-landed as `v0.9.1`. The CLI import is deliberately not on the line. Details in
-§6.
+no owner answer, which made it the line's last functional patch rather than a new
+theme. It landed as `v0.9.1`. **0.9.2 is appended after the close as maintenance,
+not as a third theme:** the host itself moved to `0.2.2-rc.5` after the tag, so
+the declaration and the verification line are no longer true statements about the
+tree; the patch says the true thing and proves it (P6), and then the line returns
+to maintenance. The CLI import is deliberately not on the line. Details in §6.
 
 ### 0.9.0 — the stored day at month and week scale (month/week goal and rating surfaces)
 
@@ -419,7 +469,8 @@ read-only — the plugin renders rows it already wrote, adds no write path, no
 retry action, no model call, no egress, and no new route — and unlike image
 admission or the cutover it needs nothing from the owner. It is the last entry on
 the native port's *Missing* list that is a stored-data read gap, which is why it
-is the line's second and final patch.
+is the line's second and final functional patch — the only later patch, 0.9.2, is
+maintenance that adds no product surface (see §0.9.2).
 
 **A. Server — one additive list on the existing payload.**
 
@@ -615,6 +666,175 @@ set, the schema, a default, or the read-only rule:
    `tests/automation-read.test.ts`), one payload case, and one copy case; the
    plan named the shape, not the number.
 
+### 0.9.2 — DSH 0.2.2-rc.5 compatibility (maintenance patch, landed)
+
+**Status: landed in `v0.9.2`, 2026-11-27.** The target was
+a patch tag `v0.9.2` cut from the green compat tree (`main` at `2383117` plus the
+compat changes), with a GitHub Release built from the CHANGELOG section. It is
+decision-free (P1) and maintenance-class (P6): no product surface, no default, no
+schema, route, command, tool, skill, configuration key, runtime dependency, or
+host peer change. When the tag is cut, this section's acceptance is ticked and it
+gains its *Landed shape and deviations*, as §0.9.0 and §0.9.1 did.
+
+**Motivation — the host is newer than the declaration.** At `v0.9.1` the tree
+declares `dsh.compatibility.dshReleases` for `0.2.0-rc.2` and `0.2.1-rc.2` only,
+pins all seven DSH development dependencies at `0.2.1-rc.2`, and carries a lock
+built from that cohort. The DSH app installed on this machine is **`0.2.2-rc.5`**
+(`CFBundleShortVersionString` and `CFBundleVersion` from
+`/Applications/DeepSeek Harness.app/Contents/Info.plist`), and the npm registry
+carries the full `0.2.2-rc.5` cohort for every one of those seven packages
+(checked 2026-11-27). So the plugin runs on a harness release it never declared,
+never built against, and never tested against; its declared compatibility record
+is one release stale, and the dev-dependency cohort is the compile/typecheck
+surface for the host APIs the plugin imports. The host bundle itself ships
+`@deepseek-ai/cordis` 4.1.0 and `@deepseek-ai/schemastery` 3.19.0 — newer than
+this tree's pins.
+
+**What the gap is and is not.** It is **not an admission failure**: the host
+admits a plugin by its own `engines.dsh` range when present, otherwise by every
+`@deepseek-ai/dsh`/`dsh-*` peer range against the running version, with
+prereleases included (`plugin-compatibility.ts` in the 0.2.2-rc.5 app bundle; the
+`v0.2.1-alpha.3` `plugin-engines-dsh` upgrade guide records the rule). This
+plugin declares no `engines.dsh`, and its `^0.2.0-rc.2` peers already admit
+`0.2.2-rc.5`, so nothing is refused and no installed profile is blocked. The
+`dshReleases` map is the declared-compatibility record that README, RUNBOOK,
+ARCHITECTURE, this plan, and the roadmap quote — not an admission input — so a
+stale map is a false declaration rather than a lockout. What is genuinely missing
+is the verification: the suite, typecheck, build, and package gates have never
+run against the `0.2.2-rc.5` declarations the plugin actually meets in the host.
+0.9.2 fixes the declaration and runs the verification; that is why it is
+maintenance rather than an emergency, and why it is not a product feature.
+
+**A. The change.**
+
+| File | Change |
+| --- | --- |
+| `package.json` — compatibility | Add `"0.2.2-rc.5": "compatible"` to `dsh.compatibility.dshReleases`, keeping the `0.2.0-rc.2` and `0.2.1-rc.2` entries. No `engines.dsh` is introduced (the peer rule the plugin already satisfies stays the admission basis), and the `peerDependencies` keep their `^0.2.0-rc.2` ranges. |
+| `package.json` — development dependencies | Move the seven DSH packages — `@deepseek-ai/dsh-llm`, `dsh-skill`, `dsh-system-prompt`, `dsh-tools`, `dsh-util-values`, `dsh-client-connection`, `dsh-client-ui-primitives` — from `0.2.1-rc.2` to `0.2.2-rc.5`. No dependency is added, removed, or moved to `dependencies`/`peerDependencies`; the `@deepseek-ai/cordis` and `@deepseek-ai/schemastery` pins stay unless the new cohort's own declarations force them (see **E**, risk 2, and the deviations rule). |
+| `package-lock.json` | Refreshed by the install; only the seven moved pins and their transitive metadata change. |
+| `src/**`, `scripts/**` | A minimal source/typing adaptation **only if** the `0.2.2-rc.5` declarations require one — behaviour, defaults, wire shape, and the packed runtime surface stay identical. The expectation is none, and the gates decide. |
+| `tests/**` | The suite runs unchanged on the new cohort. No existing test reads `dsh.compatibility` today (checked); if the patch pins the three declared releases with one small assertion in `tests/plugin.test.ts`, that is an added case, never a replacement, and the count is recorded at the cut. |
+
+**Why this is the right content, and nothing more.** The development
+dependencies are the only place the plugin's host API usage is checked at compile
+time: the tool registry and schemas, the skill loader, the system-prompt context,
+the client connection's Fetch registration, the client slot types, and the
+`schemastery` config schema all resolve through those pins. Building against
+`0.2.2-rc.5` is therefore the verification that those host surfaces are still
+present and still typecheck; it ships nothing, because devDependencies never
+enter the tarball. The compatibility entry is one line that makes the declared
+support record true. The peer set, the dependency set, the schema, and the
+behaviour are untouched by construction.
+
+**B. Acceptance (binding at the cut).**
+
+- [ ] The suite is green on the `0.2.2-rc.5` dev dependencies at **557+ cases** —
+      v0.9.1's 557 are the floor, the count is recorded at the cut, and no case
+      is removed or weakened — and `npm run typecheck`, `npm run build` (host and
+      client bundle), and `npm run check:package` are green.
+- [ ] `dsh.compatibility.dshReleases` lists exactly `0.2.0-rc.2`, `0.2.1-rc.2`,
+      and `0.2.2-rc.5`, each `"compatible"`; no `engines.dsh` is added; the map is
+      checked directly (or by the one optional assertion) at the cut.
+- [ ] The diff changes no behaviour, default, schema (**v10**), route (**18**: 9
+      `GET` + 9 `POST`), command (**5**), tool (**23**, 17 with `edits: false`),
+      skill (**8**), configuration key, runtime dependency, or host peer entry;
+      no model call, egress, or write path changes.
+- [ ] `package.json` differs only in the seven dev-dependency pins and the
+      compatibility map (plus the release commit's version bump), and the lock
+      follows; if the cohort's own peer declarations force the
+      `cordis`/`schemastery` pins or the two non-DSH peer ranges (`^4.0.4`,
+      `~3.18.4`) to move, that is the one recorded deviation — never a new
+      dependency or peer.
+- [ ] The host evidence is recorded: the installed host version
+      (`0.2.2-rc.5`), the admission rule it applies, and the fact that no
+      `engines.dsh` exists and no compatibility exemption is needed; a real
+      in-host load check is attempted where possible, and what cannot be verified
+      end-to-end is named rather than assumed.
+- [ ] `npm test`, `npm run typecheck`, `npm run build`, and
+      `npm run check:package` all pass, and both CI legs (macOS 15: Node 22 with
+      `--experimental-sqlite`, and Node 24) stay green.
+- [ ] Docs travel with the tag (R6): README/README.zh supported-release copy and
+      install list, `docs/ARCHITECTURE.md` host cohort and release line,
+      `docs/RUNBOOK.md` version pin and maintenance check, `CHANGELOG.md`
+      `[0.9.2]`, `docs/ROADMAP.md`'s 0.9.x record, and this file's §0.9.2.
+- [ ] Release: `v0.9.2` is tagged from the CHANGELOG section with a GitHub
+      Release (the **22nd** tag and Release, so no tag lacks one); npm still
+      answers **404** (D7) and no publish happens; the line returns to
+      maintenance and the five owner decisions are untouched.
+
+**C. Out of scope, explicitly.** No product behaviour, default, configuration
+key, schema step, route, command, tool, skill, write path, model call, or egress
+change; no new host peer (`@deepseek-ai/dsh-attachment` stays absent as the
+text-only rule requires); no dependency added or removed; no `engines.dsh`
+introduced; no refactor beyond the minimal adaptation; no npm publish; no owner
+decision; no new product surface. The compatibility map may not claim a release
+the gates did not actually run on.
+
+**D. Gates and rollback.** The gates are B, with the install/typecheck pair as
+the early signal and the full suite plus `check:package` as the final gate before
+the tag. The change is a declaration, a set of dev-only pins, and a lockfile,
+with no migration, no profile state, and no configuration key, so rollback is a
+normal revert of the patch commits (R8's config-first rule has nothing to
+switch). A defective release is corrected by a forward patch, never by moving the
+tag.
+
+**E. Risk.** Low, with three named risks, each with its mitigation:
+
+1. **Typing/API drift in `0.2.2-rc.5`.** If a declaration the plugin imports
+   changed signature, the adaptation is kept minimal and behaviour-identical, and
+   the suite plus typecheck are the gate. The expectation is none — the host
+   cohort is the same 0.2 line — but the patch must not assume it.
+2. **The toolchain chain.** The `0.2.2-rc.5` packages declare their own peers on
+   `@deepseek-ai/cordis` `~4.1.0` and `@deepseek-ai/schemastery` `~3.19.0` (the
+   host app ships 4.1.0 and 3.19.0), while the `v0.9.1` tree pins `cordis` `4.0.5`
+   and `schemastery` `3.18.5` and declares the non-DSH peer ranges `^4.0.4` /
+   `~3.18.4`. The install may therefore need the pins (and possibly those two
+   non-DSH peer ranges) to move to the host's versions. If it does, it is the
+   one recorded deviation in *Landed shape and deviations* — a version-range
+   alignment with the host, never a new dependency or peer, and the packed
+   runtime surface is still unchanged because the host supplies these packages at
+   runtime.
+3. **Verification gap.** A green suite proves the plugin against its dev
+   dependencies, not inside the host's own process. Mitigation: record the host's
+   admission rule as evidence (B), attempt a real in-host load where the machine
+   allows it, and name the residual gap instead of claiming an end-to-end test
+   that did not happen. The patch is maintenance precisely because nothing
+   observed is broken; it must not overclaim.
+
+**F. Test plan by file.** No new test file is needed: the existing suite is the
+gate, and it exercises the host surfaces the new pins typecheck —
+`tests/plugin.test.ts` (registration, tools/skills counts, apply lifecycle, the
+system-prompt context), `tests/panel.test.ts` and `tests/panel-insights.test.ts`
+(the 18-route table and payloads), `tests/client-bundle.test.ts` (client slots and
+the bundle), and the config/format suites. The compatibility map itself is
+checked directly at the cut (no test reads it today); if a one-case assertion is
+added to `tests/plugin.test.ts`, it pins the three release entries and the count
+rises by one. Any adaptation in `src/**` comes with the test that covers its
+behaviour, and no existing case may be deleted or loosened.
+
+**G. Release and the docs travel.** The release is the standard one: the CHANGELOG
+`[0.9.2]` section rides the release commit, `npm run release -- 0.9.2` cuts the
+tag, pushes, and creates the GitHub Release from that section; it does not
+publish to npm (D7 unanswered), and the registry keeps answering 404. The docs
+travel with the tag (R6) — README/README.zh, `docs/ARCHITECTURE.md`,
+`docs/RUNBOOK.md`, `CHANGELOG.md`, `docs/ROADMAP.md`, and this file — and the
+roadmap's 0.9.x record flips 0.9.2 to landed with the tag's commit; a post-tag
+reconciliation commit corrects this section in place if reality diverged, exactly
+as the 0.9.0 and 0.9.1 runs did.
+
+**Why 0.9.2, not 0.10.0.** Every test in this roadmap makes it a patch: no new
+surface, no new default, no schema/route/config change, no new dependency, and no
+user-visible behaviour. The only things that move are the declared-compatibility
+metadata and a dev-only toolchain, and the package version exists only because a
+released tag is immutable and the fix needs its own record. A minor would
+advertise a functional increment the release does not have; a 1.0.0 is the
+owner-gated cutover line. It cannot reopen `v0.9.1` either: that annotated tag's
+tree is released and documented, so a new patch tag is the honest record, exactly
+as 0.9.0 and 0.9.1 were separate slots.
+
+*Landed shape and deviations: to be recorded at the `v0.9.2` cut, as §0.9.0's and
+§0.9.1's were.*
+
 ### The CLI import is not 0.9 material
 
 `dsh dayflow import` is one command over the existing importer (`journal_import`
@@ -627,6 +847,21 @@ walkthrough, and the real-week record — the 0.8.4 §G1 prerequisites. Shipping
 on 0.9 would give the line a second theme and turn a small decision-free holding
 line into a functional line. It needs no owner answer, so nothing stops it being
 scheduled later; the recommendation is simply not here.
+
+### 0.9.2 landed record (v0.9.2, 2026-11-27)
+
+- Tag `v0.9.2` on the release commit; 557/557 tests, typecheck, build and
+  `check:package` green on the `0.2.2-rc.5` development dependencies; `npm ci`
+  verified from a clean tree with the refreshed lock; no npm publish.
+- Implementation deviations, all evidence-driven and non-functional:
+  `@deepseek-ai/cordis` moved `4.0.5 → 4.1.0` (the new cohort's peer), the three
+  client host packages became devDependencies at `0.2.2-rc.5` so local and CI
+  peer resolution is clean, `@deepseek-ai/schemastery` stayed `3.18.5` (the host
+  bundles `3.19.0`; the declared peer range was not widened), and `src/config.ts`
+  gained one type-only `Config: Schema` annotation to keep declaration emit
+  portable across the two schemastery copies. Behaviour, defaults, schema v10,
+  18 routes, 5 commands, 23 tools, 8 skills, and the peer dependency ranges are
+  unchanged.
 
 ## 4. What is not on this line, and the unchanged 1.0.0 prerequisites
 
@@ -654,7 +889,10 @@ self-contained):
 6. The **first-run/rollback runbook** exercised.
 
 0.9.0 and 0.9.1 touched none of these: the holding line changed
-no default, no capture, no analysis, and no import. **The next round's first
+no default, no capture, no analysis, and no import. **0.9.2 touches none of them
+either:** a compatibility declaration, a dev-only toolchain pin set, and a
+lockfile change no default, no capture, no analysis, and no import, and the five
+decisions are exactly as unanswered as they were. **The next round's first
 action is unchanged:** put the five questions to the owner as one short list —
 D10, D1, D2, D11, D7 — each with the single question it answers and the patch it
 unblocks.
@@ -663,8 +901,9 @@ unblocks.
 
 The 0.7.x Definition of Done ([PATCH_PLAN.md](PATCH_PLAN.md) §4) and the 0.8.x
 additions ([PATCH_PLAN_0.8.md](PATCH_PLAN_0.8.md) §4) apply unchanged. This line
-adds the six boxes below; both patches' boxes were verified at their own tag,
-so every box is ticked.
+adds the six boxes below; the two functional patches' boxes were verified at
+their own tag, so every one of them is ticked, while 0.9.2's are open until its
+cut.
 
 **0.9.0 — verified at `v0.9.0`:**
 
@@ -707,6 +946,34 @@ so every box is ticked.
 - [x] **Release:** one tag and one GitHub Release from the CHANGELOG section;
       npm stays 404 (D7); the version bump is the only `package.json` change.
 
+**0.9.2 — a compatibility patch makes a different kind of claim (landed;
+boxes open until the `v0.9.2` cut):**
+
+- [ ] **One kind of change, nothing else:** the compatibility map entry, the
+      seven DSH dev-dependency pins, and the lockfile — plus a minimal source
+      adaptation only if the new declarations require one and, optionally, one
+      assertion pinning the map. No behaviour, default, schema step, route,
+      command, tool, skill, configuration key, runtime dependency, or host peer;
+      no `engines.dsh`; no model call, egress, or write path.
+- [ ] **The declared support is true, everywhere it is stated:** the map lists
+      `0.2.0-rc.2`, `0.2.1-rc.2`, and `0.2.2-rc.5` as compatible, and
+      README/README.zh, [`ARCHITECTURE.md`](ARCHITECTURE.md), and
+      [`RUNBOOK.md`](RUNBOOK.md) name the same three.
+- [ ] **Verified on the new cohort, not assumed:** the suite is green on the
+      `0.2.2-rc.5` dev dependencies at 557+ cases (the count recorded at the
+      cut), with `typecheck`, `build`, `check:package`, and both CI legs green;
+      no case removed or weakened.
+- [ ] **Host evidence recorded:** the installed host is `0.2.2-rc.5`, its
+      admission rule is checked against this manifest, no `engines.dsh` exists and
+      no compatibility exemption is required; an in-host load check is attempted
+      where possible and any residual gap is named.
+- [ ] **Docs with the tag** (R6): README/README.zh, `CHANGELOG.md` `[0.9.2]`,
+      [`ARCHITECTURE.md`](ARCHITECTURE.md), [`RUNBOOK.md`](RUNBOOK.md),
+      `docs/ROADMAP.md`'s 0.9.x record, and this file's §0.9.2.
+- [ ] **Release:** one tag and one GitHub Release from the CHANGELOG section
+      (the 22nd of each); npm stays 404 (D7); the line returns to maintenance and
+      the five owner decisions are untouched.
+
 ## 6. Sequencing rationale and line exit criteria
 
 1. **0.9.0 went first, and landed, because it was the only remaining item that
@@ -739,18 +1006,31 @@ so every box is ticked.
    After 0.9.1 every stored record kind the panel is meant to render — days and
    their goals and marks, the review queue, tasks and sessions, claims,
    reflections, briefs, and now the automation ledger — has a view, so a third
-   patch would need a new product surface rather than another read.
+   functional patch would need a new product surface rather than another read.
+6. **0.9.2 is maintenance appended after the close, not a third theme.** The
+   harness move to `0.2.2-rc.5` made two statements in this tree stale — the
+   declared compatibility record and the "verified against" dev cohort — and the
+   pause allows necessary fixes. P6 bounds the patch to exactly that record and
+   its evidence: the declaration, the dev-only pins, the lockfile, a minimal
+   adaptation if required, and the tests/docs/release metadata. It adds no
+   product surface, changes no default, and needs no owner answer, so it neither
+   extends the line nor turns it into a functional one.
 
 **Line exit criteria.** The 0.9.x line is done when: `v0.9.0` is tagged with a
 GitHub Release and its §0.9.0 acceptance is green; `v0.9.1` is tagged with a
-GitHub Release and its §0.9.1 C acceptance is green; `docs/ROADMAP.md`'s 0.9.x
+GitHub Release and its §0.9.1 C acceptance is green; the one appended
+maintenance patch, 0.9.2, is tagged with a GitHub Release and its §0.9.2 B
+acceptance is green; `docs/ROADMAP.md`'s 0.9.x
 record and this file agree on the final state; no owner-gated work shipped on
 the line; every tag in the repository has a Release; and the 1.0.0 prerequisites
 in §4 are still listed as unmet with the five questions as the next action. **At
-this revision every item is true:** `v0.9.0` and `v0.9.1` are tagged with GitHub
-Releases and their acceptance is green, the two documents agree on the closed
-state, no owner-gated work shipped, the trail is 21/21, and the five questions
-are the next action. The line is closed at `v0.9.1`, with no `v0.9.2`.
+this revision the two functional items are true:** `v0.9.0` and `v0.9.1` are
+tagged with GitHub Releases and their acceptance is green, the two documents
+agree on the closed functional state, no owner-gated work shipped, the trail is
+21/21, and the five questions are the next action; **0.9.2 has landed**, so
+its tag and acceptance are the one open item before the whole record is closed.
+The functional line is closed at `v0.9.1`; the maintenance patch 0.9.2 closes the
+line's record at its tag and then returns it to maintenance.
 
 ## 7. How the patch ran (and how a later one would)
 
@@ -796,7 +1076,29 @@ permission, or an owner answer. As with 0.9.0, this file and the roadmap are
 corrected in place to the released state, since the tag's own tree records the
 patch as it was cut.
 
+**How 0.9.2 ran (landed).** It starts from `main` at `2383117` (the
+`v0.9.1` tree plus the docs runs) rather than from a new branch off the tag,
+because there is no product change to isolate. The order is: measure the host
+(the app's `Info.plist` version, the host bundle's own dependency versions, and
+the npm availability of the seven packages), then edit the compatibility map and
+move the seven dev-dependency pins, run the install to refresh the lockfile, and
+take the early signal from `npm run typecheck` — the fastest way to discover
+whether a `0.2.2-rc.5` declaration moved under the imports. Only if typecheck,
+build, or the suite fails does the patch add a minimal source adaptation, and any
+adaptation brings the test that covers it. The full gates then run in the order
+of §5: suite, typecheck, build (host and client bundle), `check:package`, and
+both CI legs. The docs travel in parallel — README/README.zh,
+`docs/ARCHITECTURE.md`, `docs/RUNBOOK.md`, and `CHANGELOG.md` on the docs side,
+`docs/ROADMAP.md` and this file here — and the two in-flight edits never touch
+the same file. Nothing is committed by this planning round; the lead cuts
+`v0.9.2` from the green tree with the standard release script once §0.9.2 B is
+green, and the post-tag reconciliation corrects this section if reality diverged,
+exactly as the 0.9.0 and 0.9.1 runs did.
+
 **For any patch after this one:** the same rules apply. If a later patch
 discovers that it cannot ship without a contract widening or a decision, it stops
 before implementation and the blocker moves to §4. A 0.9 patch does not ship a
-default change, a model call, an egress, or a new entry.
+default change, a model call, an egress, or a new entry. A compatibility patch
+follows P6 and §0.9.2's pattern: declare and verify the release the plugin
+actually runs on, add nothing to the product, and record exactly what the gates
+did not prove.

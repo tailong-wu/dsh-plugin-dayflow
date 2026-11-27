@@ -1,6 +1,8 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: **0.9.1 is the current head and the 0.9.x line's two patches close it.**
+> Status: **`v0.9.1` is the latest tag, and the 0.9.x line's two functional
+> patches close its functional scope; a post-close maintenance patch, 0.9.2 —
+> DSH `0.2.2-rc.5` compatibility — has landed.**
 > `v0.9.1` is an annotated tag whose tree is **557** green tests, schema **v10**, **18** panel
 > routes (9 `GET` + 9 `POST`), **5** slash commands, 23 tools, 8 skills, and no new
 > host peer; the previous line closed at `v0.8.4` (537 tests) and its two
@@ -34,8 +36,9 @@
 > that the line is closed), and the 0.9 line's is
 > [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md).
 >
-> **0.9.x is closed at `v0.9.1`, and it was decision-free only.** It shipped two
-> patches. **0.9.0 — month/week goal and rating surfaces**, **landed** (`v0.9.0`
+> **0.9.x is closed at `v0.9.1` for function, and it was decision-free only.**
+> It shipped two functional patches and reopens once, for the 0.9.2 maintenance
+> fix below. **0.9.0 — month/week goal and rating surfaces**, **landed** (`v0.9.0`
 > on `d0f9b5a`, GitHub Release Latest at the time, 544 tests): the stored goal
 > and the user's own review marks, which the day view already rendered, are
 > visible in the month cells and the week columns, read-only, with no schema,
@@ -53,9 +56,30 @@
 > admission (D1/D2/D11), the cutover (D10 plus a real week), any npm publish
 > (D7), and the owned-journal write path stay deferred.
 >
+> **After 0.9.1 the host moved, and that opens exactly one more patch: 0.9.2 —
+> DSH `0.2.2-rc.5` compatibility (landed).** The DSH app installed on this
+> machine is **`0.2.2-rc.5`** (`CFBundleShortVersionString`), while this tree
+> still lists only `0.2.0-rc.2` and `0.2.1-rc.2` in
+> `dsh.compatibility.dshReleases` and pins its seven DSH development
+> dependencies at `0.2.1-rc.2`, so the plugin has never been built or tested
+> against the harness it actually runs on. 0.9.2 is a **decision-free,
+> patch-level maintenance fix, not a product feature**: it adds `0.2.2-rc.5` to
+> the declared compatibility map, moves those seven dev dependencies and the
+> lock to `0.2.2-rc.5`, applies a minimal source/typing adaptation only if the
+> new cohort requires one, and re-runs the suite, typecheck, build, and package
+> gates. It changes **no behaviour, default, schema, route, command, tool,
+> skill, configuration key, runtime dependency, or host peer**. The host's own
+> admission check is peer-range based and the existing `^0.2.0-rc.2` peers
+> already admit `0.2.2-rc.5`, so no installed user is blocked — what is stale is
+> the declaration and the verification, which is exactly why this is
+> maintenance and not an emergency. 0.9.2 gets its own tag and GitHub Release,
+> then the line returns to maintenance: **the pause stays in force and the five
+> owner decisions are untouched.**
+>
 > **After 0.9.1 the project is in maintenance — paused pending owner decisions,
-> not abandoned.** No further decision-free patch is worth a tag at this
-> revision: the six remaining candidates (the `dsh dayflow import` CLI,
+> not abandoned.** No further decision-free *feature* patch is worth a tag at
+> this revision (the compatibility fix above is maintenance, not a theme): the
+> six remaining candidates (the `dsh dayflow import` CLI,
 > month/week query batching, a11y/i18n/UX, docs/README parity, test dedup, and
 > release tooling) were each evaluated against a user-visible change, a real
 > risk, and a tag, and none clears all three — the CLI is a new entry surface
@@ -63,10 +87,11 @@
 > already green, or already shipped. The next action is the owner's, not
 > engineering's: **the five-question list in
 > [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md)** (D1, D2, D7, D10, D11). No new
-> patch opens and no 1.0.0 is planned without those answers; maintenance means
-> verification and necessary fixes only, and the evaluation is recorded below in
-> §0.9.x *After 0.9.1 — maintenance, paused pending owner decisions*. One piece
-> of 1.0.0 engineering prep needs no answer and was completed this round:
+> feature patch opens and no 1.0.0 is planned without those answers; maintenance
+> means verification and necessary fixes only — which is precisely the class the
+> 0.9.2 host-compatibility fix belongs to — and the evaluation is recorded below
+> in §0.9.x *After 0.9.1 — maintenance, paused pending owner decisions*. One
+> piece of 1.0.0 engineering prep needs no answer and was completed this round:
 > [`RUNBOOK.md`](RUNBOOK.md), the single-file operator manual (first run, safe
 > switches, data and backup, upgrade, rollback, maintenance checks,
 > troubleshooting). It is docs only — it opens no route, command, tool, skill,
@@ -90,14 +115,17 @@
 > and 0.8.4's release close landed; 0.8.2 image admission and 0.8.3 cutover are
 > deferred to the next line; 0.9.0 (month/week goal and rating surfaces) and
 > 0.9.1 (close-history surface) landed with GitHub Releases, closing the 0.9.x
-> line at `v0.9.1`; after the tag the six remaining decision-free candidates
-> were evaluated and none is worth a tag, so the project is in maintenance,
-> paused pending the five owner decisions consolidated in
-> [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md) — no new patch and no 1.0.0 opens
-> without them; the analysis contract is still **text-only** until D1/D2/D11 are
-> answered; and after the tag the decision-free operator runbook
-> ([`RUNBOOK.md`](RUNBOOK.md)) was written as the first 1.0.0 engineering prep —
-> docs only, no tag.
+> line's functional scope at `v0.9.1`; after the tag the six remaining
+> decision-free candidates were evaluated and none is worth a tag, so the project
+> is in maintenance, paused pending the five owner decisions consolidated in
+> [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md). The one decision-free fix found
+> after that evaluation is the **DSH `0.2.2-rc.5` compatibility gap** — the running
+> host is newer than the declared cohort and the pinned dev toolchain — which
+> opens the maintenance patch **0.9.2 (landed)** and changes none of the
+> decisions: no `0.10.0` and no 1.0.0 opens without the owner, and the analysis
+> contract is still **text-only** until D1/D2/D11 are answered. After the tag the
+> decision-free operator runbook ([`RUNBOOK.md`](RUNBOOK.md)) was written as the
+> first 1.0.0 engineering prep — docs only, no tag.
 
 ## Where this starts
 
@@ -690,10 +718,12 @@ and the 04:00 boundary runs one bounded yesterday tail behind the
 (**landed**, `v0.8.1`, 537 tests), **0.8.2** would have admitted images and
 **0.8.3** would have been the cutover itself (both are now **deferred to the next
 line** — the line stays text-only and no default flips), and **0.8.4** closed the
-line; the **0.9.x line is closed at `v0.9.1`** (0.9.0's month/week goal and
-rating surfaces, and 0.9.1's close-history surface — the last item this
-section's *Missing* list recorded as a stored-data read gap; see *0.9.x
-iterations*), and `1.0.0` follows the deferred cutover and a real captured week.
+line; the **0.9.x line's functional scope is closed at `v0.9.1`** (0.9.0's
+month/week goal and rating surfaces, and 0.9.1's close-history surface — the last
+item this section's *Missing* list recorded as a stored-data read gap; see
+*0.9.x iterations*, where the post-close 0.9.2 host-compatibility maintenance
+patch is recorded), and `1.0.0` follows the deferred cutover and a real captured
+week.
 The phasing above (Phase 5 and later) is untouched by these lines until the
 native path lands.
 
@@ -845,12 +875,14 @@ new test cases are recorded in
 
 ## 0.9.x iterations
 
-The 0.8.x line is closed and the 0.9.x line is closed at `v0.9.1`. **0.9.0 —
+The 0.8.x line is closed, and the 0.9.x line's **functional scope** is closed at
+`v0.9.1`; the line is reopened once, for the decision-free maintenance patch
+**0.9.2 — DSH `0.2.2-rc.5` compatibility — which has landed**. **0.9.0 —
 month/week goal and rating surfaces — landed** (`v0.9.0`, 544 tests); **0.9.1 —
 the close-history surface — landed too** (`v0.9.1`, 557 tests), making the stored
 day/week/lint close history readable in the existing insights view. The earlier
-docs-parity candidate for 0.9.1 was withdrawn; the line closed at its second tag.
-Its execution plan is
+docs-parity candidate for 0.9.1 was withdrawn; the functional line closed at its
+second tag. Its execution plan is
 [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md): patch-level deliverables, acceptance at
 the assertion level, the frozen-contract rule with its two declared exceptions
 (values in `PanelDay`'s already-declared optional fields; one additive `closes`
@@ -861,6 +893,7 @@ owner-gated work does not enter 0.9. One line each:
 | --- | --- | --- | --- |
 | 0.9.0 | Month/week goal and rating surfaces: the month and week payloads fill `PanelDay.goal`/`ratings` from the same readers the day route uses, and the client renders them read-only — a goal marker and rating dots in the month cell and the week column, the goal summary and review marks in the day hover card; no schema, config key, route, command, tool, skill, default, host peer, or model call; 18 routes and 5 commands unchanged | Phase 3 goal/rating read surfaces (the last stored-data panel gap) | **landed** — `v0.9.0` (`d0f9b5a`), GitHub Release Latest, 544 tests (537 → +7); shipped shape and deviations in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 |
 | 0.9.1 | Close-history surface: the recent scheduled closes the automation already records (day close, week close, weekly memory lint) join the existing insights payload as one additive `closes` list, and the existing view gains one read-only Close history block; no new route, schema, config key, command, tool, skill, peer, write path, or model call | Native port Phase 3 remainder / §1 Missing (close-history surface) | **landed** — `v0.9.1`, 557 tests (544 → +13); shipped shape in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.1 |
+| 0.9.2 | DSH `0.2.2-rc.5` compatibility (maintenance): declare `0.2.2-rc.5` in `dsh.compatibility.dshReleases`, move the seven DSH SDK dev dependencies and the lock from `0.2.1-rc.2` to `0.2.2-rc.5`, add the three client host peers as devDependencies for clean `npm ci` resolution, apply a minimal adaptation only if the new typings require one, and re-run suite/typecheck/build/package; no behaviour, default, schema, config key, route, command, tool, skill, runtime dependency, or host peer change | Maintenance — host-compatibility fix (decision-free) | **landed** (`v0.9.2`) — after the tag/Release the line returns to maintenance |
 
 Order rationale: 0.9.0 went first and landed because it was the only remaining
 decision-free item with a real user-visible payoff — the data and the wire types
@@ -869,16 +902,22 @@ it closed the last stored-data gap the panel had. 0.9.1 closed the last stored
 history the native port recorded as missing, still with no route or decision.
 The `dsh dayflow import` CLI is deliberately **not** on this line: it is a new
 entry point (5 → 6 commands) whose acceptance belongs beside the cutover's
-no-Dayflow runbook. The line stops at 0.9.1 because everything further needs the
-owner or is a new write/entry surface; the 0.8.4 close's own
+no-Dayflow runbook. The functional line stops at 0.9.1 because everything further
+needs the owner or is a new write/entry surface; the 0.8.4 close's own
 advice was "ship the decision-free month/week goal and rating surfaces as 0.9.0
-and stop there."
+and stop there." **0.9.2 is the one post-close exception, and it is not a theme:**
+the harness itself moved to `0.2.2-rc.5` after the tag, so the declared cohort,
+the dev dependency pins, and the verification record are no longer true statements
+about this tree. Fixing that is maintenance in the narrow sense the pause allows
+— verification and necessary fixes only — and it ships nothing a user can see,
+configure, or decide.
 
 **The line's tags at this revision:** **`v0.9.0`** (2026-11-27, commit
 `d0f9b5a`) and **`v0.9.1`** (2026-11-27, annotated tag on commit `ce0827e`, the
-line's close; GitHub Release **Latest**). Both have GitHub Releases, so the
-repository trail is **21 tags / 21 Releases**. No 0.9.2 is scheduled: the line is
-closed at `v0.9.1`.
+functional close; GitHub Release **Latest**). Both have GitHub Releases, so the
+repository trail is **21 tags / 21 Releases**; `v0.9.2`, once the lead cuts it
+from the green compat tree, becomes the 22nd tag and Release and then the line
+returns to maintenance. The functional line stays closed at `v0.9.1`.
 
 **The 0.9.0 record (kept as landed history).** Tag `v0.9.0` on `d0f9b5a`, GitHub
 Release Latest, 544 green tests (537 at 0.8.4, so +7 in 2 files: two panel route
@@ -946,13 +985,17 @@ runbook — are unchanged and untouched by this line; they remain in
 
 ### After 0.9.1 — maintenance, paused pending owner decisions
 
-**`v0.9.1` is the last planned tag, and the project now sits in maintenance.**
-It is **paused pending the owner's answers, not abandoned**: the plugin works at
-its current scope (readable journal, briefs, review queue, panel views, native
-capture and text-only analysis on the safe defaults), every tag has a Release,
-and the suite is green (re-run at this revision: **557 pass, 0 fail**) — but
-everything left is owner-gated, a new product surface, or not worth a release, so
-no `0.9.2`, `0.10.0`, or `1.0.0` is opened. The next action is the single
+**`v0.9.1` is the last planned *functional* tag, and the project now sits in
+maintenance; the one post-close exception is the 0.9.2 host-compatibility patch
+described below.** It is **paused pending the owner's answers, not abandoned**:
+the plugin works at its current scope (readable journal, briefs, review queue,
+panel views, native capture and text-only analysis on the safe defaults), every
+tag has a Release, and the suite is green (re-run at this revision: **557 pass,
+0 fail**) — but everything left is owner-gated, a new product surface, or not
+worth a release, so no `0.10.0` or `1.0.0` is opened. The `0.9.2` compatibility
+patch is not a counter-example: it was opened by the harness's own version move
+*after* the evaluation below, changes no default, ships nothing a user can see or
+configure, and needs no owner answer. The next action is still the single
 five-question list in [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md). This section
 records the evaluation that reached that conclusion, so a later round does not
 re-litigate it.
@@ -970,20 +1013,115 @@ or defect? is it worth a tag? The verdicts:
 | Test dedup (`ratingColor` in `day.tsx` and `format.ts`) | One small pure colour function duplicated between the day view and the shared formatter | **Known, accepted deviation** recorded in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 *Landed shape and deviations*; removing it is a client refactor with zero behaviour change and no coverage gain |
 | Release tooling | Explicit-version releases are already supported (`nextVersion` accepts `X.Y.Z`), CI gates the tag against `package.json`, the suite and package contents run on every push, and the one historical gap (the `v0.6.0` Release) was a missed Release on an existing tag that was added manually — not a tag whose tooling was missing | **No defect to patch.** A `--backfill` mode for an existing tag would be ops convenience only, with no product change; the operation was exercised once and is in the runbook |
 
-**Verdict: “No further decision-free patch is worth a tag at this revision.”**
-If the owner answers, the state changes: a `yes` on D10 plus the real week
-resumes the cutover line (with the CLI import beside the no-Dayflow runbook),
-while D1/D2/D11/D7 shape 1.0.0 and image admission. If the owner does not answer,
-this is where the project stays — complete at its current scope, maintained, and
-waiting on [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
+**Verdict: “No further decision-free *feature* patch is worth a tag at this
+revision.”** The one fix the evaluation did not and could not cover is the host's
+own version move — DSH `0.2.2-rc.5` arrived after `v0.9.1` and after this review
+— and that is the single maintenance patch opened below, 0.9.2. If the owner
+answers, the state changes: a `yes` on D10 plus the real week resumes the cutover
+line (with the CLI import beside the no-Dayflow runbook), while D1/D2/D11/D7
+shape 1.0.0 and image admission. If the owner does not answer, this is where the
+project stays — complete at its current scope, maintained, and waiting on
+[`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
+
+### 0.9.2 — DSH 0.2.2-rc.5 compatibility (landed)
+
+**The gap.** The harness moved under the closed line. The DSH app installed on
+this machine reports **`0.2.2-rc.5`** (`CFBundleShortVersionString` from
+`/Applications/DeepSeek Harness.app/Contents/Info.plist`), while `package.json` at
+`v0.9.1` declares `dsh.compatibility.dshReleases` for `0.2.0-rc.2` and
+`0.2.1-rc.2` only and pins all seven DSH development dependencies at
+`0.2.1-rc.2`; the npm registry carries the full `0.2.2-rc.5` cohort (checked
+2026-11-27). The plugin has therefore never been built or tested against the host
+it runs on, and its declared compatibility record is one release stale.
+
+**What the gap is and is not.** It is not an admission failure: the host checks
+`engines.dsh` if a plugin declares one, else its `@deepseek-ai/dsh`/`dsh-*` peer
+ranges, with prereleases included (`plugin-compatibility.ts` in the 0.2.2-rc.5
+app bundle); this plugin declares no `engines.dsh`, and its `^0.2.0-rc.2` peers
+already admit `0.2.2-rc.5`. The `dshReleases` map is the declared-compatibility
+record rather than an admission input, so no installed user is blocked and no
+runtime defect is claimed. What is real is the stale declaration plus the missing
+verification — maintenance-class work under the pause.
+
+**Scope (decision-free, patch-level).**
+
+- `package.json`: add `"0.2.2-rc.5": "compatible"` to
+  `dsh.compatibility.dshReleases` beside the two existing entries, and move the
+  seven DSH development dependencies (`dsh-llm`, `dsh-skill`,
+  `dsh-system-prompt`, `dsh-tools`, `dsh-util-values`, `dsh-client-connection`,
+  `dsh-client-ui-primitives`) from `0.2.1-rc.2` to `0.2.2-rc.5`; refresh
+  `package-lock.json`. No dependency is added and no peer entry or host peer range
+  changes.
+- `src/**`: a minimal source/typing adaptation **only if** the `0.2.2-rc.5`
+  declarations require one; behaviour, defaults, and the wire contract stay
+  identical.
+- `tests/**`: the suite runs on the new cohort; any assertion about the
+  compatibility map stays true, and no test case is dropped or weakened.
+- Verification: `npm test` (**557+** at the cut), `npm run typecheck`,
+  `npm run build` (host and client bundle), and `npm run check:package`.
+- Docs travel with the tag (R6): README/README.zh, `docs/ARCHITECTURE.md`,
+  `docs/RUNBOOK.md`, `CHANGELOG.md`, this roadmap section, and
+  [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.2.
+
+**Acceptance.**
+
+- The suite is green on the `0.2.2-rc.5` dev dependencies at **557+ cases** —
+  v0.9.1's 557 are the floor and the count is recorded at the cut — with no
+  assertion removed or weakened; `typecheck`, `build` (host and client bundle),
+  and `check:package` are green.
+- `dsh.compatibility.dshReleases` lists exactly `0.2.0-rc.2`, `0.2.1-rc.2`, and
+  `0.2.2-rc.5`, each `"compatible"`; no `engines.dsh` is added.
+- The diff changes no behaviour, default, schema (**v10**), route (**18**: 9
+  `GET` + 9 `POST`), command (**5**), tool (**23**), skill (**8**), configuration
+  key, runtime dependency, or host peer entry, and no model call or egress
+  changes.
+- `package.json` differs only in the dev-dependency pins and the compatibility
+  map (plus the release commit's version bump), and the lock follows; if the new
+  cohort's own peer declarations force the `cordis`/`schemastery` pins or those
+  two non-DSH peer ranges to move, that is the one recorded deviation (risk 2
+  above), not a new dependency or peer.
+- Release: `v0.9.2` is tagged with a GitHub Release from the CHANGELOG section
+  (`v0.9.2` becomes the 22nd tag and Release); npm still answers **404** (D7) and
+  no publish happens; the line returns to maintenance and the five owner
+  questions are unchanged.
+
+**Why 0.9.2 and not 0.10.0.** It is a patch by every test in this roadmap: no new
+surface, no new default, no schema/route/config change, no new dependency, and no
+user-visible behaviour — the only things that change are the declared
+compatibility metadata and the dev-only toolchain, and the package version moves
+only because a released tag is immutable and the fix needs its own record. A minor
+would advertise a functional increment the release does not have; 1.0.0 is the
+cutover line and stays owner-gated. It cannot "reopen 0.9.1" either: `v0.9.1` is
+an annotated tag whose tree is released and described, so a new patch tag is the
+honest record, exactly as 0.9.0 and 0.9.1 were separate slots.
+
+**Risk and rollback.** Low, with three named risks: (1) **typing/API drift** in
+`0.2.2-rc.5` — if a declaration the plugin imports changed, the adaptation stays
+minimal and behaviour-identical, and the suite is the gate; (2) **the toolchain
+chain** — the `0.2.2-rc.5` packages declare their own peers on cordis `~4.1.0`
+and schemastery `~3.19.0` (the host app ships cordis 4.1.0 and schemastery
+3.19.0), while the `v0.9.1` tree pins `@deepseek-ai/cordis` `4.0.5` and
+`@deepseek-ai/schemastery` `3.18.5` and declares the non-DSH peer ranges
+`^4.0.4` / `~3.18.4`; if the cohort's own declarations force a pin or a non-DSH
+peer range to move, that is a declared deviation recorded in
+[`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.2 *Landed shape and deviations*,
+never a new peer or dependency; (3) **verification gap** — a green suite proves
+the plugin against its dev dependencies, not inside the host, so the host's
+admission rule is recorded as evidence and a real load check is attempted where
+possible. Rollback is a normal revert of the patch commits: a declaration plus
+dependency pins and a lockfile, with no migration, no profile state, and no
+configuration key to switch (R8's config-first rule has nothing to act on); a
+defective tag is corrected by a forward patch, never by moving it.
 
 ## Next line (1.0.0)
 
-The 0.9.x line's two patches landed without a functional default change, and the
-0.9 line is the decision-free holding line above: it changes no default, no
-capture, no analysis, and no import, so nothing in it touches the 1.0.0
-prerequisites. The line is now closed at `v0.9.1`, so **1.0.0 is gated on the
-owner, not on engineering:**
+The 0.9.x line's two functional patches landed without a functional default
+change, and the 0.9 line is the decision-free holding line above: it changes no
+default, no capture, no analysis, and no import, so nothing in it touches the
+1.0.0 prerequisites. The line's functional scope is closed at `v0.9.1`, with its
+one maintenance patch 0.9.2 (host compatibility, landed) changing none of
+those prerequisites either, so **1.0.0 is gated on the owner, not on
+engineering:**
 
 1. **1.0.0 prerequisites (all required):** a real captured week on the owned
    default (capture on, `source: owned`, Dayflow closed, zero data loss across
@@ -1007,9 +1145,11 @@ owner, not on engineering:**
    [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, and the 0.9 plan restates
    the prerequisites in §4.
 4. **No answer, no line.** While the five questions are unanswered the project
-   stays in maintenance: no 1.0.0 is planned or tagged and no new patch is
-   opened. A "not now" is an answer that keeps the safe default and changes
-   nothing structurally; a missing answer keeps the pause.
+   stays in maintenance: no 1.0.0 is planned or tagged and no new feature patch
+   is opened. The already-opened 0.9.2 compatibility patch is maintenance, not a
+   line start — it changes no default and asks nothing of the owner. A "not now"
+   is an answer that keeps the safe default and changes nothing structurally; a
+   missing answer keeps the pause.
 
 **Engineering prep that needs no owner answer.** Three items on or beside the
 1.0.0 checklist need no decision from the owner: the operator runbook, the
@@ -1039,9 +1179,14 @@ cuts no tag, and does not start the line:
   no-Dayflow runbook it makes usable. It is deliberately not built here, so this
   round does not front-run a line that is itself gated.
 
+The 0.9.2 compatibility patch is this round's other decision-free work: it is
+maintenance rather than 1.0.0 prep, changes no default or decision, and is
+recorded above rather than here.
+
 These are not a 1.0.0 and not a release: no route, schema step, tool, skill,
-command, or default changes, and no tag follows. They are recorded so a later
-round can see what is already done before the owner answers.
+command, or default changes, and no tag follows from the three prep items. They
+are recorded so a later round can see what is already done before the owner
+answers.
 
 ## What this deliberately does not do
 
@@ -1109,8 +1254,9 @@ round can see what is already done before the owner answers.
 
 *Historical: this was the advice before any of it shipped. Phases 1+2 landed in
 0.6.0 and 3.5 in 0.7.0, the 0.8 line closed at 0.8.4, and the 0.9 line closed at
-`v0.9.1` (0.9.0's month/week goal and rating surfaces and 0.9.1's close-history
-surface), so the current order of work is the
+`v0.9.1` for function (0.9.0's month/week goal and rating surfaces and 0.9.1's
+close-history surface, plus the post-close 0.9.2 compatibility maintenance
+patch), so the current order of work is the
 1.0.0 prerequisites and the five owner questions, not this list; it stays because
 the reasoning still explains why the early work was sequenced that way.*
 

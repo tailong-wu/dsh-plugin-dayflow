@@ -2,35 +2,37 @@
 
 [← Back to README](../README.md)
 
-Operator manual for a **checkout install** of `dsh-plugin-dayflow` at `v0.9.1`: health checks, first run, safe switches, data and backup, upgrades between tags, rollback, the paused-line maintenance checklist, and troubleshooting. Checked against `d5eae00` (four docs commits past the annotated tag `v0.9.1`, `ce0827e`) on 2026-11-27 with Node v25.8.1 on macOS 15.1 (arm64); package **0.9.1**, npm **404**. The project is in maintenance, paused pending owner decisions D1/D2/D7/D10/D11 ([OWNER_DECISIONS.md](OWNER_DECISIONS.md)). Re-run §1 before trusting numbers.
+Operator manual for a **checkout install** of `dsh-plugin-dayflow` at `v0.9.2`: health checks, first run, safe switches, data and backup, upgrades between tags, rollback, the paused-line maintenance checklist, and troubleshooting. Checked against the `v0.9.2` release on 2026-11-27 with DSH host **0.2.2-rc.5**, Node v25.8.1 on macOS 15.1 (arm64); package **0.9.2**, npm **404**. The project is in maintenance, paused pending owner decisions D1/D2/D7/D10/D11 ([OWNER_DECISIONS.md](OWNER_DECISIONS.md)). Re-run §1 before trusting numbers.
 
 ## 1. What is installed
 
-A default profile registers **23 tools** (17 with `edits: false`; 12 read tools, `journal_import`, `journal_review`, `journal_task`, `journal_memory`, `journal_reflection`, six editing tools — [TOOLS.md](TOOLS.md)), **8 skills** (`dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`, `reflection`), **5 slash commands** (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`, `/dayflow-analyze`, `/dayflow-run-close` — [QUICK_CAPTURE.md](QUICK_CAPTURE.md)), and the optional Web panel: one header button, one right-Sidebar tab, month/week/day views plus Journal insights, **18 host Fetch routes** (nine `GET`, nine `POST` — [PANEL.md](PANEL.md)). The default backend is `source: dayflow`, a read-only read of `~/Library/Application Support/Dayflow/chunks.sqlite` plus the app's socket for edits; the optional owned journal (`$DSH_HOME/dayflow/journal.sqlite`, schema **v10**) is not the default ([ARCHITECTURE.md](ARCHITECTURE.md#owned-journal)). Native capture is off by default and every shipped release is text-only (no attachment peer, no image bytes). Zero dependencies beyond the host (`node:sqlite` supplies SQLite); supported DSH releases are `0.2.0-rc.2` and `0.2.1-rc.2`, Node ≥ 22.5.
+A default profile registers **23 tools** (17 with `edits: false`; 12 read tools, `journal_import`, `journal_review`, `journal_task`, `journal_memory`, `journal_reflection`, six editing tools — [TOOLS.md](TOOLS.md)), **8 skills** (`dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`, `reflection`), **5 slash commands** (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`, `/dayflow-analyze`, `/dayflow-run-close` — [QUICK_CAPTURE.md](QUICK_CAPTURE.md)), and the optional Web panel: one header button, one right-Sidebar tab, month/week/day views plus Journal insights, **18 host Fetch routes** (nine `GET`, nine `POST` — [PANEL.md](PANEL.md)). The default backend is `source: dayflow`, a read-only read of `~/Library/Application Support/Dayflow/chunks.sqlite` plus the app's socket for edits; the optional owned journal (`$DSH_HOME/dayflow/journal.sqlite`, schema **v10**) is not the default ([ARCHITECTURE.md](ARCHITECTURE.md#owned-journal)). Native capture is off by default and every shipped release is text-only (no attachment peer, no image bytes). Zero dependencies beyond the host (`node:sqlite` supplies SQLite). The host is DSH **0.2.2-rc.5**; `package.json` declares DSH `0.2.0-rc.2`, `0.2.1-rc.2`, and `0.2.2-rc.5` compatible (`dsh.compatibility.dshReleases`) and pins the DSH development dependencies to `0.2.2-rc.5` (the seven SDK packages plus three client host peers as devDependencies; `cordis` `4.1.0`). Node ≥ 22.5.
 
 ### Health checks
 
 Run from the repository root:
 
 ```sh
-node -p "require('./package.json').version"   # 0.9.1
-git describe --tags                           # v0.9.1 (tag) / v0.9.1-4-gd5eae00 (this docs revision)
-git tag --list | wc -l                        # 21
+node -p "require('./package.json').version"   # 0.9.2
+node -p "require('./package.json').dsh.compatibility.dshReleases['0.2.2-rc.5']"  # compatible
+git describe --tags                           # v0.9.2 (tag) / v0.9.2-N-g<sha> after later docs commits
+git tag --list | wc -l                        # 22
 npm test                                      # tests 557 · pass 557 · fail 0 (builds first)
 npm run typecheck                             # exit 0, no output
 npm run rehearsal                             # REHEARSAL PASS: 20/20 checks passed
-npm run check:package                         # check-package: ok · 146 files · 2.51 MB packed · 3.87 MB unpacked
+npm run check:package                         # check-package: ok · 146 files · 2.52 MB packed · 3.90 MB unpacked
 J="${DSH_HOME:-$HOME/.dsh}/dayflow/journal.sqlite"; test -f "$J" && sqlite3 "$J" 'SELECT version FROM schema_version;'  # 10 once it exists
 ```
 
+- The host cohort is DSH `0.2.0-rc.2` / `0.2.1-rc.2` / `0.2.2-rc.5`; this runbook was checked against **0.2.2-rc.5**, and the DSH development dependencies are pinned to it (SDK packages plus three client host peers as devDependencies; `cordis` `4.1.0`). `0.9.2` is a compatibility patch only: no behaviour, default, schema, route, command, tool, skill, peer-range, or runtime-dependency change (its one source change is a type-only `Config` annotation for the new typings).
 - `npm run rehearsal` is the fixture-only Phase 4 dry run (no screen, no network); a clean run also prints the restart table 13/13 unchanged, and exit code 2 means `lib/` is missing — build first.
 - `npm view dsh-plugin-dayflow version` answers **E404**, not a version: nothing is published (owner decision D7), so `dsh plugin add` and `npm install` of the package name are not install or upgrade paths here — use a checkout.
-- Release trail: **21 tags / 21 GitHub Releases**, `v0.9.1` Latest; the tag is annotated and points at `ce0827e`. With an authenticated `gh`: `gh release list -R tailong-wu/dsh-plugin-dayflow --limit 30 | wc -l` → `21`. A tag without a Release is a trail gap only (§7).
+- Release trail: **22 tags / 22 GitHub Releases**, `v0.9.2` Latest; the tag is annotated. With an authenticated `gh`: `gh release list -R tailong-wu/dsh-plugin-dayflow --limit 30 | wc -l` → `22`. A tag without a Release is a trail gap only (§7).
 - In the app, the second health check is the panel's Journal insights view: its capture, analysis, and close-state lines must agree with the profile, and the header **Dayflow** button must open the tab.
 
 ## 2. First run
 
-1. **Prerequisites.** macOS; Dayflow installed and recording (`dayflow_status` names what is missing and the `onboarding` skill walks through it); Node ≥ 22.5 (22.5–22.12 and 23.0–23.3 need `--experimental-sqlite`, which CI sets via `NODE_OPTIONS`; 22.13+ and 23.4+ do not); `dsh` ≥ 0.2.0-rc.2. `pnpm` is only needed for `dsh plugin add`, unusable until D7.
+1. **Prerequisites.** macOS; Dayflow installed and recording (`dayflow_status` names what is missing and the `onboarding` skill walks through it); Node ≥ 22.5 (22.5–22.12 and 23.0–23.3 need `--experimental-sqlite`, which CI sets via `NODE_OPTIONS`; 22.13+ and 23.4+ do not); `dsh` ≥ 0.2.0-rc.2 (declared compatible `0.2.0-rc.2`/`0.2.1-rc.2`/`0.2.2-rc.5`; this guide was checked on `0.2.2-rc.5`). `pnpm` is only needed for `dsh plugin add`, unusable until D7.
 2. **Build and link** ([README §Install](../README.md#install), [ARCHITECTURE.md](ARCHITECTURE.md#setting-dayflow-up)):
 
    ```sh
@@ -142,23 +144,23 @@ Nothing is on npm, so an upgrade is a move between tags; a newer tag is not a ne
 cd dsh-plugin-dayflow
 # 1. back up first if the owned journal has data: see §4
 git fetch --tags
-git checkout v0.9.1            # the target tag
+git checkout v0.9.2            # the target tag
 npm ci                         # or npm install; the lockfile is committed
 npm run build
-npm test                       # 557 pass at v0.9.1; a later line reports its own count
+npm test                       # 557 pass at v0.9.2; a later line reports its own count
 ```
 
 Let the host reload (HMR) or restart `dsh web`; quit/reopen the Desktop App if that profile is the linked one. Verify:
 
 ```sh
-git describe --tags --exact-match            # v0.9.1
-node -p "require('./package.json').version"  # 0.9.1
+git describe --tags --exact-match            # v0.9.2
+node -p "require('./package.json').version"  # 0.9.2
 J="${DSH_HOME:-$HOME/.dsh}/dayflow/journal.sqlite"; test -f "$J" && sqlite3 "$J" 'SELECT version FROM schema_version;'
 ```
 
 - CI enforces the tag/version pairing: on a tag push, `release-check` fails unless the tag equals `v$(package.json version)`. A mismatch on your checkout means you are between commits, not that the tag is wrong.
 - The owned journal migrates forward the first time the new plugin opens it (read or write), so back it up before the first start after an upgrade. Read the target version's section in [CHANGELOG.md](../CHANGELOG.md), the line status in [ROADMAP.md](ROADMAP.md), and — for the native chain — the records in [CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md).
-- The 0.9.x line is closed at `v0.9.1`; no newer tag exists yet. A step from a `0.8.x` tree adds no host peer and no runtime dependency (the 0.9 patches are additive panel payloads with no schema step). Verify with §1 and the panel status lines: the test count changes per tag (544 on `v0.9.0`, 557 on `v0.9.1`), so compare against that tag's record, not this file.
+- The 0.9.x line is closed at `v0.9.2`; no newer tag exists yet. `v0.9.2` is a compatibility patch: it declares DSH `0.2.2-rc.5` and pins the DSH development dependencies to it (`cordis` `4.1.0`), with no host peer, runtime dependency, schema, route, or default change, so the upgrade is a checkout/rebuild, not a data migration. A step from a `0.8.x` tree adds no host peer and no runtime dependency either (the 0.9 patches are additive panel payloads with no schema step). The peer range stays `^0.2.0-rc.2`, so the declared cohort on an older 0.2 host is unchanged; the 0.9.2 verification itself ran on DSH `0.2.2-rc.5`. Verify with §1 and the panel status lines: the test count changes per tag (544 on `v0.9.0`, 557 on `v0.9.1` and `v0.9.2`), so compare against that tag's record, not this file.
 
 ## 6. Rollback
 
@@ -191,7 +193,7 @@ Apply it in the profile's patch and reload; Dayflow's own app data is untouched.
 
 ## 7. Maintenance checklist (paused line)
 
-**Status:** as of 2026-11-27 the project is in **maintenance, paused pending owner decisions D1/D2/D7/D10/D11** ([OWNER_DECISIONS.md](OWNER_DECISIONS.md)). Maintenance means verification and necessary fixes only: no new patch, no `1.0.0`, no default change, no tag. CI already runs `npm test` and `check:package` on macOS 15 with Node 22 (with `--experimental-sqlite`) and 24 on every push, and the release check gates a tag against `package.json`.
+**Status:** as of 2026-11-27 the project is in **maintenance, paused pending owner decisions D1/D2/D7/D10/D11** ([OWNER_DECISIONS.md](OWNER_DECISIONS.md)). Maintenance means verification and necessary fixes only: no roadmap patch, no `1.0.0`, no default change; the only tag taken during the pause is the `0.9.2` compatibility patch. CI already runs `npm test` and `check:package` on macOS 15 with Node 22 (with `--experimental-sqlite`) and 24 on every push, and the release check gates a tag against `package.json`.
 
 | Check | Command (repo root) | Expected while paused |
 | --- | --- | --- |
@@ -199,10 +201,10 @@ Apply it in the profile's patch and reload; Dayflow's own app data is untouched.
 | Types | `npm run typecheck` | exit 0, no output |
 | Fixture rehearsal | `npm run rehearsal` | `REHEARSAL PASS: 20/20 checks passed` |
 | Package shape | `npm run check:package` | `check-package: ok`, exactly one package, no `src/`, `tests/`, `scripts/`, sourcemaps |
-| Tag trail | `git tag --list \| wc -l` | `21` |
-| Release trail | `gh release list -R tailong-wu/dsh-plugin-dayflow --limit 30 \| wc -l` | `21`, `v0.9.1` Latest |
+| Tag trail | `git tag --list \| wc -l` | `22` |
+| Release trail | `gh release list -R tailong-wu/dsh-plugin-dayflow --limit 30 \| wc -l` | `22`, `v0.9.2` Latest |
 | npm | `npm view dsh-plugin-dayflow version` | `E404` (expected; D7) |
-| Defaults untouched | `git diff v0.9.1 -- src/config.ts cordis.patch.yml package.json` | empty |
+| Defaults untouched | `git diff v0.9.2 -- src/config.ts cordis.patch.yml package.json` | empty |
 | Schema | `J="${DSH_HOME:-$HOME/.dsh}/dayflow/journal.sqlite"; test -f "$J" && sqlite3 "$J" 'SELECT version FROM schema_version;'` | `10` |
 | Docs links | open the changed pages; no repository script checks links | every relative link resolves |
 | Shipped counts | README/ROADMAP/ARCHITECTURE: 557 tests, 18 routes, 5 commands, 23 tools, 8 skills, schema v10 | unchanged |
@@ -233,7 +235,9 @@ Deeper routes: [PANEL.md](PANEL.md), [NATIVE_PORT.md](NATIVE_PORT.md) for the ca
 
 ## 9. Maintenance notes
 
-**Revision checked.** This runbook was verified on **2026-11-27** against `HEAD = d5eae00` (four docs commits past the annotated tag `v0.9.1` = `ce0827e`), package version **0.9.1**, Node **v25.8.1**, macOS **15.1** (arm64). The §1 checks were actually run for this file: 557/557 tests, typecheck clean, rehearsal 20/20, package shape OK, npm 404, 21 tags and 21 GitHub Releases with `v0.9.1` Latest. The runbook is **written, not exercised**: no first-run or rollback has been walked through on a real cutover profile, because that needs D10 and a real captured week.
+**Revision checked.** This runbook was revised on **2026-11-27** for the `v0.9.2` release: package version **0.9.2**, DSH host **0.2.2-rc.5** (declared compatible and pinned in the development dependencies, with `cordis` `4.1.0`), Node **v25.8.1**, macOS **15.1** (arm64). The §1 release-gate numbers for this tree: 557/557 tests, typecheck clean, rehearsal 20/20, package shape OK, npm 404, 22 tags and 22 GitHub Releases with `v0.9.2` Latest; re-run §1 before trusting them. The runbook is **written, not exercised**: no first-run or rollback has been walked through on a real cutover profile, because that needs D10 and a real captured week.
+
+**Host cohort.** DSH `0.2.0-rc.2`, `0.2.1-rc.2`, and `0.2.2-rc.5` are declared compatible in `dsh.compatibility.dshReleases`; this Mac runs **0.2.2-rc.5**, and the DSH development dependencies are pinned to it (`cordis` `4.1.0`). `0.9.2` is a compatibility patch only: no behaviour, default, schema, route, command, tool, skill, peer-range, or runtime-dependency change, and no owner decision changed — npm remains **404** (D7) and the pause continues.
 
 **Owner-gated abilities — do not document or advertise these as shipped:**
 

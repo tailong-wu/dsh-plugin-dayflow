@@ -233,8 +233,8 @@ end.
 
 ## Release line
 
-The 0.8.x line is closed at `v0.8.4`, and its shape is what the modules and
-tests above describe:
+The 0.8.x line is closed at `v0.8.4` and the 0.9.x line at `v0.9.2`; their shape
+is what the modules and tests above describe:
 
 - `v0.8.0` — analysis-ledger follow-ups: the token budget is a post-call gate,
   configuration-caused skips replay within today and yesterday, and the 04:00
@@ -251,8 +251,19 @@ tests above describe:
   explicit deferral above. No plugin source, schema, route, command, tool,
   skill, configuration key, default, or dependency change; the package version
   is the only `package.json` change.
+- `v0.9.0` and `v0.9.1` — additive panel payloads: the month/week goal marks and
+  review rating dots, then the read-only close-history block. No route, schema,
+  command, configuration key, or default change.
+- `v0.9.2` — compatibility patch: `dsh.compatibility.dshReleases` declares DSH
+  `0.2.2-rc.5`, the development dependencies move to `0.2.2-rc.5` (the SDK packages plus the three client host peers added as devDependencies; `cordis` to
+  `4.1.0`), and `Config` gains an explicit type-only `Schema` annotation so its
+  emitted declaration stays portable. No behaviour, default, schema, route,
+  command, tool, skill, peer-range, or runtime-dependency change; the package
+  version is the only other `package.json` change.
 
-Every 0.8.x release is text-only and adds no host peer or runtime dependency.
+Every 0.8.x and 0.9.x release is text-only and adds no host peer or runtime
+dependency.
+
 The tagged tree runs **557** tests, serves **18** host Fetch routes (nine `GET`
 and nine `POST`), registers **5** slash commands and **23** tools (17 with
 `edits: false`), ships **8** skills, and keeps owned schema **v10**. Nothing is
@@ -288,15 +299,20 @@ Two other groups of scripts are documented where their subject is:
 - Node.js ≥ 22.5. Node 22.5–22.12 and 23.0–23.3 need `--experimental-sqlite`;
   Node 22.13+ and 23.4+ (24 included) do not.
 - `dsh` ≥ 0.2.0-rc.2: the plugin peers on the 0.2 line of the harness. Supported
-  DSH releases are `0.2.0-rc.2` and `0.2.1-rc.2` (declared in
-  `dsh.compatibility.dshReleases`). The 0.7.x and 0.8.x lines added **no** host
-  peer beyond that declared cohort and no runtime dependency: `@deepseek-ai/dsh-llm`
-  was already declared and is the only host service the analysis path calls, and
-  `@deepseek-ai/dsh-attachment` is not a dependency because every shipped
-  release is text-only, and no 0.8.x release adds a runtime dependency: across
-  0.8.0–0.8.4 `package.json` differs only in the package version. Image
-  admission, which would need that attachment service, is deferred to the next
-  line (owner-gated D1/D2/D11).
+  DSH releases are `0.2.0-rc.2`, `0.2.1-rc.2`, and `0.2.2-rc.5` (declared in
+  `dsh.compatibility.dshReleases`); as of 0.9.2 the development dependencies and
+  the verification run are on `0.2.2-rc.5` (`cordis` `4.1.0`). The 0.7.x and
+  0.8.x lines added **no** host peer beyond that declared cohort and no runtime
+  dependency: `@deepseek-ai/dsh-llm` was already declared and is the only host
+  service the analysis path calls, and `@deepseek-ai/dsh-attachment` is not a
+  dependency because every shipped release is text-only, and no 0.8.x release
+  adds a runtime dependency: across 0.8.0–0.8.4 `package.json` differs only in the
+  package version. The 0.9.2 compatibility patch adds no peer or runtime
+  dependency either: it only widens the declared cohort and moves the
+  development-dependency pins, and its one source change is a type-only `Config`
+  annotation (validation and defaults untouched). Image admission, which would
+  need that attachment service, is deferred to the next line (owner-gated
+  D1/D2/D11).
 - `pnpm` on `PATH` is only needed for `dsh plugin add`; a linked development
   install does not need it.
 

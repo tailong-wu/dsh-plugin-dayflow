@@ -17,12 +17,13 @@ cloud analysis.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.9.1` is tagged in this repository (the npm registry still
-> answers `404`, so no publish authorization has been taken — owner decision D7). `v0.8.0` was the
-> analysis-ledger follow-ups, `v0.8.1` the briefs reading view; the planned `0.8.2` image admission and
-> `0.8.3` Phase 4 cutover are formally deferred to the next line, owner-gated (D1/D2/D10/D11), and
-> `v0.8.4` is the release close. Install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and
-> [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status:** `v0.9.2` is tagged in this repository (the npm registry still
+> answers `404`, so no publish authorization has been taken — owner decision D7). The 0.9.x line adds
+> the month/week goal and rating surfaces (`v0.9.0`), the close-history block (`v0.9.1`), and one
+> compatibility patch: `v0.9.2` declares and builds against DSH `0.2.2-rc.5`, with no behavior,
+> default, schema, route, peer, or runtime-dependency change. The line is still in maintenance, paused
+> pending owner decisions D1/D2/D7/D10/D11. Install from a checkout; see [CHANGELOG.md](CHANGELOG.md)
+> and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
 
@@ -81,20 +82,23 @@ Deep documentation: [tools](docs/TOOLS.md) · [panel](docs/PANEL.md) · [quick c
 | macOS | Dayflow is a Mac app; its data lives in `~/Library/Application Support/Dayflow`. |
 | [Dayflow](https://dayflow.so) installed and recording | The plugin detects a missing install and walks you through it; with `allowInstall`, the agent can run `brew install --cask dayflow` after you agree. |
 | Node.js ≥ 22.5 | Node 22.5–22.12 and 23.0–23.3 need `--experimental-sqlite`; Node 22.13+ and 23.4+ (24 included) do not. |
-| `dsh` ≥ 0.2.0-rc.2 | Peers on the 0.2 line of the harness; `pnpm` on `PATH` is needed only for `dsh plugin add`. |
+| `dsh` ≥ 0.2.0-rc.2 | Peers on the 0.2 line of the harness. Declared compatible releases are `0.2.0-rc.2`, `0.2.1-rc.2`, and `0.2.2-rc.5`; the current release is built and tested against `0.2.2-rc.5`. `pnpm` on `PATH` is needed only for `dsh plugin add`. |
 
 The 0.7.x and 0.8.x lines added **no** host peer beyond that declared cohort: `@deepseek-ai/dsh-llm` was
 already a peer and is the only host service the analysis path calls, and `@deepseek-ai/dsh-attachment` is
-**not** a dependency because every shipped release is text-only. No 0.8.x release adds a runtime
-dependency either: across 0.8.0–0.8.4 `package.json` differs only in the package version. Image
-admission, which would need that attachment service, is deferred to the next line (owner-gated
-D1/D2/D11).
+**not** a dependency because every shipped release is text-only. No 0.8.x or 0.9.x release adds a runtime
+dependency either: across 0.8.0–0.8.4 `package.json` differs only in the package version, and 0.9.2
+changes only the compatibility map and the development-dependency pins (the DSH SDK packages and the
+three client host peers as devDependencies, to `0.2.2-rc.5`, and `cordis` to `4.1.0`), plus one type-only
+schema annotation — the `peerDependencies` keep their
+declared ranges. Image admission, which would need that attachment service, is deferred to the next
+line (owner-gated D1/D2/D11).
 
 ## Install
 
 Nothing is on the npm registry yet — the package name answers `404` — though the line is tagged in
-this repository through `v0.9.1` (`v0.8.0`, `v0.8.1`, `v0.8.4`, `v0.9.0`, `v0.9.1`; the full trail
-is in [CHANGELOG.md](CHANGELOG.md)). Install from a checkout: that builds the
+this repository through `v0.9.2` (`v0.8.0`, `v0.8.1`, `v0.8.4`, `v0.9.0`, `v0.9.1`, `v0.9.2`; the full
+trail is in [CHANGELOG.md](CHANGELOG.md)). Install from a checkout: that builds the
 development line described here. After the owner authorises an npm release (D7), run
 `dsh plugin --profile web add dsh-plugin-dayflow`.
 
@@ -129,7 +133,8 @@ Add `"dsh-plugin-dayflow"` to `dsh.profile.bundles` in
 `~/.dsh/profiles/web/package.json`. With HMR enabled (the default for base-backed
 profiles) the running app reloads; otherwise restart `dsh web`. Rebuild with
 `npm run build` after source changes, and delete the symlink and the bundle entry to
-remove it. Supported DSH releases are `0.2.0-rc.2` and `0.2.1-rc.2`; the panel's
+remove it. Supported DSH releases are `0.2.0-rc.2`, `0.2.1-rc.2`, and
+`0.2.2-rc.5` (the current release is built and tested against `0.2.2-rc.5`); the panel's
 views are covered in [docs/PANEL.md](docs/PANEL.md).
 
 Dayflow itself is separate: `dayflow_status` says what is missing and the `onboarding`

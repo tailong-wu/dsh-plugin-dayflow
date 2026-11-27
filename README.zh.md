@@ -17,10 +17,11 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.9.1` 已在仓库打 tag（npm registry 仍然返回 `404`，即尚未取得发布授权——owner 决策 D7）。
-> `v0.8.0` 是 analysis ledger 的收尾，`v0.8.1` 是 briefs 阅读视图；原计划的 `0.8.2` 图像 admit（image admission）
-> 与 `0.8.3` Phase 4 cutover 正式推迟到下一线（owner-gated，D1/D2/D10/D11），`v0.8.4` 是 release close。
-> 请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
+> **状态：** `v0.9.2` 已在仓库打 tag（npm registry 仍然返回 `404`，即尚未取得发布授权——owner 决策 D7）。
+> 0.9.x 线加了月/周目标与评分标记（`v0.9.0`）、close 历史块（`v0.9.1`），以及一个兼容性 patch：
+> `v0.9.2` 声明并构建/测试于 DSH `0.2.2-rc.5`，不改变行为、默认值、schema、路由、peer 范围或运行时依赖。
+> 该线仍处于 maintenance，暂停等待 owner 决策 D1/D2/D7/D10/D11。请从源码 checkout 安装；
+> 详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
 
@@ -70,17 +71,18 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 | macOS | Dayflow 是 Mac 应用，数据在 `~/Library/Application Support/Dayflow`。 |
 | 已安装并正在记录的 [Dayflow](https://dayflow.so) | 插件会检测缺失并逐步引导；开启 `allowInstall` 后，经你同意可以由 agent 执行 `brew install --cask dayflow`。 |
 | Node.js ≥ 22.5 | Node 22.5–22.12 与 23.0–23.3 需要 `--experimental-sqlite`；Node 22.13+ 与 23.4+（含 24）无需该参数。 |
-| `dsh` ≥ 0.2.0-rc.2 | 插件声明的 peer 范围是 harness 0.2 系列；只有 `dsh plugin add` 需要 `PATH` 里有 `pnpm`。 |
+| `dsh` ≥ 0.2.0-rc.2 | 插件声明的 peer 范围是 harness 0.2 系列。声明兼容的版本为 `0.2.0-rc.2`、`0.2.1-rc.2` 与 `0.2.2-rc.5`；当前版本构建/测试于 `0.2.2-rc.5`。只有 `dsh plugin add` 需要 `PATH` 里有 `pnpm`。 |
 
 0.7.x 与 0.8.x 线**都没有**在声明范围之外新增 host peer：`@deepseek-ai/dsh-llm` 本来就是已声明的
 peer，也是分析路径唯一调用的 host 服务；所有已交付的版本都保持 text-only，所以 `@deepseek-ai/dsh-attachment`
-**不是**依赖。0.8.x 线也没有新增任何运行时依赖——各版本之间只有 package 版本号不同。需要该附件服务的
-图像 admit（image admission）已推迟到下一线（owner-gated，D1/D2/D11）。
+**不是**依赖。0.8.x 与 0.9.x 线也没有新增任何运行时依赖——0.8.0–0.8.4 各版本之间只有 package 版本号不同；
+0.9.2 只改兼容性声明表、devDependencies 版本（DSH 各包升到 `0.2.2-rc.5`，`cordis` 升到 `4.1.0`）
+以及一处纯类型标注，`peerDependencies` 范围保持不变。需要该附件服务的图像 admit（image admission）已推迟到下一线（owner-gated，D1/D2/D11）。
 
 ## 安装
 
-npm registry 上还没有任何版本——包名返回 `404`——但本线已在本仓库打 tag 至 `v0.9.1`（`v0.8.0`、`v0.8.1`、
-`v0.8.4`、`v0.9.0`、`v0.9.1`；完整 trail 见 [CHANGELOG.md](CHANGELOG.md)）。请从源码 checkout 安装：那装的正是本文描述的开发线。等 owner 授权 npm 发布（D7）之后，再执行
+npm registry 上还没有任何版本——包名返回 `404`——但本线已在本仓库打 tag 至 `v0.9.2`（`v0.8.0`、`v0.8.1`、
+`v0.8.4`、`v0.9.0`、`v0.9.1`、`v0.9.2`；完整 trail 见 [CHANGELOG.md](CHANGELOG.md)）。请从源码 checkout 安装：那装的正是本文描述的开发线。等 owner 授权 npm 发布（D7）之后，再执行
 `dsh plugin --profile web add dsh-plugin-dayflow`。
 
 ### Desktop App
@@ -110,8 +112,8 @@ ln -sfn "$PWD" ~/.dsh/profiles/web/node_modules/dsh-plugin-dayflow
 
 在 `~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 中加入 `"dsh-plugin-dayflow"`。
 开启 HMR 的 profile（默认开启）会自动重载，否则重启 `dsh web`。改完源码后重新 `npm run build`；
-卸载只需删除软链接和 bundles 条目。支持的 DSH 版本是 `0.2.0-rc.2` 与 `0.2.1-rc.2`；
-面板自身的视图见 [docs/PANEL.md](docs/PANEL.md)。
+卸载只需删除软链接和 bundles 条目。支持的 DSH 版本是 `0.2.0-rc.2`、`0.2.1-rc.2` 与 `0.2.2-rc.5`
+（当前版本构建/测试于 `0.2.2-rc.5`）；面板自身的视图见 [docs/PANEL.md](docs/PANEL.md)。
 
 Dayflow 应用本身另算：`dayflow_status` 会说明还缺什么，`onboarding` 技能按顺序引导。
 让 agent 安装应用需要双重 opt-in（`allowInstall` + `source: dayflow`），并且仍要
