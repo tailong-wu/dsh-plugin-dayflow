@@ -65,7 +65,12 @@
 > [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md)** (D1, D2, D7, D10, D11). No new
 > patch opens and no 1.0.0 is planned without those answers; maintenance means
 > verification and necessary fixes only, and the evaluation is recorded below in
-> §0.9.x *After 0.9.1 — maintenance, paused pending owner decisions*.
+> §0.9.x *After 0.9.1 — maintenance, paused pending owner decisions*. One piece
+> of 1.0.0 engineering prep needs no answer and was completed this round:
+> [`RUNBOOK.md`](RUNBOOK.md), the single-file operator manual (first run, safe
+> switches, data and backup, upgrade, rollback, maintenance checks,
+> troubleshooting). It is docs only — it opens no route, command, tool, skill,
+> schema step, or default, and cuts no tag — so it does not change this pause.
 >
 > **What remains after this line:** the owned-journal write path (the editing
 > tools still go through Dayflow), the `dsh dayflow import` CLI (cutover line),
@@ -90,7 +95,9 @@
 > paused pending the five owner decisions consolidated in
 > [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md) — no new patch and no 1.0.0 opens
 > without them; the analysis contract is still **text-only** until D1/D2/D11 are
-> answered.
+> answered; and after the tag the decision-free operator runbook
+> ([`RUNBOOK.md`](RUNBOOK.md)) was written as the first 1.0.0 engineering prep —
+> docs only, no tag.
 
 ## Where this starts
 
@@ -985,7 +992,10 @@ owner, not on engineering:**
    (or the capture-only variant with `consent: none`); **D11** image admission
    decided (1.0.0 can ship text-only on a "not now"); **D7** npm publication
    decided (1.0.0 is the natural first publish, but it is a separate reviewed
-   step and changes no tag); and the first-run/rollback runbook exercised.
+   step and changes no tag); and the first-run/rollback runbook exercised — the
+   manual itself is now written ([`RUNBOOK.md`](RUNBOOK.md)); what the
+   prerequisite still needs is the walkthrough on a real cutover, so D10 and the
+   week are unchanged as gates.
 2. **Not without the owner:** image admission (D1/D2/D11), the cutover default
    flip (D10), any npm publish (D7), and the owned-journal write path.
 3. **The first action of the next round:** put the five questions (D10, D1, D2,
@@ -1000,6 +1010,38 @@ owner, not on engineering:**
    stays in maintenance: no 1.0.0 is planned or tagged and no new patch is
    opened. A "not now" is an answer that keeps the safe default and changes
    nothing structurally; a missing answer keeps the pause.
+
+**Engineering prep that needs no owner answer.** Three items on or beside the
+1.0.0 checklist need no decision from the owner: the operator runbook, the
+cutover rehearsal, and the CLI import that stays queued behind the cutover. They
+can proceed in maintenance without an answer — and doing so changes no default,
+cuts no tag, and does not start the line:
+
+- **The operator runbook was written this round.** [`RUNBOOK.md`](RUNBOOK.md)
+  is the single-file manual for the machine as it is today at `v0.9.1` (tagged,
+  package still not on npm): what is installed and the health commands, first
+  run from a checkout, the safe switches and why the defaults are safe, data
+  locations and backup, upgrade between tags, rollback, the maintenance
+  checklist, and troubleshooting, closing with the commit and tag it was checked
+  against. It is written, not exercised: the prerequisite above is a
+  first-run/rollback walkthrough on a real cutover, which still needs D10 and the
+  real week.
+- **The rehearsal already exists.** [`CUTOVER_REHEARSAL.md`](CUTOVER_REHEARSAL.md)
+  is the checklist and `npm run rehearsal` is its executable form — a fixture dry
+  run through capture, analysis, the briefs, day insights, the weekly close, and
+  a restart (re-run at this revision: **20/20 checks**). What is missing is not
+  the rehearsal but the real-week record it would leave under `source: owned`,
+  which is owner-gated.
+- **The CLI import stays on the cutover line.** `dsh dayflow import` is
+  decision-free, but it is a new entry surface (5 → 6 commands) whose
+  acceptance — a lossless import, a re-run that does not duplicate, and
+  `dayflow: false` usable on a machine with no Dayflow — belongs beside the
+  no-Dayflow runbook it makes usable. It is deliberately not built here, so this
+  round does not front-run a line that is itself gated.
+
+These are not a 1.0.0 and not a release: no route, schema step, tool, skill,
+command, or default changes, and no tag follows. They are recorded so a later
+round can see what is already done before the owner answers.
 
 ## What this deliberately does not do
 

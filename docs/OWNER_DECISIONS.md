@@ -153,7 +153,9 @@ corresponding 1.0.0 checkbox instead of leaving it open.
   open.
 - The remaining 1.0.0 prerequisites — the first-run/rollback runbook, the
   no-Dayflow runbook, and the `dsh dayflow import` CLI — are engineering work the
-  cutover line produces, not decisions on this page.
+  cutover line produces, not decisions on this page. The operator runbook itself
+  is now written ([`RUNBOOK.md`](RUNBOOK.md)); what the cutover line still owes
+  is its walkthrough against a real week.
 
 **Not on this list, because no answer gates them:** the `dsh dayflow import` CLI
 is decision-free and queued for the cutover line beside the no-Dayflow runbook
