@@ -35,15 +35,49 @@ model service is available, the plugin starts an analysis worker that ticks
 every `analysis.intervalMinutes` and turns stored frames into
 `activities`/`observations` rows. It stays inert on a default profile: the
 shipped `analysis.consent: 'none'` blocks every model call, and a consent only
-works with an explicit `provider` **and** `model` — there is no implicit agent
-default route and no implicit image upload. The panel's analysis line and
-`GET /api/dayflow/analysis/status` report the worker's state and the day's
-call/token ledger; `/dayflow-analyze` runs one manual tick through the same
-consent gate.
+works with an explicit provider **and** model — the legacy `analysis.provider`/
+`analysis.model` pair, or a complete entry named by `analysis.models` — there is
+no implicit agent default route and no implicit image upload. The panel's
+analysis line and `GET /api/dayflow/analysis/status` report the worker's state
+and the day's call/token ledger; `/dayflow-analyze` runs one manual tick through
+the same consent gate.
 
-Where the DSH provider route and model id those two keys must name come from —
-how to add a DeepSeek route to the host profile, which credential reference to
-use, and exactly what metadata a cloud call sends — is covered in
+A profile that needs more than one host model can replace the single pair with
+the optional **named model list** (`analysis.models`, added by the 0.10.0 line,
+which is in progress and not tagged yet):
+
+```yaml
+    analysis:
+      consent: cloud              # explicit; the default is still none
+      models:
+        - id: flash               # the selector id analysis.model names
+          provider: deepseek      # a route name the host profile registers
+          model: deepseek-flash   # a model id on that route
+          label: DeepSeek Flash   # optional; shown in the panel
+        - id: pro
+          provider: deepseek
+          model: deepseek-v4-pro
+      model: flash                # optional entry id; empty selects the first
+      # provider: ''              # must stay empty while models is non-empty
+```
+
+The rules: with `analysis.models` absent or `[]` the legacy shape applies and
+the trimmed `analysis.provider`/`analysis.model` pair is the call pair, exactly
+as before. With 1–8 entries the **active entry** is the call pair —
+`analysis.model` names an entry `id` (trimmed, case-insensitive; empty selects
+the first entry), and `analysis.provider` must be empty because each entry
+carries its own provider. A list plus a non-empty provider, a duplicate, unknown,
+or blank `id`, a blank `provider`/`model`, or more than eight entries is
+refused at load with `invalid_input` (an unknown selector names the known ids).
+Under `consent: local` the active entry's provider still has to be on
+`analysis.localProviders` for frame analysis. The active pair drives the frame
+analyser and the scheduled closes, and the analysis status reports the active
+model in one additive `model` summary (`id`, `provider`, `model`, and `label`
+when the profile set one).
+
+Where the DSH provider route and model id that pair must name come from — how to
+add a DeepSeek route to the host profile, which credential reference to use,
+and exactly what metadata a cloud call sends — is covered in
 [PROVIDERS.md](PROVIDERS.md).
 
 On the 0.7.4 line `automation` is used: a scheduler closes a Dayflow day at
@@ -52,11 +86,12 @@ closes are **text-only LLM passes** — no images — and go through the analysi
 consent gate. The scheduler mounts with the analysis stack — `capture.enabled`
 and `analysis.enabled` on and the host's model service available, the same gate
 as the analysis worker — so a profile without native capture runs no closes;
-once mounted, a close needs `analysis.consent` set to `cloud` or `local`, an
-explicit `analysis.provider`, and an `analysis.model`, and is recorded
-`skipped` without a model call until then. The day close writes the day's
-standup entry (`daily_standup_entries`), the day's reflection, at most a few
-review proposals, and matching long-task sessions; the weekly close writes
+once mounted, a close needs `analysis.consent` set to `cloud` or `local` and a
+complete effective pair (`analysis.provider` + `analysis.model`, or the active
+`analysis.models` entry), and is recorded `skipped` without a model call until
+then. The day close writes the day's standup entry
+(`daily_standup_entries`), the day's reflection, at most a few review proposals,
+and matching long-task sessions; the weekly close writes
 exactly one stored week brief (`briefs`, `kind = 'week'`) — the compressed week
 record — and adds no weekly reflection and no weekly review pass. Memory claims
 are written only through a **kept** promotion, never silently made active. A
@@ -137,8 +172,9 @@ skill. The package version is the only `package.json` change on 0.8.4.
 | `analysis.enabled` | `true` | Run the frame analyser (also needs capture enabled). |
 | `analysis.consent` | `none` | `none`, `cloud` (frames may leave the machine), or `local` (only providers listed in `localProviders`). |
 | `analysis.localProviders` | `[]` | Provider ids accepted as local under `consent: local`, matched case-insensitively and exactly; empty accepts no provider. |
-| `analysis.provider` | `''` | Model provider id; empty blocks analysis with a "needs provider" status. |
-| `analysis.model` | `''` | Model id; empty blocks analysis with a "needs model" status. |
+| `analysis.provider` | `''` | Model provider id; empty blocks analysis with a "needs provider" status. Must be empty when `analysis.models` is non-empty (each entry carries its own provider). |
+| `analysis.model` | `''` | Model id; empty blocks analysis with a "needs model" status. With a non-empty `analysis.models` it is instead the entry `id` to select (empty selects the first entry; an id matching no entry is `invalid_input`). |
+| `analysis.models` | `[]` | Optional named model list (0.10.0): 1–8 entries `{id, provider, model, label?}` (id ≤ 64 characters, label ≤ 80), each naming a host-registered provider and model id. Empty keeps the legacy `provider`/`model` pair; non-empty makes the active entry the call pair, keeps `analysis.provider` empty, and rejects duplicate/unknown/blank fields at load with `invalid_input`. The active pair is used by frame analysis and the scheduled closes, and reported by the analysis status in its additive `model` summary (`id`/`provider`/`model`/`label`, with `id` only in list mode). |
 | `analysis.intervalMinutes` | `5` | Minutes between worker ticks (1–60). |
 | `analysis.windowMinutes` | `10` | Minutes of frames grouped into one analysis window (1–60). |
 | `analysis.framesPerWindow` | `3` | Representative frames sent per window (1–5). |

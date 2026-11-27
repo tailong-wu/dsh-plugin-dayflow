@@ -17,13 +17,18 @@ cloud analysis.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.9.2` is tagged in this repository (the npm registry still
-> answers `404`, so no publish authorization has been taken — owner decision D7). The 0.9.x line adds
-> the month/week goal and rating surfaces (`v0.9.0`), the close-history block (`v0.9.1`), and one
-> compatibility patch: `v0.9.2` declares and builds against DSH `0.2.2-rc.5`, with no behavior,
-> default, schema, route, peer, or runtime-dependency change. The line is still in maintenance, paused
-> pending owner decisions D1/D2/D7/D10/D11. Install from a checkout; see [CHANGELOG.md](CHANGELOG.md)
-> and [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status:** `v0.9.2` is tagged in this repository and is the latest GitHub
+> Release; the npm registry still answers `404`, so nothing is published — D7
+> authorises a publish, but it is a separate, owner-confirmed step after a tag.
+> The 0.9.x line added the month/week goal and rating surfaces (`v0.9.0`), the
+> close-history block (`v0.9.1`), and one compatibility patch (`v0.9.2`: DSH
+> `0.2.2-rc.5`, with no behavior, default, schema, route, peer, or
+> runtime-dependency change). The **0.10.0 line is in progress and not tagged**:
+> cloud analysis plus an optional named analysis-model list (`analysis.models`,
+> D2's A baseline — the B/C forms still wait on the owner); image admission
+> (D11) and the `source: owned` cutover (D10) stay deferred.
+> Install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and
+> [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
 
@@ -67,13 +72,16 @@ stayed. That is the whole dataset.
   day-tail run. 0.8.1 makes the stored day and week briefs readable in the insights view (see the panel
   section below), and 0.8.4 is the release close: documentation, test, and release-trail work only — no plugin
   source, schema, route, configuration, or default change. All of it is mounted with the analysis stack and
-  gated by `analysis.consent`, `analysis.provider`, and `analysis.model` → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
+  gated by `analysis.consent` and an explicit effective provider/model pair — the legacy
+  `analysis.provider`/`analysis.model`, or the entry `analysis.models` selects (0.10.0, in progress) →
+  [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
 - **Zero runtime dependencies** beyond `dsh`: SQLite comes from `node:sqlite`; Dayflow edits use the
   app's local Unix socket, while the owned journal has its own SQLite file.
 
 Deep documentation: [tools](docs/TOOLS.md) · [panel](docs/PANEL.md) · [quick capture](docs/QUICK_CAPTURE.md) ·
-[configuration](docs/CONFIGURATION.md) · [architecture](docs/ARCHITECTURE.md) · [native capture](docs/NATIVE_CAPTURE.md) ·
-[native port plan](docs/NATIVE_PORT.md) · [cutover rehearsal](docs/CUTOVER_REHEARSAL.md) · [roadmap](docs/ROADMAP.md).
+[configuration](docs/CONFIGURATION.md) · [providers](docs/PROVIDERS.md) · [architecture](docs/ARCHITECTURE.md) ·
+[native capture](docs/NATIVE_CAPTURE.md) · [native port plan](docs/NATIVE_PORT.md) ·
+[cutover rehearsal](docs/CUTOVER_REHEARSAL.md) · [roadmap](docs/ROADMAP.md).
 
 ## Requirements
 
@@ -91,8 +99,9 @@ dependency either: across 0.8.0–0.8.4 `package.json` differs only in the packa
 changes only the compatibility map and the development-dependency pins (the DSH SDK packages and the
 three client host peers as devDependencies, to `0.2.2-rc.5`, and `cordis` to `4.1.0`), plus one type-only
 schema annotation — the `peerDependencies` keep their
-declared ranges. Image admission, which would need that attachment service, is deferred to the next
-line (owner-gated D1/D2/D11).
+declared ranges. The 0.10.0 line in progress adds no host peer and no runtime dependency either:
+`analysis.models` is a configuration shape, and every shipped call stays text-only. Image admission,
+which would need that attachment service, stays deferred while D11 is open.
 
 ## Install
 
@@ -264,6 +273,16 @@ today's outcome. The analysis status payload gains `tokenBudgetExhausted`, and t
 amber with **Daily token budget reached** while it is true — still no route, still no button, and a default
 profile still makes no model call.
 
+0.10.0 (in progress, not tagged) makes the cloud path configurable as a **named model list**, text-only as
+before: `analysis.models` is an optional list of 1–8 entries `{id, provider, model, label?}`. With the list
+absent or empty the legacy `analysis.provider`/`analysis.model` pair works exactly as it does today; with a
+list, the first entry is active unless `analysis.model` names another entry's `id`, `analysis.provider` must
+be empty, and an unknown, duplicate, or blank id is refused at load with `invalid_input` instead of silently
+falling back. The active entry's pair feeds the frame analyser and the scheduled closes through the same
+consent gate and ledger, and the analysis status line plus `GET /api/dayflow/analysis/status` name the active
+model — the entry's label, or the effective provider/model — read-only. Provider routes and their credentials
+live in the host profile, never in this plugin → [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
 Verify it locally without touching real data:
 
 ```sh
@@ -293,11 +312,25 @@ Set these under the plugin's row in a profile patch, or edit the shipped default
     searchLimit: 50      # max matches per dayflow_search (1-200)
     capture:
       enabled: false     # native capture engine, off by default
+    analysis:
+      consent: cloud     # default none: nothing calls a model without it
+      models:            # optional; absent/empty = legacy provider/model pair
+        - id: flash      # the selector id analysis.model names
+          provider: deepseek        # a route name the host profile registers
+          model: deepseek-flash     # a model id on that route
+          label: DeepSeek Flash     # optional
+        - id: pro
+          provider: deepseek
+          model: deepseek-v4-pro
+      model: flash       # optional entry id; empty selects the first entry
+      # provider: ''     # must stay empty while models is non-empty
 ```
 
 `DAYFLOW_DB` overrides the Dayflow path when `databasePath` is empty. Every key, its
 default, and the capture/analysis/automation blocks are in
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md); with `analysis.models` absent or empty the
+legacy `analysis.provider`/`analysis.model` pair is the selection, and the host-side provider
+route and credential setup is in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
 ## Privacy and safety
 
@@ -310,7 +343,7 @@ default, and the capture/analysis/automation blocks are in
 - Native capture is off by default and writes frames only to `$DSH_HOME/dayflow/frames/`
   (directory `0700`, file `0600`) with retention enforced; analysis only ticks while capture and
   analysis are both enabled, and no frame is sent away without the `cloud` consent plus a configured
-  provider and model.
+  provider and model (the legacy pair, or the `analysis.models` entry that is active).
 - The panel's favicon fetch is the only outbound request: one `favicon.ico` per domain, no
   cookies or referrer, loopback and bare-IP names refused, and `icons: false` stops it.
 
@@ -319,7 +352,7 @@ default, and the capture/analysis/automation blocks are in
 ```sh
 npm install
 npm run build                # TypeScript → lib/, plus the client bundle
-npm test                     # build, type-check, and run the 558-test suite
+npm test                     # build, type-check, and run the 581-test suite
 npm run typecheck            # type-check sources and tests together
 npm run smoke                # read this Mac's real Dayflow database
 npm run native:smoke         # capture provider only; writes nothing

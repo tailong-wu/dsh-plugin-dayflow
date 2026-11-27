@@ -6,6 +6,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **0.10.0 (in progress — not tagged) — cloud analysis with a named model
+  list.** The analysis selection grows from one explicit
+  `analysis.provider`/`analysis.model` pair to an optional named list,
+  `analysis.models`: 1–8 entries `{id, provider, model, label?}` (id ≤ 64
+  characters, label ≤ 80), each naming a **host-registered** provider route and
+  a model id. With the list absent or empty nothing changes — the legacy pair
+  resolves and behaves exactly as at `v0.9.2`. With a non-empty list the effective call pair is the **active
+  entry**: `analysis.model` selects an entry `id` (trimmed, case-insensitive;
+  empty selects the first entry) and `analysis.provider` must be left empty
+  because each entry carries its own provider. An unknown selector, a duplicate
+  or blank `id`/`provider`/`model`, a list plus a non-empty
+  `analysis.provider`, or more than eight entries is refused at load with
+  `invalid_input` (an unknown selector names the known ids) rather than
+  silently selecting another model. The active pair feeds the frame analyser
+  and the scheduled day/week closes and briefs through the existing consent
+  gates and ledger; no gate logic changed.
+- **Active-model status.** `GET /api/dayflow/analysis/status` gains one additive
+  `model` summary (`{ id?, provider, model, label? }`) naming the model the
+  next analysis call would use: `provider`/`model` are the effective pair, `id`
+  and `label` appear only in named-list mode (`label` only when the profile
+  wrote one), and the field is absent while no complete pair is configured, so
+  an older payload and an unconfigured profile read exactly as before. The
+  panel's read-only analysis line shows the label (or `provider/model`) behind
+  the consent word. No route, button, tab, or fetch was added — still **18**
+  host Fetch routes, **5** slash commands, **23** tools, **8** skills, and
+  schema **v10**.
+- **Provider setup documentation.** [`docs/PROVIDERS.md`](docs/PROVIDERS.md)
+  covers the host side end to end: the `llm-pi-ai.providers` route with
+  `apiKeyEnv` (a credential **reference**, resolved by the host — never a value
+  in this repository), the DeepSeek card route, how the plugin names that route
+  in `analysis.models`, what a cloud call sends (text metadata only), and
+  rotation. The plugin stores no credential, reads no key from the environment,
+  and echoes none into status, errors, jobs, or logs.
+- The default profile stays inert: `analysis.consent: none`, `analysis.models:
+  []`, and an empty pair, so it makes no model call and sends nothing. Cloud
+  analysis still requires an explicit `analysis.consent: cloud` plus a complete
+  host-configured provider route. **Not in 0.10.0:** image admission (**D11**
+  open — every shipped call stays **text-only**, and no attachment peer, image
+  block, or `includeImages` key was added), the Phase 4 `source: owned` cutover
+  (**D10** open), option **B** (fallback) and option **C** (per-entry
+  `baseURL`), both deferred until the owner picks D2's form, and the npm
+  publish itself: **D7** authorises it, but the registry still answers **404**,
+  this machine is not logged in, and the publish is a separate owner-confirmed
+  step after the tag. The repository version stays `0.9.2` until that release
+  commit; this entry cuts no tag.
+
 ## [0.9.2] - 2026-11-27
 
 ### Added

@@ -1,9 +1,10 @@
 # Patch plan: the 0.10.x line
 
 > **Status: the 0.10.x line is open on the owner's 2026-11-27 answers, and this
-> file is the line's plan — 0.10.0 is not implemented and nothing is tagged
-> from it.** The owner answered **D1 = `cloud`** (screen metadata may be
-> analysed by a cloud provider), **D7 = `yes`** (npm publication is authorised),
+> file is the line's plan — 0.10.0 is in progress (implementation round,
+> 2026-11-27) and nothing is tagged from it.** The owner answered
+> **D1 = `cloud`** (screen metadata may be analysed by a cloud provider),
+> **D7 = `yes`** (npm publication is authorised),
 > and **partially answered D2** (several custom models wanted, DeepSeek first;
 > the A/B/C form is still the owner's to choose). That is enough to open the
 > line, because the first patch needs no further decision:
@@ -17,7 +18,10 @@
 > until the owner picks the form, and even C would keep credentials in the host
 > profile, never in the plugin.
 >
-> **Baseline measured at `main` `844dd02` (post-`v0.9.2` docs tree, 2026-11-27):**
+> **Baseline measured at `main` `844dd02` (post-`v0.9.2` docs tree, 2026-11-27);
+> the plan and the §0.10.x roadmap section landed on `e4b143a` (`docs: open the
+> 0.10 line for cloud analysis and model selection`), where the implementation
+> round starts:**
 > **558** green tests (**557** at the `v0.9.2` tag, `ccac653`), schema **v10**,
 > **18** panel routes (9 `GET` + 9 `POST`), **5** slash commands, **23** tools,
 > **8** skills, **22 tags / 22 GitHub Releases**, **`v0.9.2` Latest**, and
@@ -37,9 +41,30 @@
 > owner-confirmed step after the tag, with the npm login precondition this
 > machine does not yet meet.
 >
-> **Last revised:** 2026-11-27, first revision: written after the owner's D1/D7
-> answers and partial D2 answer, against the `v0.9.2`/`844dd02` tree. No code,
-> test, or release was touched by this planning round.
+> **Implementation round, 2026-11-27: 0.10.0 is in progress.** The approved
+> A-baseline shape is being built on `main` `e4b143a` (the planning commit) in
+> three parallel lanes — **host** (`src/config.ts`, `src/analyse/models.ts`,
+> `src/analyse/status.ts`, `src/panel-contract.ts`), **client**
+> (`src/client/insights.tsx`, `locale.ts`, `styles.ts`; `data.ts` follows the
+> contract type without an edit), and **docs**
+> (`docs/CONFIGURATION.md`, `docs/PROVIDERS.md`, README pair, CHANGELOG) —
+> while this file and [`ROADMAP.md`](ROADMAP.md) §0.10.x carry the plan status.
+> The patch is **not landed**: nothing is tagged, no npm publish has run, and
+> the tag is the lead's decision only after the §3.9 gate order — including one
+> real-cloud smoke recorded without a key (§3.7, C7) — is green. §3.9 pins the
+> file-level scope, the gate order, and the post-tag publish preconditions;
+> §3.3/§3.4 are corrected to the approved status shape — the additive optional
+> `model` summary on the analysis status payload, present only when a complete
+> pair is configured, not top-level `provider`/`model`/`modelId` fields.
+>
+> **Last revised:** 2026-11-27, second revision: the implementation round. The
+> first revision wrote the plan against `844dd02`; this revision marks 0.10.0
+> **in progress** on `e4b143a`, aligns §3.3/§3.4 with the approved
+> implementation shape (the additive optional `analysis.model` status summary),
+> corrects the provider page from "new" to "written in the planning round,
+> updated by this patch", and adds §3.9 (file-level scope, gate order, publish
+> preconditions). No code, test, or release was touched by this planning round;
+> the implementation lanes are separate.
 
 ## 1. Starting point, measured
 
@@ -49,15 +74,16 @@ table; the measurement is the basis the patch's acceptance assumes.
 
 | Fact | Value | Checked at |
 | --- | --- | --- |
-| Baseline | `main` at **`844dd02`** (`fix(compat): correct the peer-count message in the metadata guard`), the post-`v0.9.2` docs tree. `v0.9.2` is an annotated tag on `ccac653`; the 0.9.x functional line closed at `v0.9.1` (`ce0827e`) | `git log`, `git tag`, `git status` (clean) |
+| Baseline | `main` at **`e4b143a`** (`docs: open the 0.10 line for cloud analysis and model selection`), the planning commit that wrote this file and the §0.10.x roadmap section. The measurement below was taken one commit earlier, on **`844dd02`** (`fix(compat): correct the peer-count message in the metadata guard`, the post-`v0.9.2` docs tree). `v0.9.2` is an annotated tag on `ccac653`; the 0.9.x functional line closed at `v0.9.1` (`ce0827e`) | `git log`, `git tag`, `git status` (**clean at the round's start**, 2026-11-27; the implementation lanes write uncommitted in one tree) |
+| Round | **Implementation round, 2026-11-27: in progress.** Three parallel, disjoint-file lanes on `e4b143a` — host (`src/config.ts`, `src/analyse/models.ts`, `src/analyse/status.ts`, `src/panel-contract.ts`), client (`src/client/insights.tsx`, `locale.ts`, `styles.ts`; `data.ts` follows the type automatically), docs (`docs/CONFIGURATION.md`, `docs/PROVIDERS.md`, README pair, CHANGELOG) — with this plan and `docs/ROADMAP.md` §0.10.x maintained in parallel. No tag, no publish, no landed record pre-written; §3.9 pins the scope and gates | task board; `git status` at the round's start (clean) |
 | Release trail | **22 tags / 22 GitHub Releases**; **`v0.9.2` is Latest**; the 0.9 line's tags are exactly `v0.9.0` (`d0f9b5a`), `v0.9.1` (`ce0827e`), `v0.9.2` (`ccac653`), each with a Release. A `v0.10.0` cut would be the 23rd of each | `git tag`, `gh release list` |
-| Tests | **558** green on the current tree; **557** at the `v0.9.2` tag; the one post-tag case is the engineering-only metadata guard in `tests/compatibility.test.ts`. CI runs macOS 15 with Node 24 and Node 22 (`--experimental-sqlite`) | `npm test` (558 recorded at this revision, 557 at the tag), `.github/workflows/ci.yml` |
+| Tests | **581** green on the implementation tree (**558** at the planning baseline, **557** at the `v0.9.2` tag; 0.10.0 adds 23 cases: 22 host/status/consent/config + 1 client copy). CI runs macOS 15 with Node 24 and Node 22 (`--experimental-sqlite`) | `npm test` (558 recorded at this revision, 557 at the tag), `.github/workflows/ci.yml` |
 | npm | `npm view dsh-plugin-dayflow version` → **404** (name unclaimed, never published); `npm whoami` → **`ENEEDAUTH` / need auth** on this machine. `npm pack --dry-run` at `0.9.2`: **146 files**, 2.64 MB packed / 4.09 MB unpacked. `npm run release` bumps, tests, commits, tags, pushes, and creates the GitHub Release — it does **not** publish | `npm view`, `npm whoami`, `/tmp/dayflow-pack.json`, `scripts/release.mjs` |
 | Host | The installed DSH app is **`0.2.2-rc.5`** (`CFBundleShortVersionString`); the declared cohort was realigned at 0.9.2 and verified. The host's model providers and credentials are configured **in the host profile** (`~/.dsh/profiles/<profile>/cordis.patch.yml`, e.g. `llm-pi-ai.providers` with `apiKeyEnv`), and the host's model service is what the plugin calls through `ctx.llm.stream()`; the host also stores credentials records. **The plugin stores no key and reads no environment secret.** Provider ids are host-owned: on this machine the agent default model is `deepseek-official`/`deepseek-flash` (measured 2026-11-27) | the app bundle, `~/.dsh/profiles/desktop/cordis.patch.yml`, `src/analyse/host.ts` |
 | Analysis contract | **Text-only**: the analysis call sends the frontmost app, window title, and frame hash — **no pixels**; the scheduled closes send activity text only. `analysis.consent` ships **`none`**, and a `cloud`/`local` consent additionally needs an explicit provider **and** model: there is no implicit host default. Frame analysis uses `src/analyse/consent.ts`; the automation/briefs text path uses `src/automation/consent.ts`; both read the same resolved `analysis` block | `src/config.ts`, `src/analyse/consent.ts`, `src/automation/consent.ts`, `docs/CONFIGURATION.md` |
 | Current analysis configuration | **One explicit pair** only: `analysis.provider: string` and `analysis.model: string`, both defaulting to `''`; the resolved config carries the pair, the consent gate returns `{allowed, provider, model}`, the pipeline records `provider`/`model` on the job, and the status payload reports the switches, budgets, worker state, and blocked reason — **not** which model would be called | `src/config.ts` (`AnalysisSchema`, `resolveConfig`), `src/analyse/status.ts` |
 | What exists on the cloud path | The host adapter (`src/analyse/host.ts`), the pipeline and worker, the two consent gates, the job ledger with recorded model/token usage, the status route and panel analysis line, and the open/close/brief call sites. The path is exercisable today with a hand-written `consent: cloud` plus one provider/model pair | `src/analyse/**`, `src/automation/**`, `src/briefs/**`, `src/panel.ts` |
-| What is missing (the gap 0.10.0 closes) | (1) **No way to name more than one model** — every entry must be in the profile as the single pair, and switching means editing the pair; (2) **no provider/credential setup page** — the only provider prose is scattered through `CONFIGURATION`/`NATIVE_CAPTURE`/README, with no `apiKeyEnv`/credentials/rotation instructions; (3) **no recorded real-cloud run** — the suite's model seam is a fake host and CI never calls a model, so nothing proves the cloud path against a real provider; (4) **no status line naming the model** the next call would use, so a profile with several models could not tell which was active | repository grep, `src/**`, `docs/**` |
+| What is missing (the gap 0.10.0 closes) | (1) **No way to name more than one model** — every entry must be in the profile as the single pair, and switching means editing the pair; (2) **the provider page is written but not yet in list shape** — the planning round wrote `docs/PROVIDERS.md` (`e4b143a`) with the host-provider/`apiKeyEnv`-or-credentials setup, key rotation, and the text-only disclosure, but it still describes the named list as planned and shows only the legacy pair, so this round updates it; (3) **no recorded real-cloud run** — the suite's model seam is a fake host and CI never calls a model, so nothing proves the cloud path against a real provider; (4) **no status line naming the model** the next call would use, so a profile with several models could not tell which was active | repository grep at `e4b143a`, `src/**`, `docs/**` |
 | Owner answers | **D1 = `cloud`** (answered 2026-11-27); **D2 = partially answered** — several custom models, DeepSeek first, **A/B/C form undecided** (A = named model list; A+B = list plus fallback; A+B+C = plus custom `baseURL`); **D7 = `yes`** — publish authorised, **not logged in, nothing published**; **D10/D11 = open** (explanations given; unanswered keeps the safe defaults) | [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md), the owner's 2026-11-27 answers |
 | Not in this line | Image admission (D11: no attachment peer, no `includeImages`, no `privacy_apps`, text-only), the Phase 4 cutover default (D10), the owned-journal write path, the `dsh dayflow import` CLI, and D2's B/C forms | [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md), [`ROADMAP.md`](ROADMAP.md) §0.10.x |
 
@@ -71,12 +97,12 @@ call, the first entry as the default, and the existing pair still working
 untouched when no list is configured. That is option A, and it is what this
 plan commits. It needs **no new route, tool, command, skill, schema migration,
 host peer, or runtime dependency** — it is a configuration shape plus one
-additive status field — but it does need the thing the current tree has never
+additive status summary — but it does need the thing the current tree has never
 had: a documented, key-less provider setup and one real run behind it.
 
 **Why this line is a minor (`0.10.0`), not a `0.9.3` patch.** It adds a
-configuration key (`analysis.models`) and an additive, optional status field
-(`model` on the analysis status payload), and it changes what a profile can
+configuration key (`analysis.models`) and an additive, optional `model` status
+field, and it changes what a profile can
 configure — a backwards-compatible addition under SemVer. A patch number would
 advertise a maintenance change while the line actually turns on the analysis
 path the owner authorised. `0.8.2` (image admission) and `0.8.3` (cutover) were
@@ -105,9 +131,10 @@ question returns to the owner.
 
 **C2 — The multi-model list is additive; the single pair is frozen.** With
 `analysis.models` absent or empty, the resolved configuration, the two consent
-gates, the job ledger, and every status field behave **exactly** as at
+gates, the job ledger, and every existing status field behave **exactly** as at
 `v0.9.2`, including the `provider-unset`/`model-unset` reasons and "no implicit
-host default". The list is a new, opt-in shape that resolves to the same
+host default"; the new `model` summary is absent in that mode, not a behaviour
+change. The list is a new, opt-in shape that resolves to the same
 `{provider, model}` pair the code already consumes, so the call path does not
 fork.
 
@@ -133,8 +160,9 @@ and sends nothing. Only a profile that explicitly sets `consent: cloud` (or
 frame hash; activity text for the closes), never an image.
 
 **C5 — The status change is one additive, optional field.** The analysis status
-payload gains one `model` object; an older client that never reads it is
-unaffected and the patched client tolerates its absence. No other payload
+payload gains one `model` object — `{id?, provider, model, label?}`, present only
+when a complete effective pair is configured; an older client that never reads it
+is unaffected and the patched client tolerates its absence. No other payload
 field changes meaning, no route is added (**18** stays), and the panel keeps its
 one entry point.
 
@@ -173,7 +201,7 @@ implementation.
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.10.0 | **Cloud analysis + multi-model selection (option A baseline), provider setup, and first-npm-publish preparation.** A named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id); the legacy pair still works untouched when the list is empty; both the frame-analysis gate and the automation/briefs gate call the active pair; the analysis status line reports the active model; a new `docs/PROVIDERS.md` documents host-provider/`apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded real-cloud run proves the path. **No** schema, route, command, tool, skill, peer, runtime dependency, image, or cutover change; npm publish is prepared but not performed | Phase 3.6 (cloud analysis and its honest privacy copy) + Native port analysis line; owner answers **D1 = cloud**, **D2 partially answered (multi-model direction)**, **D7 = yes (publish authorised)** | **planned — this file; not implemented, no tag** |
+| 0.10.0 | **Cloud analysis + multi-model selection (option A baseline), provider setup, and first-npm-publish preparation.** A named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id); the legacy pair still works untouched when the list is empty; both the frame-analysis gate and the automation/briefs gate call the active pair; the analysis status line reports the active model through the additive optional `model` field on the analysis status payload (its label when present, otherwise `provider/model`; the entry `id` rides along in list mode); the provider page `docs/PROVIDERS.md` (written in the planning round) is updated for the named list, `apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded real-cloud smoke proves the path. **No** schema, route, command, tool, skill, peer, runtime dependency, image, or cutover change; npm publish is prepared but not performed | Phase 3.6 (cloud analysis and its honest privacy copy) + Native port analysis line; owner answers **D1 = cloud**, **D2 partially answered (multi-model direction)**, **D7 = yes (publish authorised)** | **in progress — implementation round under way (2026-11-27) on `e4b143a`; no tag and no publish; the cut waits on §3.9's gate order, including the recorded real-cloud smoke** |
 
 ### 3.2 0.10.0 — what it is and what it is not
 
@@ -238,9 +266,12 @@ human label:
    pair** (the active entry's trimmed ids), so both consent gates, the pipeline,
    the job ledger, the automation call sites, and their tests continue to
    consume the same fields they do today. It additionally exposes the normalized
-   `models` list and the selected entry (id included) for status/display. The
-   input's `analysis.model` is a selector only in mode 2; the resolved
-   `analysis.model` is always the effective model id.
+   `models` list and the selected `modelId` — the active entry's id; both keys
+   are absent in the legacy shape, keeping that resolved configuration
+   byte-identical — and the status builder derives the nested `model` summary
+   (`{id?, provider, model, label?}`) from them. The input's `analysis.model` is
+   a selector only in mode 2; the resolved `analysis.model` is always the
+   effective model id.
 
 **Validation.** Each entry requires a non-empty `id` (trimmed, at most 64
 characters), a non-empty `provider`, and a non-empty `model` (both trimmed);
@@ -264,8 +295,8 @@ named-list cases.
 - **Call path.** `src/analyse/pipeline.ts` and its callers keep using the consent
   decision's `{provider, model}`; with a named list that is the active entry, so
   the frame path needs no call-site change. The status builder
-  (`src/analyse/status.ts`) gains the active-model summary and keeps its
-  no-journal pure read. `src/analyse/consent.ts` and
+  (`src/analyse/status.ts`) gains the additive optional `model` summary and
+  keeps its no-journal pure read. `src/analyse/consent.ts` and
   `src/automation/consent.ts` are unchanged in behaviour: the effective pair is
   the entry's pair, `consent: none` still blocks, and a `local` consent still
   requires the active entry's provider to be on `analysis.localProviders` on the
@@ -280,46 +311,54 @@ named-list cases.
   block, so they use the selected entry as well; the job ledger already records
   the provider and model per call, so the landed record can evidence which entry
   ran. No call site changes beyond typing.
-- **Status payload.** `AnalysisStatusPayload` gains one optional additive field:
-  `model?: { id?: string; provider: string; model: string; label?: string }`,
-  present when a complete effective pair exists (the resolved pair when the list
-  is empty, the active entry when it is not; `id`/`label` only in list mode).
-  It is absent when no pair is configured, so an old payload and an unconfigured
-  profile read the same. The existing fields (switches, consent, worker, ledger
-  counts, budgets, `reason`) are unchanged; no other payload changes.
-- **Panel.** `src/client/insights.tsx` renders the active model quietly on the
-  existing analysis line — the label when present, otherwise
-  `provider/model` — with no button, no fetch, and no second control surface
-  (R9/C5). `src/client/locale.ts` gains the one copy key in **both** EN and ZH
-  (the existing parity and copy tests cover it); `src/client/data.ts`'s
-  `AnalysisStatusSummary` follows the contract type automatically.
+- **Status payload.** `AnalysisStatusPayload` gains one additive, optional
+  field: `model?: { id?: string; provider: string; model: string; label?: string }`,
+  present only when a complete effective pair is configured (the active named
+  entry, or the legacy pair). `id` rides along only in list mode, and `label`
+  only when the entry wrote one; the legacy pair's summary is `provider`/`model`
+  alone. It is absent when no complete pair exists, so an unconfigured profile's
+  payload is exactly the pre-0.10 payload and an older client that never reads
+  the field is unaffected. The existing fields (switches, consent, worker,
+  ledger counts, budgets, `reason`) are unchanged; no other payload changes.
+- **Panel.** `src/client/insights.tsx` shows the active model quietly on the
+  existing analysis line — the entry's label when present, otherwise
+  `provider/model`, prefixed by the consent destination word (`cloud · …` or
+  `local · …`; a plain `Model …` when consent is unset) — with no button, no
+  fetch, and no second control surface (R9/C5). `src/client/locale.ts` gains the
+  three copy keys in **both** EN and ZH (the existing parity and copy tests
+  cover it); `src/client/data.ts`'s `AnalysisStatusSummary` follows the contract
+  type automatically; `src/client/styles.ts` reuses the existing `--dsw-*`
+  tokens.
 - **Default profile.** The shipped `cordis.patch.yml` is **not** changed: no
   `models`, no provider/model, `consent: none`. Documentation shows the profile
   example, not the shipped default.
 
 ### 3.5 Documentation that travels with the tag
 
-- **`docs/PROVIDERS.md` (new).** The one page the gap is missing: how a host
-  provider is set up in the **host profile** (the `llm-pi-ai.providers`-style
-  entry with `apiKeyEnv`, or the host credentials record), how to name it in
-  `analysis.models`, how `analysis.model` selects the active entry, how the
-  legacy pair still works, how to rotate/revoke a key, and the honest
-  disclosure: cloud analysis sends the frontmost app, window title, and frame
-  hash (and activity text for the closes) to the provider — **no pixels while
-  D11 stays open** — plus the existing 3.6 limitation copy that a window-level
-  rule cannot see inside a browser tab or document. Placeholders and env-var
-  names only; no credential value anywhere.
+- **`docs/PROVIDERS.md` (written in the planning round; updated by this
+  patch).** The page the gap was missing already exists from `e4b143a`: how a
+  host provider is set up in the **host profile** (the
+  `llm-pi-ai.providers`-style entry with `apiKeyEnv`, or the host credentials
+  record), how to rotate/revoke a key, and the honest disclosure: cloud analysis
+  sends the frontmost app, window title, and frame hash (and activity text for
+  the closes) to the provider — **no pixels while D11 stays open** — plus the
+  existing 3.6 limitation copy that a window-level rule cannot see inside a
+  browser tab or document. This patch updates its status line from "planned" to
+  the implemented list shape and adds how to name entries in `analysis.models`,
+  how `analysis.model` selects the active entry, and how the legacy pair still
+  works. Placeholders and env-var names only; no credential value anywhere.
 - **`docs/CONFIGURATION.md`.** The analysis key table gains `analysis.models`
   (and the selector meaning of `analysis.model` in list mode), with a worked
   two-entry example and the precedence rule; the provider/model rows stay for
   the legacy shape.
 - **`README.md` / `README.zh.md`.** The status banner and the analysis section
   stop describing the five decisions as wholly unanswered: D1/D7 answered, D2
-  partial, 0.10.0 open; the config snippet points at `docs/PROVIDERS.md`. The
-  install section keeps "from a checkout" until a publish actually happens (see
-  §4) and is updated by the post-publish docs commit, not silently in the tag.
+  partial, 0.10.0 in progress but untagged; the config snippet points at
+  `docs/PROVIDERS.md`. The install section keeps "from a checkout" until a
+  publish actually happens (see §4) and is updated by the post-publish docs
+  commit, not silently in the tag.
 - **`CHANGELOG.md`.** `[Unreleased]` → `[0.10.0]` at the cut, honestly listing
-  the new config key, the additive status field, the provider docs, the
+  the new config key, the additive `model` status field, the provider docs, the
   verification run, and that npm is still unpublished unless §4 has run.
 - **`docs/ROADMAP.md`** §0.10.x and this file's landed record are corrected in
   place after the tag, as the 0.9 patches did. **`docs/OWNER_DECISIONS.md`** is
@@ -330,20 +369,30 @@ named-list cases.
 
 | File | What it pins |
 | --- | --- |
-| `tests/config-analysis-models.test.ts` (new) | Default `models: []`; legacy pair resolution byte-identical to `v0.9.2`; first-entry default; `analysis.model` id selection (case-insensitive); empty selector = first; unknown id → `invalid_input` naming the id and known ids; duplicate id; incomplete entry (missing/blank `id`/`provider`/`model`); list + non-empty `analysis.provider` conflict; 1–8 bound; label/id trimming; no key field is read into or echoed by the resolved config |
+| `tests/config.test.ts` (new; the round names the new test file this instead of `tests/config-analysis-models.test.ts`) | Default `models: []`; legacy pair resolution byte-identical to `v0.9.2`; first-entry default; `analysis.model` id selection (case-insensitive); empty selector = first; unknown id → `invalid_input` naming the id and known ids; duplicate id; incomplete entry (missing/blank `id`/`provider`/`model`); list + non-empty `analysis.provider` conflict; 1–8 bound; label/id trimming; no key field is read into or echoed by the resolved config |
 | `tests/analyse-consent.test.ts` (extend) | The frame gate returns the active entry's pair; `consent: none` still blocks; `local` consent still rejects a non-allowlisted active provider; legacy branch reasons unchanged |
-| `tests/analyse-status.test.ts` (extend) | `analysis.model` summary for the legacy pair and for a named entry (id/label present only in list mode); absent when unconfigured; ledger fields unchanged |
+| `tests/analyse-status.test.ts` (extend) | The additive optional `model` summary: `provider`/`model` for the legacy pair, plus the entry's `id` (and `label` when written) in list mode; the whole summary absent when unconfigured; ledger fields unchanged |
 | `tests/analyse-pipeline.test.ts` (extend) | The fake host receives the selected provider/model for a window; job records the selected model; no call under `consent: none` |
 | `tests/automation-insights.test.ts` / `tests/briefs.test.ts` (extend) | A scheduled close / brief uses the selected entry's pair (the text gate resolves the same effective pair); blocked reasons unchanged |
-| `tests/panel.test.ts` / `tests/panel-insights.test.ts` / `tests/client-format.test.ts` (extend) | The status route carries the additive `model` field; the panel copy key exists in EN and ZH with parity; no new route (still 18) and the old payload without `model` parses |
+| `tests/panel.test.ts` / `tests/panel-insights.test.ts` / `tests/client-format.test.ts` (extend) | The status route carries the additive `model` summary; the three panel copy keys exist in EN and ZH with parity; no new route (still 18) and the old payload without the field parses |
 | `tests/compatibility.test.ts` | Unchanged in substance: no new peer/dependency; the metadata guard stays green. **No test case is removed or weakened**; the cut records the new count |
+
+**Round split (2026-11-27).** The implementation lanes carry the config,
+consent, and status cases (host) and the client copy case (client); the
+pre-existing pipeline, automation, briefs, and panel cases already assert that
+the resolved pair is exactly what reaches the gates and the fake host, so they
+keep passing unchanged and the cut confirms them rather than rewriting them. If
+the cut wants a list-mode end-to-end assertion beyond the config resolution, one
+pipeline or panel case is added before the tag; no acceptance item is dropped.
 
 ### 3.7 Acceptance
 
-- **Suite and gates:** `npm test` green at **558+** cases (the 558 current floor,
-  new cases added, none removed/weakened; the cut records the exact count),
-  `npm run typecheck`, `npm run build` (host and client bundle), and
-  `npm run check:package` green; both CI legs (Node 24, Node 22) green.
+- **Suite and gates, in this order (all green before the tag):** `npm test`
+  green at **558+** cases (the 558 current floor, new cases added, none
+  removed/weakened; the cut records the exact count), `npm run typecheck`,
+  `npm run build` (host and client bundle), `npm run check:package`, and the
+  secret scan of the diff and the packed tarball; both CI legs (Node 24,
+  Node 22) green on the pushed branch.
 - **Default inert:** a default profile resolves `consent: none`, `models: []`,
   empty pair; no analysis call, no scheduled close call, no model call of any
   kind, and the status reason is the same `consent:none` line as before.
@@ -355,30 +404,34 @@ named-list cases.
 - **One active model everywhere:** the frame path, the scheduled closes, and the
   briefs path all use the same resolved active entry (asserted on the fake host
   request bodies and the recorded job rows).
-- **Status:** `/api/dayflow/analysis/status` answers the additive `model`
-  object; an old payload without it still parses; the panel renders it read-only;
-  no new route, tab, button, or fetch (**18** routes stay).
+- **Status:** `/api/dayflow/analysis/status` answers the additive optional
+  `model` summary (`provider`/`model`, plus `id` in list mode and `label` when
+  the entry wrote one; absent when no complete pair is configured); an old
+  payload without the field still parses; the panel renders it read-only; no new
+  route, tab, button, or fetch (**18** routes stay).
 - **No secret:** no real key in the diff, docs, examples, tests, or committed
   profile; the only key-like string in the tree remains the deliberately fake
   `FIXTURE_LLM_SECRET` in `tests/fixtures/database.ts`, which never leaves the
   fixture and is clearly not a credential; docs use `apiKeyEnv`/credentials
   references and placeholders; a rotation note is present for any key shared in
   chat.
-- **Real-cloud evidence:** one recorded run against the owner-configured host
-  provider (consent `cloud`, selected entry, capture+analysis on) where a window
-  completes with the model id and token counts in the ledger and an activity row
-  appears, recorded without the key. **If that run cannot be obtained, 0.10.0 is
-  not tagged as "cloud verified"** — the code may be reviewed, but the tag waits,
-  because the verification is the point of the line.
+- **Real-cloud smoke — the tag gate:** one recorded run against the
+  owner-configured host provider (consent `cloud`, selected entry,
+  capture+analysis on) where a window completes with the provider/model id and
+  token counts in the ledger and an activity row appears, recorded without the
+  key. **If that smoke cannot be obtained, 0.10.0 is not tagged** — the code may
+  be reviewed, but the tag waits, because the verification is the point of the
+  line; the tag is the lead's decision after this record, not before.
 - **Diff proof:** the diff adds only the `analysis.models` key, the selection
   helper, the additive `model` status field, its copy/rendering, tests, and docs;
   schema stays **v10**, routes **18**, commands **5**, tools **23**, skills
   **8**, peers and runtime dependencies unchanged, and no image/cutover/write
   surface appears.
 - **Release:** `v0.10.0` is tagged with one GitHub Release from the CHANGELOG
-  section (the 23rd of each) **only after the real-cloud evidence exists**; npm
-  publish is the separate, owner-confirmed step in §4 and is **not** part of the
-  tag.
+  section (the 23rd of each) **only after the real-cloud smoke exists and the
+  gates above are green**; npm publish is the separate, owner-confirmed step in
+  §4 and is **not** part of the tag. **The tag is not pre-written:** this plan
+  and §0.10.x say "in progress" until the lead cuts it.
 
 ### 3.8 Deferred explicitly
 
@@ -392,12 +445,83 @@ named-list cases.
 | The owned-journal write path | A new write surface the roadmap deliberately leaves with Dayflow for now | A later line, with the owner |
 | The npm publish itself | D7 = yes authorises it; the machine is not logged in and the version needs the owner's explicit confirmation | §4's preconditions met |
 
+### 3.9 This round: in progress — file scope, gate order, publish preconditions
+
+**Status.** 0.10.0 is **in progress**, not planned and not landed. The approved
+A-baseline shape — the named `analysis.models` list, the legacy pair frozen
+when the list is empty, the additive optional `model` status summary, the
+client line, the provider-page update, and the recorded real-cloud smoke — is
+being implemented on `main` `e4b143a` (clean tree, 558 tests, package `0.9.2`).
+Nothing is pre-written as landed: the CHANGELOG entry stays `[Unreleased]`,
+[`ROADMAP.md`](ROADMAP.md) §0.10.x says in progress, and the tag is the lead's
+decision after the gate order below. A diverging implementation is reconciled
+in place at the cut, as the 0.9 patches did.
+
+**File-level scope (this round).**
+
+| Area | Files | Change |
+| --- | --- | --- |
+| Config / resolution | `src/config.ts` | `analysis.models` in `AnalysisSchema`; entry normalization and validation; `ResolvedAnalysisConfig.models` and `modelId`; the legacy pair byte-identical when the list is empty; `invalid_input` on every failure |
+| Models helper | `src/analyse/models.ts` (new) | Pure `resolveAnalysisModels(...)`: normalize, bound, dedupe ids, select the active entry; returns the normalized list, the effective pair, and `modelId`; no I/O, no key field |
+| Status | `src/analyse/status.ts`, `src/panel-contract.ts` | Additive optional `model?: { id?, provider, model, label? }` summary, present only when a complete pair is configured; pure read unchanged; contract comment updated; no other payload change |
+| Client | `src/client/insights.tsx`, `src/client/locale.ts`, `src/client/styles.ts` (`src/client/data.ts` needs no edit: its `AnalysisStatusSummary` alias follows the contract type) | One read-only analysis line: the entry's label when present, otherwise `provider/model`, behind the consent destination word (`cloud · …` / `local · …`), and the existing needs-config copy when no pair is set; three EN+ZH copy keys with parity; no button, route, fetch, or second control surface |
+| Docs (travel with the tag) | `docs/CONFIGURATION.md`, `docs/PROVIDERS.md`, `README.md`, `README.zh.md`, `CHANGELOG.md`, `docs/ROADMAP.md`, this file | `models` row and two-entry example; the provider page updated from "planned" to the implemented list shape; README status/config snippet; `[Unreleased]` entry; the roadmap in-progress mark; landed wording only after the tag |
+| Tests | `tests/config.test.ts` (new), `tests/analyse-consent.test.ts`, `tests/analyse-status.test.ts`, `tests/client-format.test.ts`, `tests/panel-insights.test.ts`; the pre-existing pipeline/automation/briefs cases unchanged | Default/legacy/first-entry/id-selection/error/status/copy cases on the fake seams; **no case removed or weakened**; 558 stays the floor (§3.6's round split) |
+| Untouched (C6) | `src/analyse/pipeline.ts`, `src/analyse/consent.ts`, `src/automation/consent.ts`, the route table, the journal schema, `package.json` (version only at the cut) | No logic change; both gates keep consuming the resolved pair; schema **v10**, routes **18**, commands **5**, tools **23**, skills **8**, peers and runtime dependencies unchanged; no image, cutover, write path, or npm publish |
+
+**Gate order at the cut (all before the tag; the lead runs the cut).**
+
+1. `npm test` green at **558+** (the floor, the exact count recorded; no case
+   removed or weakened) and both CI legs (Node 24, Node 22) green on the pushed
+   branch.
+2. `npm run typecheck` green.
+3. `npm run build` green (host and client bundle).
+4. `npm run check:package` green, with the `npm pack --dry-run` file list
+   reviewed (no `src/`, `tests/`, `scripts/`, `node_modules/`, `.map`, `.tgz`,
+   or secret material).
+5. **Default inert (C4):** a default profile resolves `consent: none`,
+   `models: []`, an empty pair, and the same `consent:none` reason; no model
+   call and no egress of any kind; the analysis contract stays text-only while
+   D11 is open.
+6. **No secret (C3):** the diff, docs, examples, tests, and tarball carry no
+   real key; only the deliberate `FIXTURE_LLM_SECRET` fixture remains; the
+   rotation note for any key shared in chat is present.
+7. **Contract proof (C6):** every changed file is in the table above; schema
+   v10, 18 routes, 5 commands, 23 tools, 8 skills, peers and runtime
+   dependencies unchanged; no image, cutover, or write surface appears.
+8. **Real-cloud smoke (C7) — the tag gate:** the operator runs one manual
+   real-cloud pass and records the provider/model id, job result, token counts,
+   and the activity row, without the key. If it cannot be run, **0.10.0 is not
+   tagged**.
+9. **Tag:** only then `v0.10.0` with one GitHub Release from the CHANGELOG
+   section (the 23rd of each); landing wording is written afterwards, never
+   before.
+
+**npm publish preconditions (after the tag; a separate step, §4).** D7 is
+answered `yes`, but the act is not part of the patch and every precondition must
+hold: the owner confirms the exact version (`0.10.0`) and public name in
+writing; `npm whoami` succeeds (`npm login` with 2FA, or a granular token
+outside the repository) — **currently unmet**; the name is still unclaimed;
+the tagged commit re-runs the gates and `npm publish --dry-run` is reviewed;
+then the public `npm publish`, verification of the registry and dist-tags, and
+the recorded integrity/file count in a docs commit (no new tag). If any
+precondition is unmet, the GitHub tag/Release stands and the version stays
+unpublished — recorded honestly. The recommended first-publish version remains
+**0.10.0**; the 0.9.2-first alternative and its cost are in §4.
+
+**What is deliberately not written here:** no landed record, no tag, no
+publish, and no "cloud verified" claim until the smoke succeeds.
+
 ## 4. Release strategy: 0.9.2 first, or 0.10.0 first?
 
 D7 is answered **yes**, so publication is authorised. It is **not done**: the
 registry answers 404, `npm whoami` needs auth, and the release script does not
 publish. This section recommends the order; the actual `npm publish` needs the
 owner to confirm the exact version (C8) and must not be automated into the tag.
+The 2026-11-27 implementation round changes none of this: **0.10.0 is in
+progress and neither precondition is met yet** (no npm login, no owner version
+confirmation). The tag gate and the post-tag publish preconditions are recorded
+in §3.9; nothing in this section is performed by the patch.
 
 **Recommendation: publish `0.10.0` first, as the package's first npm release.**
 
@@ -477,7 +601,7 @@ the tag and Release stand, and the version stays unpublished.
 config-reversible: set `analysis.consent: none`, clear `analysis.models` (or the
 pair), and remove the provider setup from the profile — a default profile is
 inert again with no code change. The code revert is a normal revert of the patch
-commits (one config shape, one helper, one status field, client copy, tests,
+commits (one config shape, one helper, the status field, client copy, tests,
 docs): no migration, no profile state, no data rewrite. A defective tag is
 corrected by a forward patch, never by moving it. A published npm version is
 deprecated and superseded, not republished; an unpublished one simply stays
@@ -560,8 +684,8 @@ additions).** Boxes stay unchecked until the cut.
       shape + helper, effective-pair wiring, status field + client copy, tests,
       docs — with no D10/D11/B/C surface.
 - [ ] **Contract frozen except the two declared changes (C2/C5/C6):** the new
-      `analysis.models` key and the additive optional `model` field on the
-      analysis status payload, nothing else; schema v10, 18 routes, 5 commands,
+      `analysis.models` key and the additive optional `model` status field,
+      nothing else; schema v10, 18 routes, 5 commands,
       23 tools, 8 skills, peers and runtime dependencies unchanged; legacy
       behaviour pinned identical.
 - [ ] **Default-safe (C4):** a default profile makes no call and sends nothing;
@@ -569,9 +693,10 @@ additions).** Boxes stay unchecked until the cut.
       D11 is open.
 - [ ] **Tests and gates:** suite ≥ 558 (count recorded, no case removed or
       weakened), typecheck, build (host + client), `check:package`, both CI legs.
-- [ ] **Real-cloud evidence recorded (C7):** one run, provider/model id, job
+- [ ] **Real-cloud smoke recorded (C7):** one run, provider/model id, job
       result, token counts, activity row, no secret.
-- [ ] **Docs with the tag (R6):** `docs/PROVIDERS.md` (new), `docs/CONFIGURATION.md`,
+- [ ] **Docs with the tag (R6):** `docs/PROVIDERS.md` (written in the planning
+      round; updated here), `docs/CONFIGURATION.md`,
       README/README.zh, `CHANGELOG.md` `[0.10.0]`, `docs/ROADMAP.md` §0.10.x, and
       this file's landed record; `docs/OWNER_DECISIONS.md` already records the
       answers and does not need re-answering.
@@ -599,7 +724,8 @@ additions).** Boxes stay unchecked until the cut.
    travel with the theme (R6/C7).
 3. **The legacy pair is frozen, so the line cannot break existing profiles.**
    Everything the owner already configured — or left on the safe default — reads
-   the same before and after; the list is additive and the status field optional.
+   the same before and after; the list is additive and the status field is an
+   optional addition.
 4. **B/C wait for the owner.** Fallback and custom `baseURL` change cost,
    retry, and secret-handling semantics; building them on a guess would front-run
    D2's form and make the second decision harder, not easier. C in particular
@@ -630,35 +756,42 @@ D10/D11 by then, the line holds at 0.10.0 and does not invent a second theme.
 
 ## 8. How the patch would run
 
-1. Branch `patch/0.10.0-cloud-models` from `main` at `844dd02`.
-2. **Tests first, on the fake seam:** the new `tests/config-analysis-models.test.ts`
-   plus the extended consent/status/pipeline/automation/client cases from §3.6 —
-   no network, no model, no screen permission, no real clock.
+1. **Round basis:** the 2026-11-27 implementation runs from `main` `e4b143a`
+   (the planning commit; the measurement above was taken at `844dd02`), with
+   the host/client/docs lanes writing disjoint files in one tree and this
+   plan/roadmap maintained beside them. The branch/commit is the lead's at the
+   cut; the planned name is `patch/0.10.0-cloud-models`.
+2. **Tests first, on the fake seam:** the config/consent/status cases from §3.6
+   (adding `tests/config.test.ts` per the round's file split) plus the client
+   copy case — no network, no model, no screen permission, no real clock.
 3. **Server then client:** `src/analyse/models.ts` → `src/config.ts`
-   (schema/types/resolution) → the status field in `src/analyse/status.ts` →
-   the client copy/render in `src/client/insights.tsx`, `src/client/locale.ts`,
-   and the type-only `src/client/data.ts`. The two
+   (schema/types/resolution) → the additive `model` summary in
+   `src/analyse/status.ts` → the client copy/render in `src/client/insights.tsx`,
+   `src/client/locale.ts`, and `src/client/styles.ts`; `src/client/data.ts`
+   needs no edit because its alias follows the contract type. The two
    consent gates are left behaviourally untouched; their tests prove the
    effective pair reaches them. The route table is untouched.
-4. **Docs in the same patch:** `docs/PROVIDERS.md` (new), `docs/CONFIGURATION.md`,
+4. **Docs in the same patch:** `docs/PROVIDERS.md` (written in the planning
+   round; updated here), `docs/CONFIGURATION.md`,
    README/README.zh, CHANGELOG `[Unreleased]`, `docs/ROADMAP.md` §0.10.x, and this
    file. `docs/OWNER_DECISIONS.md` needs no change beyond already recording the
    answers.
 5. **Gates:** `npm test` (**558+**), `npm run typecheck`, `npm run build` (host
    and client bundle), `npm run check:package`; then both CI legs on the pushed
    branch. A secret scan of the diff and the tarball runs here.
-6. **Real-cloud verification, locally, by the operator:** set the host provider
+6. **Real-cloud smoke, locally, by the operator:** set the host provider
    and its `apiKeyEnv` reference in the profile (the key itself supplied by the
    host's credential store or environment, never in a command line, a profile
    value, or a log), set `analysis.consent: cloud` and the named entry,
    enable capture and analysis, run one manual tick (`/dayflow-analyze`) and/or
    let one window complete, and record the provider/model id, job result, token
    counts, and activity row in the landed record — no key, no request body.
-   If this cannot be done, the tag waits (§3.7).
-7. **Tag:** from the green tree, `npm run release -- minor` (or the explicit
-   `0.10.0`) bumps, tests, commits, tags, pushes, and creates the GitHub Release
-   from the CHANGELOG section — the **23rd** tag/Release. The release script
-   still does **not** publish.
+   If this cannot be done, the tag waits (§3.7/§3.9).
+7. **Tag:** from the green tree and only after the smoke record, the lead runs
+   `npm run release -- minor` (or the explicit `0.10.0`), which bumps, tests,
+   commits, tags, pushes, and creates the GitHub Release from the CHANGELOG
+   section — the **23rd** tag/Release. The release script still does **not**
+   publish, and this plan is not updated to "landed" before the tag exists.
 8. **Publish, separately:** the lead runs the §4 sequence after the owner's
    one-line version confirmation and a successful `npm whoami`; verifies the
    registry, records the outcome, and updates the install section/documentation

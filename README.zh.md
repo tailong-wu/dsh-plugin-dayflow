@@ -17,11 +17,14 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.9.2` 已在仓库打 tag（npm registry 仍然返回 `404`，即尚未取得发布授权——owner 决策 D7）。
-> 0.9.x 线加了月/周目标与评分标记（`v0.9.0`）、close 历史块（`v0.9.1`），以及一个兼容性 patch：
-> `v0.9.2` 声明并构建/测试于 DSH `0.2.2-rc.5`，不改变行为、默认值、schema、路由、peer 范围或运行时依赖。
-> 该线仍处于 maintenance，暂停等待 owner 决策 D1/D2/D7/D10/D11。请从源码 checkout 安装；
-> 详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
+> **状态：** `v0.9.2` 已在仓库打 tag，是当前最新的 GitHub Release；npm registry 仍然返回 `404`，
+> 即尚未发布——D7 已授权发布，但它是在 tag 之后单独执行、需 owner 确认版本的一步。0.9.x 线加了
+> 月/周目标与评分标记（`v0.9.0`）、close 历史块（`v0.9.1`），以及一个兼容性 patch（`v0.9.2`：
+> 声明并构建/测试于 DSH `0.2.2-rc.5`，不改变行为、默认值、schema、路由、peer 范围或运行时依赖）。
+> **0.10.0 线实现中、尚未 tag**：cloud analysis 加可选的具名分析模型列表（`analysis.models`，即 D2 的
+> A 基线——B/C 形态仍待 owner 决定）；图像 admit（D11）与 `source: owned` cutover（D10）继续推迟。
+> 请从源码 checkout 安装；详见
+> [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
 
@@ -56,13 +59,15 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   ledger 的三个缺口——token 预算变成调用后的硬门禁、配置原因导致的 skip 可在今天/昨天内重放、04:00 边界
   补一次有界的 day-tail run。0.8.1 让已保存的 day/week briefs 可在洞察视图里阅读（见下方 Web 面板一节），
   0.8.4 是 release close：只做文档、测试与发布记录对账——不改插件源码、schema、路由、配置或默认值。这些功能随
-  analysis 栈挂载，并受 `analysis.consent`、`analysis.provider`、`analysis.model` 门禁。
+  analysis 栈挂载，并受 `analysis.consent` 与显式的有效 provider/model 对（旧 `analysis.provider`/
+  `analysis.model`，或 0.10.0 中 `analysis.models` 选中的条目）门禁。
   → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
 - **除 `dsh` 外零运行时依赖**：SQLite 来自 `node:sqlite`；Dayflow 编辑走应用的本地 Unix socket，自建日志则写自己的 SQLite 文件。
 
 深入文档（英文）：[工具](docs/TOOLS.md) · [面板](docs/PANEL.md) · [快速记录](docs/QUICK_CAPTURE.md) ·
-[配置](docs/CONFIGURATION.md) · [架构](docs/ARCHITECTURE.md) · [原生采集](docs/NATIVE_CAPTURE.md) ·
-[原生移植计划](docs/NATIVE_PORT.md) · [cutover 预演](docs/CUTOVER_REHEARSAL.md) · [路线图](docs/ROADMAP.md)。
+[配置](docs/CONFIGURATION.md) · [providers](docs/PROVIDERS.md) · [架构](docs/ARCHITECTURE.md) ·
+[原生采集](docs/NATIVE_CAPTURE.md) · [原生移植计划](docs/NATIVE_PORT.md) ·
+[cutover 预演](docs/CUTOVER_REHEARSAL.md) · [路线图](docs/ROADMAP.md)。
 
 ## 环境要求
 
@@ -77,7 +82,9 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 peer，也是分析路径唯一调用的 host 服务；所有已交付的版本都保持 text-only，所以 `@deepseek-ai/dsh-attachment`
 **不是**依赖。0.8.x 与 0.9.x 线也没有新增任何运行时依赖——0.8.0–0.8.4 各版本之间只有 package 版本号不同；
 0.9.2 只改兼容性声明表、devDependencies 版本（DSH 各包升到 `0.2.2-rc.5`，`cordis` 升到 `4.1.0`）
-以及一处纯类型标注，`peerDependencies` 范围保持不变。需要该附件服务的图像 admit（image admission）已推迟到下一线（owner-gated，D1/D2/D11）。
+以及一处纯类型标注，`peerDependencies` 范围保持不变。0.10.0 线（实现中）同样不新增 host peer 或运行时依赖：
+`analysis.models` 只是一种配置形态，所有已交付调用仍保持 text-only。需要该附件服务的图像 admit
+（image admission）在 D11 未决前继续推迟。
 
 ## 安装
 
@@ -219,6 +226,15 @@ blocked 时不写 checkpoint 以便当天重试，tail 失败不改变今天的�
 `tokenBudgetExhausted`，面板 analysis 行在其为真时转为琥珀状态并显示「今日 token 预算已用尽」——
 仍然没有新路由、没有按钮，默认 profile 依旧不发起任何模型调用。
 
+0.10.0（实现中、尚未 tag）让 cloud 路径可以配置**具名模型列表**，仍然是纯文本：`analysis.models` 是可选列表，
+含 1–8 个 `{id, provider, model, label?}` 条目。列表缺失或为空时，旧 `analysis.provider`/`analysis.model`
+这对键完全按现状工作；有列表时默认第一条生效，`analysis.model` 可改选另一个条目的 `id`，此时 `analysis.provider`
+必须为空；未知/重复/空白的 id、空的 provider 或 model、以及列表与非空 provider 并存，都会在加载时以
+`invalid_input` 拒绝，而不是静默回退到别的模型。选中条目的
+provider/model 对会交给 frame analyser 与定时收盘，仍走同一道 consent 门禁和同一本账本；analysis 状态行与
+`GET /api/dayflow/analysis/status` 只读地显示当前生效的模型——条目的 label，或有效的 provider/model。provider
+路由与凭据位于宿主 profile，绝不进入本插件 → [docs/PROVIDERS.md](docs/PROVIDERS.md)。
+
 本地验证（不碰真实数据）：
 
 ```sh
@@ -247,10 +263,24 @@ npm run native:engine-smoke  # 用临时日志和帧目录驱动引擎
     searchLimit: 50      # 单次 dayflow_search 最大结果数（1–200）
     capture:
       enabled: false     # 原生采集引擎，默认关闭
+    analysis:
+      consent: cloud     # 默认 none：没有它不会发起任何模型调用
+      models:            # 可选；缺失/为空时走旧 provider/model 对
+        - id: flash      # analysis.model 用它来选中条目
+          provider: deepseek        # 宿主 profile 里注册的 route 名
+          model: deepseek-flash     # 该 route 上的 model id
+          label: DeepSeek Flash     # 可选
+        - id: pro
+          provider: deepseek
+          model: deepseek-v4-pro
+      model: flash       # 可选条目 id；为空则选第一条
+      # provider: ''     # models 非空时必须保持为空
 ```
 
 当 `databasePath` 为空时，`DAYFLOW_DB` 会覆盖 Dayflow 路径。所有键、默认值以及
-capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
+capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)；
+`analysis.models` 缺失或为空时以旧 `analysis.provider`/`analysis.model` 为选择，宿主侧 provider 路由与
+凭据配置见 [docs/PROVIDERS.md](docs/PROVIDERS.md)。
 
 ## 隐私与安全
 
@@ -260,7 +290,8 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 - 删除活动会连带删除 observations，无法完全恢复；工具要求先确认，且只有用户本人能打开
   Dayflow 的编辑开关。
 - 原生采集默认关闭，帧只写入 `$DSH_HOME/dayflow/frames/`（目录 `0700`、文件 `0600`），
-  有保留清理；只有在采集与分析都开启时分析才会 tick，未设置 `cloud` 授权与 provider/model 前也不会外发。
+  有保留清理；只有在采集与分析都开启时分析才会 tick，未设置 `cloud` 授权与显式 provider/model 对
+  （旧对，或 `analysis.models` 中选中的条目）前也不会外发。
 - 面板的 favicon 抓取是唯一的对外请求：每个域名一次 `favicon.ico`，不带 cookie 与 referrer，
   拒绝 loopback 与裸 IP；设 `icons: false` 可完全关闭。
 
@@ -269,7 +300,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 ```sh
 npm install
 npm run build                # TypeScript → lib/，以及 client bundle
-npm test                     # 构建、类型检查并运行 558 个测试
+npm test                     # 构建、类型检查并运行 581 个测试
 npm run typecheck            # 同时类型检查源码与测试
 npm run smoke                # 读取本机真实 Dayflow 数据库
 npm run native:smoke         # 只测采集 provider，不写入任何数据

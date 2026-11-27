@@ -3,12 +3,14 @@
 [← Back to README](../README.md)
 
 > **Status:** checked against the installed **DeepSeek Harness Desktop
-> 0.2.2-rc.5** on **2026-11-27**, with the plugin at **0.9.2** (`main` @
-> `844dd02`). The owner answered **D1 = cloud**, **D7 = yes**, and partially
-> answered **D2** (several custom models, DeepSeek first; the A/B/C form is
-> still open). The 0.10.0 line's option-A named model list is planned and not
-> implemented yet — see [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md). Image
-> admission (**D11**) is still undecided, so every shipped analysis call is
+> 0.2.2-rc.5** on **2026-11-27**, with the plugin at **0.9.2** (`v0.9.2` tag)
+> and the 0.10.0 line **in progress on `main`** (`e4b143a`) — no 0.10.0 tag yet.
+> The owner answered **D1 = cloud**, **D7 = yes**, and partially answered **D2**
+> (several custom models, DeepSeek first; the A/B/C form is still open). The
+> 0.10.0 line adds the option-A named model list — `analysis.models` — whose
+> selection semantics are in
+> [§4.3](#43-the-named-model-list-0100-in-progress-not-tagged). Image admission
+> (**D11**) is still undecided, so every shipped analysis call is
 > **text-only**. The owner's answers and the safe defaults are in
 > [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md); the plugin's own configuration
 > keys are in [`CONFIGURATION.md`](CONFIGURATION.md).
@@ -25,12 +27,15 @@ from memory. The source files are listed in [§8](#8-last-checked-version-date-a
 ## 1. What "cloud analysis" sends, and what it does not
 
 The plugin makes model calls in two places. Both use the same `analysis.consent`
-switch and the same explicit `analysis.provider`/`analysis.model` pair, but
-through two gates: frame analysis additionally requires capture enabled, the
-capture loop unpaused, and — under `consent: local` — a provider on the local
-allowlist; the scheduled closes read rows already on disk and need only the
-analysis switch, the consent value, and the explicit pair (though the scheduler
-itself mounts with the same capture-and-analysis stack).
+switch and the same explicit effective pair — the legacy
+`analysis.provider`/`analysis.model`, or the entry a non-empty
+`analysis.models` list makes active
+([§4.3](#43-the-named-model-list-0100-in-progress-not-tagged)) — but through two
+gates: frame analysis additionally requires capture enabled, the capture loop
+unpaused, and — under `consent: local` — a provider on the local allowlist; the
+scheduled closes read rows already on disk and need only the analysis switch,
+the consent value, and the explicit pair (though the scheduler itself mounts
+with the same capture-and-analysis stack).
 
 | Call | When it runs | What the text prompt contains |
 | --- | --- | --- |
@@ -174,6 +179,14 @@ spelling out their modalities:
   use `modelOverrides` keyed by model id instead of a `models` list; setting
   both on one catalog route is refused.
 
+> **Not the plugin's `analysis.models`.** This host-side `models` list is the
+> route's own model catalog — what the DSH route offers to any surface. The
+> plugin's `analysis.models` is a different list: it selects which host
+> provider/model pair cloud analysis calls
+> ([§4.3](#43-the-named-model-list-0100-in-progress-not-tagged)). A model
+> declared here can be named by the plugin list, but the two lists are separate
+> settings in different files (host profile vs plugin row).
+
 ### 2.4 A route pi-ai does not ship
 
 For a gateway, relay, company endpoint, or self-hosted server that pi-ai has no
@@ -258,8 +271,10 @@ Verify at the host level:
 
 `agent-default-model` answers "which model does a freshly created agent start
 on?". The plugin never reads it: `analysis.provider`/`analysis.model` must be
-set explicitly ([§4](#4-multiple-providers-and-models)), so changing this page's
-default does **not** turn analysis on.
+set explicitly — the legacy pair, or an active `analysis.models` entry
+([§4.2](#42-selecting-the-pair-the-plugin-uses),
+[§4.3](#43-the-named-model-list-0100-in-progress-not-tagged)) — so changing this
+page's default does **not** turn analysis on.
 
 ## 3. Credentials
 
@@ -377,11 +392,15 @@ another adapter owns a requested name.
 
 ### 4.2 Selecting the pair the plugin uses
 
-The plugin has **one** selection and no fallback: `analysis.provider` and
-`analysis.model` are passed verbatim to the host stream, and analysis is
-blocked with `provider-unset` / `model-unset` until both are set — there is no
-implicit agent default and no provider discovery inside the plugin. The pair is
-independent of `agent-default-model` and of the composer's selection.
+The plugin makes **one active selection per call** and has no fallback. In the
+legacy shape `analysis.provider` and `analysis.model` are passed verbatim to the
+host stream and analysis is blocked with `provider-unset` / `model-unset` until
+both are set; in the 0.10.0 named-list shape the active entry's `provider`/
+`model` are that pair instead
+([§4.3](#43-the-named-model-list-0100-in-progress-not-tagged)). Either way there
+is no implicit agent default and no provider discovery inside the plugin. The
+selection is independent of `agent-default-model` and of the composer's
+selection.
 
 ```yaml
 - id: dayflow
@@ -410,47 +429,86 @@ Rules of thumb:
 - use a **model id**, never a display name; the composer's picker only offers
   catalog entries, so an id that only the wire endpoint knows has to be named
   in config (and the pi-ai route refuses it unless the route declares it);
-- `analysis.model` is not a named-model-list entry id (that is the planned
-  0.10.0 shape below);
+- `analysis.model` is a **model id** in the legacy shape; only when
+  `analysis.models` is non-empty does it name an entry `id`
+  ([§4.3](#43-the-named-model-list-0100-in-progress-not-tagged));
 - changing the strings takes effect when the profile reloads the plugin; the
   worker then re-evaluates the consent gate on its next tick.
 
 The plugin does not check the pair against the host's catalog when it loads:
 an unknown route or model passes configuration validation and shows up as a
 **failed** window at call time (`UNKNOWN_MODEL`), not as a plugin start error.
+The same holds for a named-list entry's ids — they are validated for shape at
+load, not against the host catalog.
 
-### 4.3 What the 0.10.0 line plans (not implemented in 0.9.2)
+### 4.3 The named model list (0.10.0, in progress, not tagged)
 
-The owner asked for several custom models with DeepSeek first; the plan is
-**option A, a named model list** in [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md):
-`analysis.models` becomes an optional list of 1–8 named entries
-`{id, provider, model, label?}` with **exactly one active entry per call**. The
-rule the plan pins: with the list absent or empty the legacy single pair works
-unchanged; with the list present, `analysis.provider` must be empty, the first
-entry is active by default, and a non-empty `analysis.model` selects an entry
-**`id`** (trimmed, case-insensitive) — an id matching no entry is a load-time
-`invalid_input` naming the known ids, not a silent fallback. That is a plan,
-not a schema this release accepts:
+The owner asked for several custom models with DeepSeek first; the 0.10.0 line
+answers that with **option A, a named model list** — a configuration shape, not
+a new call path. `analysis.models` is an optional array of 1–8 entries, each
+naming a **host-registered** route and a model id on it:
 
 ```yaml
-# PLANNED for 0.10.0 — NOT accepted by 0.9.2; kept here only to show the shape.
+- id: dayflow
+  config:
+    capture:
+      enabled: true                  # off by default: frame analysis needs frames
     analysis:
+      enabled: true                  # default true
+      consent: cloud                 # explicit; the default is still none
       models:
-        - id: flash
-          provider: deepseek
-          model: deepseek-flash
-          label: DeepSeek V4.1 Flash
+        - id: flash                  # the selector id analysis.model names
+          provider: deepseek         # a registered route name in the host profile
+          model: deepseek-flash      # a model id on that route
+          label: DeepSeek V4.1 Flash # optional; shown in the panel
         - id: pro
           provider: deepseek
           model: deepseek-v4-pro
           label: DeepSeek V4 Pro
-      model: flash            # the planned default selection
+      model: flash                   # optional; empty selects the first entry
+      # provider: ''                 # must stay empty with a non-empty list
 ```
 
-Until that ships, switching models is a two-line edit of
-`analysis.provider`/`analysis.model`; a per-call failover (**option B**) and
-arbitrary base URLs from the plugin config (**option C**) are deferred until
-the owner picks the D2 shape.
+Selection semantics (the rule the tests pin):
+
+- `analysis.models` **absent or `[]`** → the legacy single pair: the trimmed
+  `analysis.provider`/`analysis.model` are the call pair exactly as before,
+  with the same `provider-unset`/`model-unset` blocks and no implicit default.
+- **1–8 entries** → the **active entry** is the call pair. `analysis.model`
+  names an entry **`id`**, trimmed and case-insensitive; empty selects the
+  **first entry in written order**. A non-empty selector matching no entry id
+  is a load-time `invalid_input` that names the unknown id and the known ids —
+  not a silent fallback to another model.
+- With a non-empty list, **`analysis.provider` must be empty**: each entry
+  carries its own provider, and a non-empty provider is a load-time
+  `invalid_input` telling you to remove the legacy field.
+- Each entry requires a non-empty `id` (trimmed, unique case-insensitively,
+  at most 64 characters), a non-empty `provider`, and a non-empty `model`;
+  `label` is optional, trimmed, and at most 80 characters. A blank field, a
+  duplicate id, or a list outside 1–8 entries is a load-time `invalid_input`
+  that names the offending field and entry.
+- The effective pair is resolved once and feeds **every** analysis call — the
+  frame analyser, the scheduled day/week closes, and the briefs pass — so the
+  consent gates, the ledger, and the blocked reasons are unchanged. Under
+  `consent: local` the **active entry's** provider must be on
+  `analysis.localProviders` for frame analysis, exactly as the single pair is
+  today.
+- `GET /api/dayflow/analysis/status` reports the active pair as **one additive
+  `model` summary** — `{ id?, provider, model, label? }` — present only when a
+  complete pair is configured. `id` and `label` appear only in the named-list
+  shape (`label` only when the profile wrote one), so the legacy pair's summary
+  is just `provider`/`model` and a 0.9.2 payload without the field still
+  parses. The panel's analysis line shows the label (or `provider/model`) behind
+  the consent word, read-only ([§6.1](#61-the-plugins-own-status)).
+
+Switching models is then one line (`analysis.model: pro`); adding an entry is
+one list item. The shipped default profile is unchanged — no list, an empty
+pair, `consent: none` — so nothing calls a model until a profile opts in.
+**Not in 0.10.0:** per-call fallback to the next entry
+(**option B**) and a per-entry custom `baseURL` (**option C**) — both wait on
+D2's form, and even C would keep the endpoint and the credential in the host
+profile. A named entry is not image admission: pixels stay out while **D11** is
+open ([§5](#5-vision-models-and-d11)).
 
 ## 5. Vision models and D11
 
@@ -469,7 +527,7 @@ same metadata as a text model. Declaring image input today is therefore:
 
 - correct for other DSH surfaces that do use attachments;
 - the prerequisite the plugin would need if D11 is ever answered "yes", along
-  with a vision-capable model for the analysis pair;
+  with a vision-capable model as the active analysis model;
 - **not** a way to turn image analysis on — nothing in the plugin reads it.
 
 A model that declares images its endpoint does not serve is refused by the
@@ -484,14 +542,19 @@ The plugin exposes these read-only surfaces and two manual triggers:
 | Surface | What it shows / does |
 | --- | --- |
 | Panel **Insights** analysis line | the frame-analysis gate's state, today's failures, calls/tokens against the daily caps, the last job time, and the privacy line once consent is not `none`; the close-state line beside it reports the automation passes |
-| `GET /api/dayflow/analysis/status` (with the panel enabled, the default) | the same facts as JSON: `consent`, `worker`, `queued`/`running`/`completed`/`failed`/`skipped`, `callsToday`, `maxCallsPerDay`, `tokensToday`, `dailyTokenBudget`, `tokenBudgetExhausted`, and `reason` when blocked |
+| `GET /api/dayflow/analysis/status` (with the panel enabled, the default) | the same facts as JSON: `consent`, `worker`, `queued`/`running`/`completed`/`failed`/`skipped`, `callsToday`, `maxCallsPerDay`, `tokensToday`, `dailyTokenBudget`, `tokenBudgetExhausted`, and `reason` when blocked, plus the additive `model` summary (`{ id?, provider, model, label? }`), present when a complete pair is configured |
 | `/dayflow-analyze` | one manual worker tick; answers e.g. `<day>: 3/9 window(s) analysed · 2 card(s) written · 6 skipped` or `blocked by <reason>` |
 | `/dayflow-run-close` | runs a due day/week close through the automation gate and ledger |
 
-Today the status payload and the panel line report the switches, the gate
-reason, and the ledger, but **not which provider/model a call would use**. The
-0.10.0 plan adds one optional status field naming the active entry (its label,
-or `provider/model`), so its absence from a 0.9.2 status is expected.
+The status payload and the panel line report the switches, the gate reason, and
+the ledger. The 0.10.0 line (in progress, not tagged) adds one optional
+**`model` summary** naming the active model: `provider`/`model` are the
+effective pair, `id` is the selected named-list entry's id, and `label` is the
+entry's label when the profile wrote one. The summary is absent while no
+complete pair is configured — an incomplete pair is exactly what the consent
+gate reports as `provider-unset`/`model-unset` — so a 0.9.2 payload and an
+unconfigured profile read as before. The panel renders it read-only behind the
+consent word.
 
 The **frame-analysis** gate checks, in order, and reports the first block:
 `analysis-disabled`, `capture-disabled`, `paused`, `consent:none`,
@@ -508,7 +571,8 @@ skips are not replayed.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| analysis line says it needs a provider/model | `analysis.provider` or `analysis.model` empty | set both to the **route name** and a **model id** from that route |
+| analysis line says it needs a provider/model | no complete effective pair: the legacy `analysis.provider`/`analysis.model` is empty, or the named list is empty/incomplete | set the pair, or a complete `analysis.models` entry and — to pick a non-first entry — its `id` in `analysis.model` |
+| the plugin fails to load with `invalid_input` about `analysis.models` | duplicate or blank entry fields, an unknown `analysis.model` selector, or `analysis.provider` set beside the list | fix the field/entry the message names; with a non-empty list keep `analysis.provider` empty, and set `analysis.model` to one of the known ids or leave it empty |
 | analysis line waits for consent (`consent:none`) | default consent | set `analysis.consent: cloud` |
 | `consent:provider-not-local` | `consent: local` and the provider is not on the allowlist | use `cloud`, or list the provider id in `analysis.localProviders` |
 | nothing ever runs | `capture.enabled: false` (default), analysis disabled, no frames yet, or the host LLM service is not mounted | enable capture and analysis, capture a few frames, then `/dayflow-analyze` |
@@ -570,8 +634,8 @@ the plugin recorded before changing provider, model, or caps.
 | Credential store | `$DSH_HOME/.credentials.yaml` (`@deepseek-ai/dsh-credentials-local`) |
 | pi-ai DeepSeek route in the installed catalog | `deepseek` — `openai-completions`, `https://api.deepseek.com`, env `DEEPSEEK_API_KEY`, models `deepseek-flash` (text+image) and `deepseek-v4-pro` (text) |
 | Direct DeepSeek route | `deepseek-official` (`@deepseek-ai/dsh-llm-deepseek-api-key`, Messages protocol) |
-| Plugin baseline | **0.9.2**, `main` @ `844dd02` |
-| Plugin analysis contract | `src/analyse/{consent,prompt,host,pipeline,status}.ts`, `src/config.ts`, `src/briefs/*`, `src/automation/insights.ts` |
+| Plugin baseline | **0.9.2** (tag `ccac653`); the 0.10.0 line in progress on `main` @ `e4b143a`, not tagged |
+| Plugin analysis contract | `src/analyse/{consent,prompt,host,pipeline,status}.ts`, `src/config.ts`, `src/briefs/*`, `src/automation/insights.ts` — and, on the 0.10.0 line, `src/analyse/models.ts` plus the additive `model` status summary |
 
 Installed DSH sources consulted (inside the app bundle; the file-read tool can
 read `app.asar`):
