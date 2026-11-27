@@ -6,6 +6,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-27
+
+### Added
+
+- **0.9.1 — close-history surface.** The closes the plugin already records — the
+  scheduled day close, the Monday-anchored week close, and the weekly memory
+  lint — become readable inside the existing Journal insights view. The change
+  is additive: `GET /api/dayflow/insights` gains one `closes:
+  PanelCloseSummary[]` field (job `day_close`/`week_close`/`lint`, the close's
+  `day`, status `pending`/`running`/`complete`/`failed`/`skipped`, `attempts`,
+  optional `error`, and `updated_at`), so an older client is unaffected and the
+  panel adds no request — still **18** host Fetch routes, nine `GET` and nine
+  `POST`.
+- New `src/automation/read.ts` exports `readPanelCloses` and `listPanelCloses`:
+  they read the store's existing `automation_runs` rows newest-updated first
+  (ties by descending row id), map each to that summary, clamp a stored error to
+  the store's 500-character maximum, and cap the list at 10 entries (the reader
+  accepts a 1–20 limit). A missing journal answers `[]` without creating the
+  file, and the read is a plain query on the caller's journal connection: no
+  writes and no model call.
+- The insights view gains a read-only **Close history** block after **Briefs**:
+  each row carries a job badge (`Day close`, `Week close`, or `Lint`), the
+  close's day or the week's date range, the status, the attempt count when a
+  close needed more than one, the error summary (one truncated line with the
+  full message in its title), and the updated date. `Complete` uses the normal
+  green status tone, `Failed` and `Skipped` one restrained amber warning tone,
+  and `Running`/`Pending` stay neutral; the copy is in both languages. There is
+  no add row, no retry or re-run button, and no decision row, so no entry point
+  changed.
+- No route, command, tool, skill, configuration key, schema version, default,
+  or host peer changed, and no model call was added. When nothing has been
+  recorded the block keeps its quiet **No closes recorded yet.** line, so a
+  default profile shows an empty section and spends nothing. Tests cover the
+  additive payload, the ordering and the 10-entry cap, the error truncation, the
+  missing journal that writes no file, the unchanged 18-route set and
+  single-entry test, and both locales.
+
 ## [0.9.0] - 2026-11-27
 
 ### Added
@@ -728,7 +765,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.1...v0.8.4
 [0.8.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.0...v0.8.1

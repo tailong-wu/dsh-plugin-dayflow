@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-dayflow",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Your Dayflow screen timeline as DeepSeek Harness tools, skills, and an optional Web panel: ask what you worked on, how your screen time split up, and draft standups from the timeline the Dayflow Mac app recorded locally.",
   "keywords": [
     "dsh",
