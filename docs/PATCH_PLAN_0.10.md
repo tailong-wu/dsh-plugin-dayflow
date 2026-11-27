@@ -63,22 +63,30 @@
 > baseline + 23 implementation cases + the 2 quality-pass pipeline list-mode
 > cases; 581 at the `0d8d3c8` head; the cut records the exact count),
 > **typecheck, build, and `check:package` green, and CI on `main` green**.
-> **Not met: the real-cloud smoke and the npm publish** — the smoke is the
-> tag's hard gate and the publish is a separate post-tag step this machine
-> cannot log in to yet. The patch is **not landed**: nothing is tagged, no npm
-> publish has run, and the tag is the lead's decision only after the §3.9 gate
-> order — including one real-cloud smoke recorded without a key (§3.7, C7) —
-> is green. §3.9 now records the measured gates, keeps the tag gate and the
-> publish preconditions, and points at the release preparation document
-> [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md).
+> **Not met: the real-cloud smoke's PASS record and the npm publish** — the
+> smoke is the tag's hard gate; its executable form
+> ([`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs) with
+> [`docs/SMOKE.md`](SMOKE.md)) is in the tree, but **no PASS run has been
+> recorded**, so the gate is unmet. The publish is a separate post-tag step
+> this machine cannot log in to yet. The patch is **not landed**: nothing is
+> tagged, no npm publish has run, and the tag is the lead's decision only after
+> the §3.9 gate order — including one `cloud-smoke.mjs` PASS recorded without a
+> key (§3.7, C7) — is green. §3.9 now records the measured gates, keeps the tag
+> gate and the publish preconditions, and points at the release preparation
+> document [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md).
 >
-> **Last revised:** 2026-11-27, third revision: the implementation round is
-> complete. The first revision wrote the plan against `844dd02`; the second
-> marked 0.10.0 **in progress** on `e4b143a` and aligned §3.3/§3.4 with the
-> approved shape; this revision records the implemented tree on `0d8d3c8`, the
-> measured gates (583 tests, typecheck, build, `check:package`, CI), the two
-> unmet gates (real-cloud smoke, npm publish), and the release preparation in
-> [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md). No tag, no publish, no landed record.
+> **Last revised:** 2026-11-27, fourth revision: the implementation round is
+> complete and the smoke gate is now executable. The first revision wrote the
+> plan against `844dd02`; the second marked 0.10.0 **in progress** on `e4b143a`
+> and aligned §3.3/§3.4 with the approved shape; the third recorded the
+> implemented tree on `0d8d3c8`, the measured gates (583 tests, typecheck,
+> build, `check:package`, CI), the two unmet gates (real-cloud smoke, npm
+> publish), and the release preparation in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md);
+> this revision turns the smoke from a hand-written procedure into the
+> provider-level tool [`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs)
+> with [`docs/SMOKE.md`](SMOKE.md). **Its tooling being ready is not the
+> gate:** no PASS record exists, so the tag still waits. No tag, no publish, no
+> landed record.
 
 ## 1. Starting point, measured
 
@@ -188,13 +196,19 @@ command (5), tool (23), skill (8), host peer, runtime dependency, default, or
 model-call contract changes**, and `package.json` changes only its version at
 the release commit.
 
-**C7 — Real-cloud verification is manual, and evidence never contains a key.**
-CI keeps its fake-host seam and never reaches the network (R4 stays true). The
-one real run 0.10.0 needs is executed locally by the operator with the owner's
-provider configured in the host profile and its key supplied through the
-environment; the evidence recorded in the landed record is the provider/model id,
-the job result, the token counts, and the activity rows — never the key, the
-request body's secret, or a `.env` file.
+**C7 — Real-cloud verification is executable, provider-level, and its evidence
+never contains a key.** CI keeps its fake-host seam and never reaches the
+network (R4 stays true). The one real run 0.10.0 needs is one invocation of
+[`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs), whose procedure and
+boundary are in [`docs/SMOKE.md`](SMOKE.md): it drives the real, already-built
+analysis prompt/analyser/retry/usage path against the owner's real
+OpenAI-compatible provider and validates the answer JSON. It is **provider-level
+only** — not the DSH host/capture chain — so it proves no captured window, job
+row, or activity row, and neither this plan nor the docs claim those. The
+evidence recorded for the gate is the provider label, the endpoint host, the
+model id, latency, the token counts, the validity result, a **≤500-character**
+answer preview, and the `git` HEAD — never the key, the request body's secret,
+or a `.env` file.
 
 **C8 — Publishing is a separate, confirm-first act.** D7 authorises the
 publication; it does not authorise an unattended or automatic one. Nothing in
@@ -215,7 +229,7 @@ implementation.
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.10.0 | **Cloud analysis + multi-model selection (option A baseline), provider setup, and first-npm-publish preparation.** A named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id); the legacy pair still works untouched when the list is empty; both the frame-analysis gate and the automation/briefs gate call the active pair; the analysis status line reports the active model through the additive optional `model` field on the analysis status payload (its label when present, otherwise `provider/model`; the entry `id` rides along in list mode); the provider page `docs/PROVIDERS.md` (written in the planning round) is updated for the named list, `apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded real-cloud smoke proves the path. **No** schema, route, command, tool, skill, peer, runtime dependency, image, or cutover change; npm publish is prepared but not performed | Phase 3.6 (cloud analysis and its honest privacy copy) + Native port analysis line; owner answers **D1 = cloud**, **D2 partially answered (multi-model direction)**, **D7 = yes (publish authorised)** | **in progress — implementation complete, untagged (2026-11-27) on `main` `0d8d3c8`; 583 tests, typecheck/build/`check:package` green; no tag and no publish — the cut waits on §3.9's hard gate, the recorded real-cloud smoke; release preparation in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)** |
+| 0.10.0 | **Cloud analysis + multi-model selection (option A baseline), provider setup, and first-npm-publish preparation.** A named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id); the legacy pair still works untouched when the list is empty; both the frame-analysis gate and the automation/briefs gate call the active pair; the analysis status line reports the active model through the additive optional `model` field on the analysis status payload (its label when present, otherwise `provider/model`; the entry `id` rides along in list mode); the provider page `docs/PROVIDERS.md` (written in the planning round) is updated for the named list, `apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded provider-level real-cloud smoke (§3.7) evidences the provider path. **No** schema, route, command, tool, skill, peer, runtime dependency, image, or cutover change; npm publish is prepared but not performed | Phase 3.6 (cloud analysis and its honest privacy copy) + Native port analysis line; owner answers **D1 = cloud**, **D2 partially answered (multi-model direction)**, **D7 = yes (publish authorised)** | **in progress — implementation complete, untagged (2026-11-27) on `main` `0d8d3c8`; 583 tests, typecheck/build/`check:package` green; no tag and no publish — the cut waits on §3.9's hard gate; the provider-level smoke tool is ready ([`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs), [`docs/SMOKE.md`](SMOKE.md)) but no PASS record exists yet; release preparation in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)** |
 
 ### 3.2 0.10.0 — what it is and what it is not
 
@@ -433,23 +447,40 @@ item is dropped.
   fixture and is clearly not a credential; docs use `apiKeyEnv`/credentials
   references and placeholders; a rotation note is present for any key shared in
   chat.
-- **Real-cloud smoke — the tag gate:** one recorded run against the
-  owner-configured host provider (consent `cloud`, selected entry,
-  capture+analysis on) where a window completes with the provider/model id and
-  token counts in the ledger and an activity row appears, recorded without the
-  key. **If that smoke cannot be obtained, 0.10.0 is not tagged** — the code may
-  be reviewed, but the tag waits, because the verification is the point of the
-  line; the tag is the lead's decision after this record, not before.
+- **Real-cloud smoke — the tag gate, now executable:** the gate is one run of
+  [`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs), with the procedure in
+  [`docs/SMOKE.md`](SMOKE.md). It is a **provider-level** smoke, and that
+  boundary is part of the gate: after `npm run build` it builds the real
+  analysis prompt from the built `lib/` modules, calls the owner's real
+  OpenAI-compatible provider with the configured model through
+  `callAnalysisModel`'s real retry/timeout/usage accounting, and validates the
+  answer as one JSON object with `title`/`summary`/`category`/`confidence`. It
+  does **not** run the DSH host/capture chain, so it proves the provider path —
+  not a captured window, an `analysis_jobs` row, or an activity row — and
+  [`docs/SMOKE.md`](SMOKE.md) says so; the plan claims no more.
+  **Command:** `node scripts/cloud-smoke.mjs` with `SMOKE_API_KEY` (or
+  `DEEPSEEK_API_KEY`), `SMOKE_BASE_URL`/`SMOKE_MODEL` or `--base-url`/`--model`,
+  and `--record <path>` for the evidence file at a repository-external path.
+  **PASS only if** the run exits 0 with a valid answer and the record is
+  written, from a **clean** checkout of the commit to be tagged
+  (`gitDirty: false`, so the record's `gitHead` names that commit): the
+  provider label and endpoint host, model, latency, input/output tokens,
+  validity, a **≤500-character** answer preview, and `git` HEAD — **never the
+  key**, which the tool does not print. **If the run does not PASS, or no PASS record
+  exists, 0.10.0 is not tagged** — the code may be reviewed, but the tag waits,
+  because this verification is the point of the line; the tag is the lead's
+  decision after the PASS record, not before.
 - **Diff proof:** the diff adds only the `analysis.models` key, the selection
   helper, the additive `model` status field, its copy/rendering, tests, and docs;
   schema stays **v10**, routes **18**, commands **5**, tools **23**, skills
   **8**, peers and runtime dependencies unchanged, and no image/cutover/write
   surface appears.
 - **Release:** `v0.10.0` is tagged with one GitHub Release from the CHANGELOG
-  section (the 23rd of each) **only after the real-cloud smoke exists and the
-  gates above are green**; npm publish is the separate, owner-confirmed step in
-  §4 and is **not** part of the tag. **The tag is not pre-written:** this plan
-  and §0.10.x say "implemented, untagged" until the lead cuts it.
+  section (the 23rd of each) **only after the real-cloud smoke's PASS record
+  exists and the gates above are green**; npm publish is the separate,
+  owner-confirmed step in §4 and is **not** part of the tag. **The tag is not
+  pre-written:** this plan and §0.10.x say "implemented, untagged" until the
+  lead cuts it.
 
 ### 3.8 Deferred explicitly
 
@@ -473,9 +504,13 @@ additive optional `model` status summary, the client line, the provider-page
 update, the tests, and the docs — is in the tree. The CHANGELOG entry stays
 `[Unreleased]`, [`ROADMAP.md`](ROADMAP.md) §0.10.x says
 implemented-but-untagged, and the tag is the lead's decision after the gate
-order below. **Two gates are still unmet:** the recorded real-cloud smoke (C7),
-which is the tag's hard gate, and the npm publish, which is a separate post-tag
-step that additionally needs a login this machine does not have. The release
+order below. **Two gates are still unmet:** the real-cloud smoke's PASS record
+(C7) — the gate's executable form,
+[`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs) with
+[`docs/SMOKE.md`](SMOKE.md), is now in the tree, but **tooling ready is not the
+gate and no PASS has been recorded**, so the tag's hard gate stays unmet — and
+the npm publish, which is a separate post-tag step that additionally needs a
+login this machine does not have. The release
 preparation — preconditions, steps, failure/repair rules, security notes, and
 the fill-in record — is written in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md).
 
@@ -490,7 +525,7 @@ the fill-in record — is written in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md).
 | 5 | CI on `main` (Node 24 + Node 22) | **green** |
 | 6 | Default inert (C4) | asserted by the suite (default `consent: none`, `models: []`, empty pair, no call, text-only unchanged); re-confirmed at the cut |
 | 7 | No secret (C3) / contract proof (C6) | the implementation diff is confined to the declared files below; the diff and packed-tarball secret scan are re-run at the cut |
-| 8 | Real-cloud smoke (C7) — **the tag gate** | **not met** — no manual real-cloud pass has been recorded; nothing here substitutes for it |
+| 8 | Real-cloud smoke (C7) — **the tag gate** | **not met** — the executable provider-level smoke is in the tree ([`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs), [`docs/SMOKE.md`](SMOKE.md)), but no PASS `--record` exists yet; tooling ready does not satisfy the gate, so 0.10.0 stays untagged |
 | 9 | npm publish | **not met** — a separate post-tag step; `npm whoami` fails and the owner's version confirmation is outstanding ([`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)) |
 
 **File-level scope (this round).**
@@ -529,11 +564,18 @@ the fill-in record — is written in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md).
    v10, 18 routes, 5 commands, 23 tools, 8 skills, peers and runtime
    dependencies unchanged; no image, cutover, or write surface appears —
    re-checked at the cut.
-8. **Real-cloud smoke (C7) — the tag gate: not met.** The operator has not yet
-   run the one manual real-cloud pass recording the provider/model id, job
-   result, token counts, and the activity row, without the key. **0.10.0 is
-   not tagged until it exists**; the implementation being green on the fake
-   seam is not a substitute.
+8. **Real-cloud smoke (C7) — the tag gate: not met.** The executable
+   provider-level smoke is ready
+   ([`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs),
+   [`docs/SMOKE.md`](SMOKE.md)): after `npm run build`, from a **clean**
+   checkout of the commit to be tagged (`gitDirty: false`), run
+   `node scripts/cloud-smoke.mjs --record /tmp/dayflow-cloud-smoke-<date>.json`
+   against the owner's real provider and require **exit 0 / PASS** plus the
+   record — the provider label and endpoint host, model, latency, token counts,
+   validity, and a **≤500-character** answer preview, never the key. **0.10.0 is
+   not tagged until that PASS record exists**; the boundary is provider-level
+   (no capture chain, no job/activity row claim), and the implementation being
+   green on the fake seam is not a substitute.
 9. **Tag:** only then `v0.10.0` with one GitHub Release from the CHANGELOG
    section (the 23rd of each); landing wording is written afterwards, never
    before.
@@ -711,9 +753,10 @@ unmet:**
    Mitigation: the gate logic is untouched and gains named-list tests; the docs
    say the allowlist applies to the active provider, not to the list.
 5. **The real-cloud proof does not happen and the tag claims it did.**
-   Mitigation: the verification is manual, recorded without secrets, and the tag
-   waits if it cannot be obtained (§3.7); the plan does not substitute the fake
-   seam for it.
+   Mitigation: the verification is one recorded `scripts/cloud-smoke.mjs` run —
+   PASS required, provider-level boundary stated in [`docs/SMOKE.md`](SMOKE.md) —
+   recorded without secrets, and the tag waits if no PASS record exists (§3.7);
+   the plan does not substitute the fake seam for it.
 6. **Publish accidents.** Wrong version, wrong dist-tag, token in the repo, or an
    automatic publish: mitigation is C8/§4 — confirm-first, dry-run, tagged commit,
    manual publish, token outside the repo, no publish step in the release script,
@@ -742,8 +785,12 @@ additions).** Boxes stay unchecked until the cut.
 - [ ] **Tests and gates:** suite ≥ 583 (measured; count recorded, no case
       removed or weakened), typecheck, build (host + client), `check:package`,
       both CI legs.
-- [ ] **Real-cloud smoke recorded (C7):** one run, provider/model id, job
-      result, token counts, activity row, no secret.
+- [ ] **Real-cloud smoke recorded (C7):** one `scripts/cloud-smoke.mjs` run
+      exits 0 / PASS against the owner's real provider and writes the `--record`
+      evidence — provider label and endpoint host, model, latency, token counts,
+      valid JSON, a **≤500-character** preview, `git` HEAD, `gitDirty: false`,
+      no key; the provider-level boundary is stated and no
+      capture-chain/job/activity-row claim is made.
 - [ ] **Docs with the tag (R6):** `docs/PROVIDERS.md` (written in the planning
       round; updated here), `docs/CONFIGURATION.md`,
       README/README.zh, `CHANGELOG.md` `[0.10.0]`, `docs/ROADMAP.md` §0.10.x, and
@@ -832,15 +879,21 @@ D10/D11 by then, the line holds at 0.10.0 and does not invent a second theme.
    and client bundle), `npm run check:package` — all measured green — then
    both CI legs on the pushed branch (green on `main`). A secret scan of the
    diff and the tarball runs here.
-6. **Real-cloud smoke, locally, by the operator:** set the host provider
-   and its `apiKeyEnv` reference in the profile (the key itself supplied by the
-   host's credential store or environment, never in a command line, a profile
-   value, or a log), set `analysis.consent: cloud` and the named entry,
-   enable capture and analysis, run one manual tick (`/dayflow-analyze`) and/or
-   let one window complete, and record the provider/model id, job result, token
-   counts, and activity row in the landed record — no key, no request body.
-   If this cannot be done, the tag waits (§3.7/§3.9).
-7. **Tag:** from the green tree and only after the smoke record, the lead runs
+6. **Real-cloud smoke, one command, by the operator:** export `SMOKE_API_KEY`
+   (or `DEEPSEEK_API_KEY`) from the environment or the host's credential store —
+   never in a command line, a profile value, or a log — then after `npm run
+   build` run `node scripts/cloud-smoke.mjs --record /tmp/dayflow-cloud-smoke-<date>.json`
+   (optionally `--base-url`/`--model`/`--timeout-ms`), from a clean checkout of
+   the commit to be tagged (`gitDirty: false`). The run drives the real
+   prompt/analyser/retry/usage path against the real OpenAI-compatible provider,
+   must **exit 0 / PASS** with a valid answer, and writes the evidence without
+   the key as [`docs/SMOKE.md`](SMOKE.md) describes: provider label, endpoint
+   host, model, latency, token counts, validity, a **≤500-character** preview,
+   and `git` HEAD. It is
+   **provider-level only** — no capture chain, no job row, no activity row — and
+   that boundary is stated in `docs/SMOKE.md`. No PASS record, no tag
+   (§3.7/§3.9).
+7. **Tag:** from the green tree and only after the smoke PASS record, the lead runs
    `npm run release -- minor` (or the explicit `0.10.0`), which bumps, tests,
    commits, tags, pushes, and creates the GitHub Release from the CHANGELOG
    section — the **23rd** tag/Release. The release script still does **not**

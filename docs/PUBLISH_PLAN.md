@@ -95,7 +95,7 @@ Plus the two CI legs on the tag push: `test` (Node 24, Node 22 with
 `--experimental-sqlite`) and `release-check` (tag == version). The cut itself
 already proved the non-reproducible gates in [PATCH_PLAN_0.10.md](PATCH_PLAN_0.10.md)
 §3.9: default profile inert, no secret in diff/docs/tests, contract proof, and
-the **real-cloud smoke** — that one is a tag gate and cannot be re-derived here;
+the **real-cloud smoke** — that one is a tag gate and cannot be re-derived here; run it with [`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs) per [`SMOKE.md`](SMOKE.md), record the PASS line, and keep the record outside the repo;
 if it was not run, `0.10.0` is not tagged and this page does not apply.
 
 `npm test` builds first (`prepack`/`build`), so `lib/` in the working tree comes

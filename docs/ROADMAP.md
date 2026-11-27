@@ -15,9 +15,12 @@
 > suite measures **583/583** green — 581 on the implementation head `0d8d3c8`
 > plus the two pipeline list-mode cases the quality pass added — and typecheck,
 > build, and `check:package` are green. **Nothing is tagged and no npm publish
-> has run** — the tag waits on the plan's hard gate, one real-cloud
-> smoke recorded without a key ([`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md)
-> §3.7/§3.9), and the publish waits on an npm login this machine has not made;
+> has run** — the tag waits on the plan's hard gate, one real-cloud smoke
+> recorded without a key ([`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md)
+> §3.7/§3.9); its tool is now in the tree
+> ([`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs) with
+> [`docs/SMOKE.md`](SMOKE.md)), but **no PASS record exists, so the tag stays
+> pending** — and the publish waits on an npm login this machine has not made;
 > the release preparation is written in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md).
 > After the `v0.9.2` tag an engineering-only package-metadata regression guard
 > joined the tree (no tag, no new patch) for 558 tests, and 0.10.0's
@@ -173,9 +176,12 @@
 > and the patch is still **untagged**: the approved `analysis.models` shape is
 > implemented in the config/resolution helper, the additive optional `model`
 > status summary, the client line, and the docs; **nothing is tagged and no
-> publish has run** — the tag waits on the plan's hard gate, the recorded
-> real-cloud smoke, while the publish waits separately on an npm login this
-> machine has not made (release preparation: [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)).
+> publish has run** — the tag waits on the plan's hard gate, a real-cloud smoke
+> recorded without a key (its provider-level tool is ready:
+> [`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs) /
+> [`docs/SMOKE.md`](SMOKE.md), no PASS record yet, so the tag stays pending),
+> while the publish waits separately on an npm login this machine has not made
+> (release preparation: [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)).
 > **D10 and D11
 > remain unanswered and gated**, the analysis
 > contract stays **text-only** until D11 is answered, and no npm publish has run
@@ -1239,7 +1245,10 @@ cutover default, the text-only analysis contract, and the fact that no `1.0.0`
 is planned — D10 plus a real captured week still gate it. The line's plan is
 [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md); **its 0.10.0 implementation is
 complete as of 2026-11-27** (`main` `0d8d3c8`), it is not tagged, and the tag
-waits on the plan's §3.7/§3.9 hard gate — the recorded real-cloud smoke; the
+waits on the plan's §3.7/§3.9 hard gate — the recorded real-cloud smoke, whose
+provider-level tool is now ready
+([`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs) with
+[`docs/SMOKE.md`](SMOKE.md)) but has produced no PASS record yet; the
 separate npm publish waits on an npm login and the owner's version
 confirmation (§4 and [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)).
 
@@ -1270,12 +1279,20 @@ typecheck`, `npm run build`, and `npm run check:package` are green, and CI on
 roadmap is not written as landed until then**: the tag waits on the plan's hard
 gate — one real-cloud smoke recorded without a key — and the publish on
 [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)'s preconditions (npm login/2FA, the owner's
-version confirmation, plan §4). D2's **B**/**C** forms, **D10**, and **D11** are
-unchanged and still deferred.
+version confirmation, plan §4). **The smoke gate is now executable rather than
+hand-made:** [`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs) with
+[`docs/SMOKE.md`](SMOKE.md) runs one **provider-level** real-cloud smoke — the
+real prompt/analyser/retry/usage path against an OpenAI-compatible provider, a
+validated answer JSON, and a `--record` file carrying the provider label and
+endpoint host, the model, latency, token counts, a **≤500-character** preview,
+and `git` HEAD, never the key — and it states that it does not run the DSH
+capture chain. **Tooling ready is not the gate:** no PASS record exists yet, so
+0.10.0 stays untagged. D2's
+**B**/**C** forms, **D10**, and **D11** are unchanged and still deferred.
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.10.0 | Cloud analysis + multi-model selection (option A baseline), provider setup, first-npm-publish preparation: a named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id), the legacy `analysis.provider`/`analysis.model` pair unchanged when the list is empty, both consent gates and the scheduled closes/briefs using the active pair, and the analysis status line naming the active model through the additive optional `model` field on the analysis status payload (its label when present, otherwise `provider`/`model`); the provider page [`docs/PROVIDERS.md`](PROVIDERS.md) (written in the planning round) updated for the named list, host-provider/`apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded real-cloud smoke. No schema, route, command, tool, skill, host peer, runtime dependency, image, cutover, or write-path change; the npm publish itself is a separate owner-confirmed step, not part of this patch | Phase 3.6 (cloud analysis and its honest privacy copy) and the Native port analysis line; owner answers **D1 = `cloud`**, **D2 partially answered (multi-model direction, option A)**, **D7 = `yes` (publication authorised, not executed)** | **in progress — implementation complete, untagged (2026-11-27) on `main` `0d8d3c8`; 583 tests, typecheck/build/`check:package` green; not tagged and no publish — the tag waits on [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §3.7/§3.9's hard gate, the recorded real-cloud smoke; release preparation in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)** |
+| 0.10.0 | Cloud analysis + multi-model selection (option A baseline), provider setup, first-npm-publish preparation: a named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id), the legacy `analysis.provider`/`analysis.model` pair unchanged when the list is empty, both consent gates and the scheduled closes/briefs using the active pair, and the analysis status line naming the active model through the additive optional `model` field on the analysis status payload (its label when present, otherwise `provider`/`model`); the provider page [`docs/PROVIDERS.md`](PROVIDERS.md) (written in the planning round) updated for the named list, host-provider/`apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded real-cloud smoke. No schema, route, command, tool, skill, host peer, runtime dependency, image, cutover, or write-path change; the npm publish itself is a separate owner-confirmed step, not part of this patch | Phase 3.6 (cloud analysis and its honest privacy copy) and the Native port analysis line; owner answers **D1 = `cloud`**, **D2 partially answered (multi-model direction, option A)**, **D7 = `yes` (publication authorised, not executed)** | **in progress — implementation complete, untagged (2026-11-27) on `main` `0d8d3c8`; 583 tests, typecheck/build/`check:package` green; not tagged and no publish — the tag waits on [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §3.7/§3.9's hard gate; the smoke tool is ready ([`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs), [`docs/SMOKE.md`](SMOKE.md)) but no PASS record exists yet; release preparation in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)** |
 
 Order rationale: 0.10.0 goes first because it is the only patch the two full
 answers point at — D1 makes a real analysed day/week possible, D2's direction
@@ -1299,11 +1316,14 @@ version is 0.10.0, with the 0.9.2-first alternative and its cost in
 untagged.** `v0.9.2` (`ccac653`) remains the repository's latest tag and GitHub
 Release, the trail is **22 tags / 22 Releases**, and npm still answers **404**
 (D7 answered, publish not executed). The implementation is complete (583 tests;
-typecheck/build/`check:package`/CI green), so the only remaining gate before the
-tag is the recorded real-cloud smoke. A `v0.10.0` cut would be the **23rd** tag
-and Release; it is not cut until the plan's gates — including one recorded
-real-cloud smoke and no committed secret — are green, and **the cut is the
-lead's decision after that smoke, not a pre-written status**.
+typecheck/build/`check:package`/CI green) and the smoke's tooling is in the tree
+([`scripts/cloud-smoke.mjs`](../scripts/cloud-smoke.mjs) with
+[`docs/SMOKE.md`](SMOKE.md)), so the only remaining gate before the tag is the
+recorded real-cloud smoke **PASS** — tooling ready is not the gate. A `v0.10.0`
+cut would be the **23rd** tag
+and Release; it is not cut until the plan's gates — including one
+`cloud-smoke.mjs` PASS record and no committed secret — are green, and **the cut
+is the lead's decision after that PASS record, not a pre-written status**.
 
 **Not on 0.10.x (deferred, gated, or a separate act):** image admission (D1
 answered, but **D2 vision-capable entries and D11** are not), the Phase 4
