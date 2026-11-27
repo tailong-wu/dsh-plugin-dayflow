@@ -5,7 +5,7 @@
 > (`v0.7.0`, `45a7e42`) remains the **phase baseline**: it closed the read
 > surface and landed native capture Phase 0/1. `main` is the **0.7.x patch
 > line**: 0.7.1 has landed (the analysis foundation, text-only and inert by
-> default), 0.7.2 is finalised in [`PATCH_PLAN.md`](PATCH_PLAN.md) and in
+> default), 0.7.2 is landed in [`PATCH_PLAN.md`](PATCH_PLAN.md) and in
 > progress, and 0.7.3–0.7.6 remain planned; the line is summarised in *Patch
 > iterations (0.7.x)* below. The 0.6.0 release (tagged `v0.6.0`) shipped the
 > **read path** of Phases 1+2 only — the owned schema, its forward migration,
@@ -62,7 +62,7 @@
 > the 0.7.x line), the scheduled lint job (0.7.5), the Phase 4 cutover, release
 > closure (npm publication, GitHub Releases — 0.7.6), and Phase 5. Phase 5 and
 > everything after it remain proposals.
-> Last revised: 2026-11-27 (0.7.1 landed as the current head; 0.7.2 finalised in
+> Last revised: 2026-11-27 (0.7.2 landed as the current head; 0.7.3 planned in
 > [`PATCH_PLAN.md`](PATCH_PLAN.md) and in progress, with skipped-window catch-up
 > deferred and the analysis contract text-only for the whole line).
 
@@ -599,7 +599,7 @@ it remains a proposal.
 
 0.7.0 closed the long development line; `main` moved to small tagged patches so
 every change is reviewable, testable, and revertible on its own. **0.7.1 has
-landed**, 0.7.2 is finalised in the plan and in progress on `main` (untagged),
+landed**, 0.7.2 is landed as the current head (`v0.7.2`),
 and 0.7.3–0.7.6 remain planned. The
 execution plan is [`PATCH_PLAN.md`](PATCH_PLAN.md): it carries each patch's
 deliverables at file level, the acceptance assertions, the owner decisions and
@@ -608,7 +608,7 @@ safe defaults, and the risks and rollback. One line each:
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
 | 0.7.1 | Analysis foundation: the `analyse/` modules, consent gate, schema v8 `analysis_jobs`, fake-adapter tests; text-only, skipped jobs terminal — nothing leaves the machine | Native port Phase 2 | landed |
-| 0.7.2 | Analysis visible: worker timer, text-only host `llm` adapter, analysis status route and panel line, budget ledger, `/dayflow-analyze`; no schema change | Native port Phase 2 | in progress |
+| 0.7.2 | Analysis visible: worker timer, text-only host `llm` adapter, analysis status route and panel line, budget ledger, `/dayflow-analyze`; no schema change | Native port Phase 2 | landed |
 | 0.7.3 | Interactive insights: decide review items and attach/detach task sessions in the panel | Phase 3.5 / 3.7 remain | planned |
 | 0.7.4 | The day closes itself: briefs, reflection, review proposals, task sessions, weekly close | Native port Phase 3 | planned |
 | 0.7.5 | Scheduled memory lint and a weekly digest (proposals, never auto-repair) | Phase 4 lint remain | planned |

@@ -2,7 +2,7 @@
 
 > **Status:** revised 2026-11-27 against `v0.7.1` (tag `v0.7.1`, commit
 > `0256a64`). **0.7.1 has landed**, so its section records what actually
-> shipped, and **0.7.2 is finalised below** for implementation; 0.7.3–0.7.6
+> shipped, and **0.7.2 is landed below** (`v0.7.2`); 0.7.3–0.7.6
 > remain planned. Six patches, 0.7.1–0.7.6: each one theme, one integration
 > point, one tag. This is a decision-level plan, not a commitment of dates.
 > Every patch below is shippable under the safe default of the decisions in
@@ -26,7 +26,7 @@ this table.
 | --- | --- | --- |
 | Baseline | `0.7.0`, annotated tag `v0.7.0` (commit `45a7e42`), the phase baseline this plan was first written against | `package.json`, `git tag` |
 | Current head | `0.7.1`, annotated tag `v0.7.1` (commit `0256a64`), **not** on the npm registry, **no** GitHub Release | `package.json`, `git tag`, `npm view dsh-plugin-dayflow` → 404, `gh release view v0.7.1` → not found |
-| Tests | 384 cases, green on the 0.7.1 tree (`node --test` ran them all); CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
+| Tests | 408 cases, green on the 0.7.2 tree (`node --test` ran them all); CI runs them on macOS 15 with Node 22 (`--experimental-sqlite`) and Node 24 | `tests/*.test.ts`, `.github/workflows/ci.yml` |
 | Tools | 23 registered by default (17 with `edits: false`), plus `dayflow_install_dayflow` behind `allowInstall: false`; 0.7.1 added no tool | `src/index.ts`, `src/tools/` |
 | Skills | 8 | `skills/` |
 | Panel | 13 exact host Fetch routes, one UI entry (one header button, one panel tab); 0.7.2 adds exactly one read-only GET | `src/panel-contract.ts`, `tests/panel.test.ts` |
@@ -125,7 +125,7 @@ definition of that.
 | Patch | Theme | Roadmap item | Depends on | Decisions | Risk |
 | --- | --- | --- | --- | --- | --- |
 | 0.7.1 | **landed** — Analysis foundation: frames become `activities` rows behind a fake adapter | Native port Phase 2 | — | D1, D2, D5 | Medium |
-| 0.7.2 | **finalised** — Analysis visible: worker timer, text-only host adapter, status route and panel line, budget ledger, manual command; no schema change | Native port Phase 2 | 0.7.1 | D1, D3 | Medium |
+| 0.7.2 | **landed** — Analysis visible: worker timer, text-only host adapter, status route and panel line, budget ledger, manual command; no schema change | Native port Phase 2 | 0.7.1 | D1, D3 | Medium |
 | 0.7.3 | Interactive insights: decide review items, attach/detach task sessions in the panel | Phase 3.5 / 3.7 remain | — (built against 0.7.2 tree) | D6 | Low |
 | 0.7.4 | The day closes itself: briefs, reflection, proposals, task sessions, weekly close | Native port Phase 3 | 0.7.2, 0.7.3 | D3, D4, D9 | High |
 | 0.7.5 | Scheduled memory lint and weekly digest | Phase 4 lint remain | 0.7.4 | D8 | Medium |
@@ -273,14 +273,13 @@ builds on.
   candidate). The `@deepseek-ai/dsh-llm` peer is already declared but no code
   calls `ctx.llm` yet; 0.7.2 adds the adapter.
 
-The suite is 384 tests green on the tagged tree, and `npm run typecheck` /
+The suite is 408 tests green on the tagged tree, and `npm run typecheck` /
 `npm run check:package` are green; the 0.7.1 CHANGELOG section is the record of
 what shipped.
 
 ### 0.7.2 — Analysis visible: worker, status, budget
 
-**Status: finalised for implementation, 2026-11-27 (revised after 0.7.1
-landed).** The scope is the one below: **text-only, no schema change, no new
+**Status: landed in 0.7.2, 2026-11-27 (revised after 0.7.1).** The scope is the one below: **text-only, no schema change, no new
 host peer**, one new config key, one new GET route, and — decided — **no re-run
 of 0.7.1's skipped jobs** (see the decision near the end of this section).
 
