@@ -7,16 +7,23 @@
 > authorised), and partially answered **D2** (several custom models wanted,
 > DeepSeek first; the A/B/C form is still to be chosen), so the line that was
 > waiting on those answers starts at **0.10.0 — cloud analysis + multi-model
-> selection (option A baseline) + first-npm-publish preparation**. **0.10.0 is
-> now in progress** (implementation round, 2026-11-27, on `main` `e4b143a`):
-> the config/status/client/docs surfaces are being wired to the approved
-> `analysis.models` shape, and **nothing is tagged and no publish has run** —
-> the tag waits on the plan's gates, including one real-cloud smoke recorded
-> without a key ([`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §3.7/§3.9). After
-> the `v0.9.2` tag an engineering-only package-metadata regression guard joined
-> the tree (no tag, no new patch), so the current tree is **558** tests against
-> **557** at the tag. **D10 and D11 are still unanswered and stay gated**, no
-> `1.0.0` is planned, and **no npm publish has happened**: the registry still
+> selection (option A baseline) + first-npm-publish preparation**. **0.10.0's
+> implementation round is complete (2026-11-27, `main` `0d8d3c8`) and the patch
+> remains in progress, still untagged**: the approved `analysis.models` shape
+> is implemented in the config/resolution helper, the additive optional `model`
+> status summary, the client analysis line, the provider page, and the docs; the
+> suite measures **583/583** green — 581 on the implementation head `0d8d3c8`
+> plus the two pipeline list-mode cases the quality pass added — and typecheck,
+> build, and `check:package` are green. **Nothing is tagged and no npm publish
+> has run** — the tag waits on the plan's hard gate, one real-cloud
+> smoke recorded without a key ([`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md)
+> §3.7/§3.9), and the publish waits on an npm login this machine has not made;
+> the release preparation is written in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md).
+> After the `v0.9.2` tag an engineering-only package-metadata regression guard
+> joined the tree (no tag, no new patch) for 558 tests, and 0.10.0's
+> implementation plus the quality pass added the other 25. **D10 and D11 are
+> still unanswered and stay gated**,
+> no `1.0.0` is planned, and **no npm publish has happened**: the registry still
 > answers **404** and this machine is not logged in to npm.
 > `v0.9.1` is an annotated tag whose tree is **557** green tests, schema **v10**, **18** panel
 > routes (9 `GET` + 9 `POST`), **5** slash commands, 23 tools, 8 skills, and no new
@@ -46,10 +53,12 @@
 > files: eleven reader cases in a new `tests/automation-read.test.ts`, one
 > `panel-insights` payload case, and one `client-format` copy case), schema
 > **v10**, **18** panel routes, **5** slash commands, 23 tools, 8 skills, no new
-> host peer. **The current tree is 581 green tests, against 557 at the `v0.9.2`
-> tag**: 0.9.2 itself added no test, and the one case added after the tag is the
-> engineering-only package-metadata regression guard described in §0.9.x, which
-> carries no tag. The 0.7
+> host peer. **The current tree is 583 green tests, against 557 at the `v0.9.2`
+> tag**: 0.9.2 itself added no test, the post-tag engineering-only
+> package-metadata regression guard described in §0.9.x added one (558, no tag),
+> 0.10.0's implementation added 23, and the quality pass added the last two
+> pipeline list-mode cases (581 → 583); the exact count is recorded at the cut.
+> The 0.7
 > line's own record is [`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history), the 0.8
 > line's is [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) (frozen history too, now
 > that the line is closed), and the 0.9 line's is
@@ -139,8 +148,9 @@
 > consolidated — with the new answers — in
 > [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
 >
-> Last revised: 2026-11-27, after the `v0.9.2` tag (`ccac653`) and the owner's
-> answers that opened 0.10.x: **22 tags and 22 GitHub Releases** (`v0.9.2`
+> Last revised: 2026-11-27, after the `v0.9.2` tag (`ccac653`), the owner's
+> answers that opened 0.10.x, and the 0.10.0 implementation round
+> (`0d8d3c8`; implemented, untagged): **22 tags and 22 GitHub Releases** (`v0.9.2`
 > **Latest**; the `v0.6.0` gap backfilled after the 0.8.4 close); 0.8.0's three
 > ledger follow-ups, 0.8.1's briefs reading view, and 0.8.4's release close
 > landed; 0.8.2 image admission and 0.8.3 cutover are deferred to the next line;
@@ -159,19 +169,26 @@
 > is open** — 0.10.0 cloud analysis + multi-model selection (option A baseline)
 > + first-npm-publish preparation, planned in
 > [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) and summarised in §0.10.x below.
-> **0.10.0 is now in progress** (implementation round, 2026-11-27, on `main`
-> `e4b143a`): the approved `analysis.models` shape is being wired into the
-> config, status, client, and docs surfaces; **nothing is tagged and no publish
-> has run**, and the tag waits on the plan's gate order, including the recorded
-> real-cloud smoke. **D10 and D11 remain unanswered and gated**, the analysis
+> **0.10.0's implementation round is complete** (2026-11-27, `main` `0d8d3c8`),
+> and the patch is still **untagged**: the approved `analysis.models` shape is
+> implemented in the config/resolution helper, the additive optional `model`
+> status summary, the client line, and the docs; **nothing is tagged and no
+> publish has run** — the tag waits on the plan's hard gate, the recorded
+> real-cloud smoke, while the publish waits separately on an npm login this
+> machine has not made (release preparation: [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)).
+> **D10 and D11
+> remain unanswered and gated**, the analysis
 > contract stays **text-only** until D11 is answered, and no npm publish has run
 > (the registry still answers **404** and this machine is not logged in). After
 > the `v0.9.2` tag the decision-free operator runbook
 > ([`RUNBOOK.md`](RUNBOOK.md)) was written as the first 1.0.0 engineering prep —
 > docs only, no tag. An engineering-only package-metadata regression guard
 > (`tests/compatibility.test.ts`) joined the suite after that tag too — no tag
-> and no new patch — so the current tree is **558** tests against **557** at
-> `v0.9.2`.
+> and no new patch — taking the tree from 557 to **558**; 0.10.0's
+> implementation added 23 cases and the quality pass added two pipeline
+> list-mode cases, so the current tree is **583** green against **557** at
+> `v0.9.2` (581 at the `0d8d3c8` implementation head; the exact count is
+> recorded at the cut).
 
 ## Where this starts
 
@@ -1075,8 +1092,9 @@ since answered:** D1 (`cloud`) and D7 (`yes`) are answered and D2 is partially
 answered, which opened the 0.10.x line; a `yes` on D10 plus the real week still
 resumes the cutover line (with the CLI import beside the no-Dayflow runbook),
 while D11 and D2's remaining form shape the later line. Until those come, the
-project holds at 0.10.x — 0.10.0 is in progress (implementation round,
-2026-11-27) and the line then holds until D10/D11 and D2's form return — on
+project holds at 0.10.x — 0.10.0's implementation is complete (2026-11-27;
+untagged, waiting on the real-cloud smoke and the publish preconditions) and
+the line then holds until D10/D11 and D2's form return — on
 [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
 
 **Engineering-only guard added after the `v0.9.2` tag — no tag, no new patch,
@@ -1095,9 +1113,12 @@ drifted field, so the next upgrade fails at the declaration instead of drifting
 silently. It is engineering-only: it adds no behaviour, default, route, schema,
 command, tool, skill, or dependency, produces no tag and no release, and left
 the pause and the five owner questions exactly as they were at the time (the
-owner has since answered D1/D7 and partially D2, opening 0.10.x). It is the one
-case the tree gained after the tag, so the current tree is **581** tests against
-**557** at `v0.9.2`; that count is a maintenance measurement, not a patch.
+owner has since answered D1/D7 and partially D2, opening 0.10.x). It was the
+first case the tree gained after the tag (557 → **558**); that count was a
+maintenance measurement, not a patch. 0.10.0's implementation has since added
+23 cases and the quality pass two more, putting the current tree at **583**
+against **557** at `v0.9.2` (581 at the `0d8d3c8` implementation head; the
+exact count is recorded at the cut).
 
 ### 0.9.2 — DSH 0.2.2-rc.5 compatibility (landed)
 
@@ -1208,18 +1229,19 @@ open. What changes is narrow and deliberate:
   publish is a separate reviewed step that needs an npm login/token, 2FA, and the
   owner's explicit version confirmation; it creates no tag and moves no Release.
 - **D2's partial answer** is the direction, not the form: 0.10.0 implements
-  option **A** (a named model list with one active entry per call; in progress),
-  and **B** (fallback)/**C** (custom `baseURL`) wait for the owner's form
+  option **A** (a named model list with one active entry per call; implemented,
+  untagged), and **B** (fallback)/**C** (custom `baseURL`) wait for the owner's form
   choice.
 
 What does not change: the 0.9.x record above (closed at `v0.9.1` for function plus
 the 0.9.2 maintenance tag), **D10 and D11's safe defaults**, the absence of any
 cutover default, the text-only analysis contract, and the fact that no `1.0.0`
 is planned — D10 plus a real captured week still gate it. The line's plan is
-[`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md); **its 0.10.0 is in progress as of
-2026-11-27** (implementation round on `main` `e4b143a`), it is not tagged, and
-the tag waits on the plan's §3.7/§3.9 gates, including the recorded real-cloud
-smoke.
+[`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md); **its 0.10.0 implementation is
+complete as of 2026-11-27** (`main` `0d8d3c8`), it is not tagged, and the tag
+waits on the plan's §3.7/§3.9 hard gate — the recorded real-cloud smoke; the
+separate npm publish waits on an npm login and the owner's version
+confirmation (§4 and [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)).
 
 ## 0.10.x iterations
 
@@ -1233,20 +1255,27 @@ validation, the file-level deliverables, the acceptance at the assertion level,
 the deferred forms, the release/publish strategy, and the real-cloud
 verification that CI cannot provide.
 
-**Round status (2026-11-27): 0.10.0 is in progress.** The approved A-baseline
-shape is being implemented on `main` `e4b143a` in parallel lanes — host
-configuration (`analysis.models`, the resolved pair and `modelId`, the additive
-optional `model` status summary), the client display, and the docs — while the
-plan maintains the file-level scope, the gate order, and the post-tag publish
-preconditions in
-[`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §3.9. **Nothing is tagged and no npm
-publish has run**; the tag is cut only after the plan's gates, including one
-real-cloud smoke recorded without a key, and **this roadmap is not written as
-landed until then**.
+**Round status (2026-11-27): 0.10.0 remains in progress — its implementation is
+complete, and the patch is untagged and gated.** The approved A-baseline shape
+is in the tree at `main` `0d8d3c8` (feature commit `7de9aec`, docs commit
+`0d8d3c8`) in parallel lanes — host configuration (`analysis.models`, the
+resolved pair and `modelId`, the additive optional `model` status summary), the
+client display, the provider page, and the docs — while the plan maintains the
+measured gates, the file-level scope, and the post-tag publish preconditions in
+[`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §3.9. The suite measures **583/583**
+green — 581 at the implementation head plus the two pipeline list-mode cases
+from the quality pass (558 at the planning baseline, 557 at `v0.9.2`); `npm run
+typecheck`, `npm run build`, and `npm run check:package` are green, and CI on
+`main` is green. **Nothing is tagged and no npm publish has run**, and **this
+roadmap is not written as landed until then**: the tag waits on the plan's hard
+gate — one real-cloud smoke recorded without a key — and the publish on
+[`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)'s preconditions (npm login/2FA, the owner's
+version confirmation, plan §4). D2's **B**/**C** forms, **D10**, and **D11** are
+unchanged and still deferred.
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.10.0 | Cloud analysis + multi-model selection (option A baseline), provider setup, first-npm-publish preparation: a named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id), the legacy `analysis.provider`/`analysis.model` pair unchanged when the list is empty, both consent gates and the scheduled closes/briefs using the active pair, and the analysis status line naming the active model through the additive optional `model` field on the analysis status payload (its label when present, otherwise `provider`/`model`); the provider page [`docs/PROVIDERS.md`](PROVIDERS.md) (written in the planning round) updated for the named list, host-provider/`apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded real-cloud smoke. No schema, route, command, tool, skill, host peer, runtime dependency, image, cutover, or write-path change; the npm publish itself is a separate owner-confirmed step, not part of this patch | Phase 3.6 (cloud analysis and its honest privacy copy) and the Native port analysis line; owner answers **D1 = `cloud`**, **D2 partially answered (multi-model direction, option A)**, **D7 = `yes` (publication authorised, not executed)** | **in progress — implementation round under way (2026-11-27) on `main` `e4b143a`; not tagged and no publish; the cut waits on [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §3.7/§3.9's gates, including the recorded real-cloud smoke** |
+| 0.10.0 | Cloud analysis + multi-model selection (option A baseline), provider setup, first-npm-publish preparation: a named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id), the legacy `analysis.provider`/`analysis.model` pair unchanged when the list is empty, both consent gates and the scheduled closes/briefs using the active pair, and the analysis status line naming the active model through the additive optional `model` field on the analysis status payload (its label when present, otherwise `provider`/`model`); the provider page [`docs/PROVIDERS.md`](PROVIDERS.md) (written in the planning round) updated for the named list, host-provider/`apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded real-cloud smoke. No schema, route, command, tool, skill, host peer, runtime dependency, image, cutover, or write-path change; the npm publish itself is a separate owner-confirmed step, not part of this patch | Phase 3.6 (cloud analysis and its honest privacy copy) and the Native port analysis line; owner answers **D1 = `cloud`**, **D2 partially answered (multi-model direction, option A)**, **D7 = `yes` (publication authorised, not executed)** | **in progress — implementation complete, untagged (2026-11-27) on `main` `0d8d3c8`; 583 tests, typecheck/build/`check:package` green; not tagged and no publish — the tag waits on [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §3.7/§3.9's hard gate, the recorded real-cloud smoke; release preparation in [`PUBLISH_PLAN.md`](PUBLISH_PLAN.md)** |
 
 Order rationale: 0.10.0 goes first because it is the only patch the two full
 answers point at — D1 makes a real analysed day/week possible, D2's direction
@@ -1266,13 +1295,15 @@ meet and the owner's explicit version confirmation; the recommended first-publis
 version is 0.10.0, with the 0.9.2-first alternative and its cost in
 [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §4.
 
-**The line's tags at this revision: none yet, and 0.10.0 is in progress.**
-`v0.9.2` (`ccac653`) remains the repository's latest tag and GitHub Release, the
-trail is **22 tags / 22 Releases**, and npm still answers **404** (D7 answered,
-publish not executed). A `v0.10.0` cut would be the **23rd** tag and Release; it
-is not cut until the plan's gates — including one recorded real-cloud smoke and
-no committed secret — are green, and **the cut is the lead's decision after that
-smoke, not a pre-written status**.
+**The line's tags at this revision: none yet; 0.10.0 is implemented and
+untagged.** `v0.9.2` (`ccac653`) remains the repository's latest tag and GitHub
+Release, the trail is **22 tags / 22 Releases**, and npm still answers **404**
+(D7 answered, publish not executed). The implementation is complete (583 tests;
+typecheck/build/`check:package`/CI green), so the only remaining gate before the
+tag is the recorded real-cloud smoke. A `v0.10.0` cut would be the **23rd** tag
+and Release; it is not cut until the plan's gates — including one recorded
+real-cloud smoke and no committed secret — are green, and **the cut is the
+lead's decision after that smoke, not a pre-written status**.
 
 **Not on 0.10.x (deferred, gated, or a separate act):** image admission (D1
 answered, but **D2 vision-capable entries and D11** are not), the Phase 4
@@ -1288,10 +1319,10 @@ week still stand.
 The 0.9.x line's two functional patches landed without a functional default
 change, and its one maintenance patch 0.9.2 changed none of the 1.0.0
 prerequisites. The 0.10.x line now carries the analysis work the owner's answers
-authorised — D1 = `cloud` and D2's multi-model direction, with 0.10.0 in
-progress (option A; not tagged) — and prepares the first npm publication D7
-authorised, but it still
-changes no capture, import, or cutover default, so **1.0.0 remains gated on the
+authorised — D1 = `cloud` and D2's multi-model direction, with 0.10.0
+implemented (option A; untagged, waiting on the real-cloud smoke) — and
+prepares the first npm publication D7 authorised, but it still changes no
+capture, import, or cutover default, so **1.0.0 remains gated on the
 owner, not on engineering:**
 
 1. **1.0.0 prerequisites (all required):** a real captured week on the owned

@@ -352,7 +352,7 @@ route and credential setup is in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 ```sh
 npm install
 npm run build                # TypeScript → lib/, plus the client bundle
-npm test                     # build, type-check, and run the 581-test suite
+npm test                     # build, type-check, and run the 583-test suite
 npm run typecheck            # type-check sources and tests together
 npm run smoke                # read this Mac's real Dayflow database
 npm run native:smoke         # capture provider only; writes nothing

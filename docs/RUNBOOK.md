@@ -17,7 +17,7 @@ node -p "require('./package.json').version"   # 0.9.2
 node -p "require('./package.json').dsh.compatibility.dshReleases['0.2.2-rc.5']"  # compatible
 git describe --tags                           # v0.9.2 (tag) / v0.9.2-N-g<sha> after later docs commits
 git tag --list | wc -l                        # 22
-npm test                                      # tests 581 · pass 581 · fail 0 (builds first; 557 at v0.9.2)
+npm test                                      # tests 583 · pass 583 · fail 0 (builds first; 557 at v0.9.2)
 npm run typecheck                             # exit 0, no output
 npm run rehearsal                             # REHEARSAL PASS: 20/20 checks passed
 npm run check:package                         # check-package: ok · 146 files · 2.52 MB packed · 3.90 MB unpacked
@@ -197,7 +197,7 @@ Apply it in the profile's patch and reload; Dayflow's own app data is untouched.
 
 | Check | Command (repo root) | Expected while paused |
 | --- | --- | --- |
-| Suite | `npm test` | `581 pass / 0 fail` (557 at `v0.9.2`) |
+| Suite | `npm test` | `583 pass / 0 fail` (557 at `v0.9.2`) |
 | Types | `npm run typecheck` | exit 0, no output |
 | Fixture rehearsal | `npm run rehearsal` | `REHEARSAL PASS: 20/20 checks passed` |
 | Package shape | `npm run check:package` | `check-package: ok`, exactly one package, no `src/`, `tests/`, `scripts/`, sourcemaps |
@@ -207,7 +207,7 @@ Apply it in the profile's patch and reload; Dayflow's own app data is untouched.
 | Defaults untouched | `git diff v0.9.2 -- src/config.ts cordis.patch.yml package.json` | empty |
 | Schema | `J="${DSH_HOME:-$HOME/.dsh}/dayflow/journal.sqlite"; test -f "$J" && sqlite3 "$J" 'SELECT version FROM schema_version;'` | `10` |
 | Docs links | open the changed pages; no repository script checks links | every relative link resolves |
-| Shipped counts | README/ROADMAP/ARCHITECTURE: 581 tests in the current tree (557 at `v0.9.2`), 18 routes, 5 commands, 23 tools, 8 skills, schema v10 | unchanged |
+| Shipped counts | README/ROADMAP/ARCHITECTURE: 583 tests in the current tree (557 at `v0.9.2`), 18 routes, 5 commands, 23 tools, 8 skills, schema v10 | unchanged |
 
 Record **date, commit (`git rev-parse --short HEAD`), tag, Node version, macOS version, and each result**, including deviations. A green run is the expected state; during the pause any change in a shipped count or default is a finding to explain, not a routine bump. A tag without a GitHub Release is a release-trail gap only — fix it by hand (the `v0.6.0` gap was backfilled that way) and record it; it does not affect the plugin's runtime or this runbook's upgrade path.
 
@@ -235,7 +235,7 @@ Deeper routes: [PANEL.md](PANEL.md), [NATIVE_PORT.md](NATIVE_PORT.md) for the ca
 
 ## 9. Maintenance notes
 
-**Revision checked.** This runbook was revised on **2026-11-27** for the `v0.9.2` release: package version **0.9.2**, DSH host **0.2.2-rc.5** (declared compatible and pinned in the development dependencies, with `cordis` `4.1.0`), Node **v25.8.1**, macOS **15.1** (arm64). The §1 release-gate numbers for this tree: 581/581 tests (557 at `v0.9.2`), typecheck clean, rehearsal 20/20, package shape OK, npm 404, 22 tags and 22 GitHub Releases with `v0.9.2` Latest; re-run §1 before trusting them. The runbook is **written, not exercised**: no first-run or rollback has been walked through on a real cutover profile, because that needs D10 and a real captured week.
+**Revision checked.** This runbook was revised on **2026-11-27** for the `v0.9.2` release: package version **0.9.2**, DSH host **0.2.2-rc.5** (declared compatible and pinned in the development dependencies, with `cordis` `4.1.0`), Node **v25.8.1**, macOS **15.1** (arm64). The §1 release-gate numbers for this tree: 583/583 tests (557 at `v0.9.2`), typecheck clean, rehearsal 20/20, package shape OK, npm 404, 22 tags and 22 GitHub Releases with `v0.9.2` Latest; re-run §1 before trusting them. The runbook is **written, not exercised**: no first-run or rollback has been walked through on a real cutover profile, because that needs D10 and a real captured week.
 
 **Host cohort.** DSH `0.2.0-rc.2`, `0.2.1-rc.2`, and `0.2.2-rc.5` are declared compatible in `dsh.compatibility.dshReleases`; this Mac runs **0.2.2-rc.5**, and the DSH development dependencies are pinned to it (`cordis` `4.1.0`). `0.9.2` is a compatibility patch only: no behaviour, default, schema, route, command, tool, skill, peer-range, or runtime-dependency change, and no owner decision changed — npm remains **404** (D7) and the pause continues.
 
