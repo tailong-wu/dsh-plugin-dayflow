@@ -56,7 +56,7 @@ Run from the repository root, on the Node version the profile uses (Node ≥ 22.
 ```sh
 npm install
 npm run build            # the rehearsal loads the built lib/
-npm test                 # build, type-check, 537 tests
+npm test                 # build, type-check (the v0.8.4 tree this checklist was written against had 537 tests; the current suite is larger)
 npm run check:package    # the packed file list a profile would install
 ```
 

@@ -53,6 +53,20 @@
 > admission (D1/D2/D11), the cutover (D10 plus a real week), any npm publish
 > (D7), and the owned-journal write path stay deferred.
 >
+> **After 0.9.1 the project is in maintenance — paused pending owner decisions,
+> not abandoned.** No further decision-free patch is worth a tag at this
+> revision: the six remaining candidates (the `dsh dayflow import` CLI,
+> month/week query batching, a11y/i18n/UX, docs/README parity, test dedup, and
+> release tooling) were each evaluated against a user-visible change, a real
+> risk, and a tag, and none clears all three — the CLI is a new entry surface
+> deliberately saved for the cutover line, and the rest are refactors, cosmetic,
+> already green, or already shipped. The next action is the owner's, not
+> engineering's: **the five-question list in
+> [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md)** (D1, D2, D7, D10, D11). No new
+> patch opens and no 1.0.0 is planned without those answers; maintenance means
+> verification and necessary fixes only, and the evaluation is recorded below in
+> §0.9.x *After 0.9.1 — maintenance, paused pending owner decisions*.
+>
 > **What remains after this line:** the owned-journal write path (the editing
 > tools still go through Dayflow), the `dsh dayflow import` CLI (cutover line),
 > the `review.cards` switch (the plugin never had a card stack, so the switch
@@ -62,7 +76,8 @@
 > last *Missing* read, the close history, landed in 0.9.1, leaving image
 > admission and the cutover there — both owner-gated. 1.0.0 follows the deferred
 > cutover and a real captured week; the owner decisions it needs are in
-> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, unchanged by 0.9.
+> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, unchanged by 0.9 and
+> consolidated in [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
 >
 > Last revised: 2026-11-27, against the `v0.9.1` tag (`ce0827e`): **21 tags and
 > 21 GitHub Releases** (`v0.9.1` **Latest**; the `v0.6.0` gap backfilled after
@@ -70,8 +85,12 @@
 > and 0.8.4's release close landed; 0.8.2 image admission and 0.8.3 cutover are
 > deferred to the next line; 0.9.0 (month/week goal and rating surfaces) and
 > 0.9.1 (close-history surface) landed with GitHub Releases, closing the 0.9.x
-> line at `v0.9.1`; the analysis contract is still **text-only** until
-> D1/D2/D11 are answered.
+> line at `v0.9.1`; after the tag the six remaining decision-free candidates
+> were evaluated and none is worth a tag, so the project is in maintenance,
+> paused pending the five owner decisions consolidated in
+> [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md) — no new patch and no 1.0.0 opens
+> without them; the analysis contract is still **text-only** until D1/D2/D11 are
+> answered.
 
 ## Where this starts
 
@@ -918,6 +937,39 @@ runbook — are unchanged and untouched by this line; they remain in
 [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G and are restated in
 [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §4.
 
+### After 0.9.1 — maintenance, paused pending owner decisions
+
+**`v0.9.1` is the last planned tag, and the project now sits in maintenance.**
+It is **paused pending the owner's answers, not abandoned**: the plugin works at
+its current scope (readable journal, briefs, review queue, panel views, native
+capture and text-only analysis on the safe defaults), every tag has a Release,
+and the suite is green (re-run at this revision: **557 pass, 0 fail**) — but
+everything left is owner-gated, a new product surface, or not worth a release, so
+no `0.9.2`, `0.10.0`, or `1.0.0` is opened. The next action is the single
+five-question list in [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md). This section
+records the evaluation that reached that conclusion, so a later round does not
+re-litigate it.
+
+**Decision-free candidates evaluated at this revision — none worth a tag.** Each
+was judged against three tests: is the change user-visible? is there a real risk
+or defect? is it worth a tag? The verdicts:
+
+| Candidate | What it is | Verdict |
+| --- | --- | --- |
+| `dsh dayflow import` CLI | One command over the existing `journal_import` importer; a new entry point (5 → 6 commands) | **Deferred, not patch material here.** Decision-free, but it is a new entry surface whose acceptance — import a real Dayflow database losslessly, re-run without duplicating, make `dayflow: false` usable on a machine with no Dayflow — belongs beside the cutover line's no-Dayflow runbook, exactly where the 0.9 plan already puts it ([`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §3). Shipping it alone would front-run a line that is itself gated and add release noise |
+| Month/week goal and rating query batching | The month view reads up to three indexed point queries per calendar day (a goal row plus its categories, and the day's review marks) — ~93 queries for a 31-day month, 21 for a week, all on one read-only local connection | **Refactor with no user-visible change and no measured risk.** Batching them would touch the read path for a micro-optimisation on local SQLite; the line's rule (P5) is that a patch needs a user-visible payoff, and this has none |
+| a11y / i18n / UX small fixes | No tracked defect: no open issue names one; the view switch, icon buttons, refresh, error summaries, and the close-history error line already carry `aria-label`/`title`; and `tests/client-format.test.ts` asserts `EN`/`ZH` key parity plus the copy rules | **Nothing to fix.** Inventing a polish patch would be release noise |
+| docs/README parity | The 0.9.1 docs pass shipped with the tag; the counts agree across `README`/`README.zh`, [`ARCHITECTURE.md`](ARCHITECTURE.md), this roadmap, and the plans (557 tests, 18 routes, 5 commands, 23 tools, 8 skills), and no stale version label remains | **No drift, so no patch.** A docs-only tag would be release noise by definition (R6 attaches docs to a tag; it does not create one) |
+| Test dedup (`ratingColor` in `day.tsx` and `format.ts`) | One small pure colour function duplicated between the day view and the shared formatter | **Known, accepted deviation** recorded in [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §0.9.0 *Landed shape and deviations*; removing it is a client refactor with zero behaviour change and no coverage gain |
+| Release tooling | Explicit-version releases are already supported (`nextVersion` accepts `X.Y.Z`), CI gates the tag against `package.json`, the suite and package contents run on every push, and the one historical gap (the `v0.6.0` Release) was a missed Release on an existing tag that was added manually — not a tag whose tooling was missing | **No defect to patch.** A `--backfill` mode for an existing tag would be ops convenience only, with no product change; the operation was exercised once and is in the runbook |
+
+**Verdict: “No further decision-free patch is worth a tag at this revision.”**
+If the owner answers, the state changes: a `yes` on D10 plus the real week
+resumes the cutover line (with the CLI import beside the no-Dayflow runbook),
+while D1/D2/D11/D7 shape 1.0.0 and image admission. If the owner does not answer,
+this is where the project stays — complete at its current scope, maintained, and
+waiting on [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
+
 ## Next line (1.0.0)
 
 The 0.9.x line's two patches landed without a functional default change, and the
@@ -937,10 +989,17 @@ owner, not on engineering:**
 2. **Not without the owner:** image admission (D1/D2/D11), the cutover default
    flip (D10), any npm publish (D7), and the owned-journal write path.
 3. **The first action of the next round:** put the five questions (D10, D1, D2,
-   D11, D7) in front of the owner as one short list; the full recommendation,
-   with the branches (pause, the 0.9.x holding line, or a cutover-driven 1.0.0),
-   is in [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, and the 0.9 plan
-   restates the prerequisites in §4.
+   D11, D7) in front of the owner as one short list — the consolidated list,
+   with each question's options, safe default, unlocked patch, and the cost of
+   not answering, is [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md); the full
+   recommendation, with the branches (pause, the 0.9.x holding line, or a
+   cutover-driven 1.0.0), is in
+   [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, and the 0.9 plan restates
+   the prerequisites in §4.
+4. **No answer, no line.** While the five questions are unanswered the project
+   stays in maintenance: no 1.0.0 is planned or tagged and no new patch is
+   opened. A "not now" is an answer that keeps the safe default and changes
+   nothing structurally; a missing answer keeps the pause.
 
 ## What this deliberately does not do
 
@@ -1062,7 +1121,10 @@ owner decisions the 0.8 line needed; with D1/D2 also unanswered, all four sit
 on the 1.0.0 line — the closed 0.9.x line was decision-free and needed none of
 them — and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G lists them with the
 release each unblocks (1.0.0 for the cutover, a later line for image
-admission).
+admission). The five release-gating decisions are consolidated, with options,
+safe defaults, and what each unlocks, in
+[`OWNER_DECISIONS.md`](OWNER_DECISIONS.md); the questions above are product-shape
+questions that no tag waits on.
 
 ## References and credits
 

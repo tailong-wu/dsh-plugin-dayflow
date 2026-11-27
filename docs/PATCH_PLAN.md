@@ -1,5 +1,10 @@
 # Patch plan: the 0.7.x line
 
+> **Frozen history.** The 0.7.x line closed at `v0.7.6` (2026-11-27). This file
+> records that plan as it was executed; its in-progress and future-tense lines
+> describe the past, not the present. The live state is in
+> [`ROADMAP.md`](ROADMAP.md) and the newer patch plans.
+
 > **Status:** revised 2026-11-27 against `v0.7.5` (annotated tag `v0.7.5`,
 > commit `f117cdc`); `main` is at `81af8e3`, the commit that reconciled this
 > plan and the roadmap with the tagged tree. **0.7.1–0.7.5 have landed**, so

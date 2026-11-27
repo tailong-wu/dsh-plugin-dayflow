@@ -92,8 +92,9 @@ D1/D2/D11).
 
 ## Install
 
-Nothing is on the npm registry yet — the package name answers `404` — though `v0.8.0`, `v0.8.1`, and
-the `v0.8.4` release close are tagged in this repository. Install from a checkout: that builds the
+Nothing is on the npm registry yet — the package name answers `404` — though the line is tagged in
+this repository through `v0.9.1` (`v0.8.0`, `v0.8.1`, `v0.8.4`, `v0.9.0`, `v0.9.1`; the full trail
+is in [CHANGELOG.md](CHANGELOG.md)). Install from a checkout: that builds the
 development line described here. After the owner authorises an npm release (D7), run
 `dsh plugin --profile web add dsh-plugin-dayflow`.
 

@@ -79,8 +79,8 @@ peer，也是分析路径唯一调用的 host 服务；所有已交付的版本�
 
 ## 安装
 
-npm registry 上还没有任何版本——包名返回 `404`——但 `v0.8.0`、`v0.8.1` 与本轮 `v0.8.4` release close 都已在本仓库
-打 tag。请从源码 checkout 安装：那装的正是本文描述的开发线。等 owner 授权 npm 发布（D7）之后，再执行
+npm registry 上还没有任何版本——包名返回 `404`——但本线已在本仓库打 tag 至 `v0.9.1`（`v0.8.0`、`v0.8.1`、
+`v0.8.4`、`v0.9.0`、`v0.9.1`；完整 trail 见 [CHANGELOG.md](CHANGELOG.md)）。请从源码 checkout 安装：那装的正是本文描述的开发线。等 owner 授权 npm 发布（D7）之后，再执行
 `dsh plugin --profile web add dsh-plugin-dayflow`。
 
 ### Desktop App

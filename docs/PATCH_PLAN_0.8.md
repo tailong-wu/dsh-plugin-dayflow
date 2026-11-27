@@ -1,5 +1,10 @@
 # Patch plan: the 0.8.x line
 
+> **Frozen history.** The 0.8.x line closed at `v0.8.4` (2026-11-27). This file
+> records that plan as it was executed; its in-progress and future-tense lines
+> describe the past, not the present. The live state is in
+> [`ROADMAP.md`](ROADMAP.md) and [`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md).
+
 > **Status:** **the 0.8.x line is closing at its release-close patch.** 0.8.0 and
 > 0.8.1 have landed and been released — `v0.8.1` is an annotated tag on commit
 > `af002c3`, which is `main` HEAD and the commit that closed the patch, with a
