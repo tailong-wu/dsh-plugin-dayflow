@@ -41,6 +41,11 @@ default route and no implicit image upload. The panel's analysis line and
 call/token ledger; `/dayflow-analyze` runs one manual tick through the same
 consent gate.
 
+Where the DSH provider route and model id those two keys must name come from —
+how to add a DeepSeek route to the host profile, which credential reference to
+use, and exactly what metadata a cloud call sends — is covered in
+[PROVIDERS.md](PROVIDERS.md).
+
 On the 0.7.4 line `automation` is used: a scheduler closes a Dayflow day at
 `automation.dailyAt` and a Monday-anchored week on `automation.weeklyOn`. Both
 closes are **text-only LLM passes** — no images — and go through the analysis

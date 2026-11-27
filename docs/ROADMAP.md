@@ -1,11 +1,18 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: **`v0.9.2` is the latest tag and GitHub Release; the 0.9.x line's two
-> functional patches close its functional scope, and the post-close maintenance
-> patch 0.9.2 — DSH `0.2.2-rc.5` compatibility — has landed.** After that tag an
-> engineering-only package-metadata regression guard joined the tree (no tag, no
-> new patch), so the current tree is **558** tests against **557** at the tag and
-> the project stays **paused** under maintenance.
+> Status: **`v0.9.2` is the latest tag and GitHub Release and the 0.9.x line's
+> record is closed; the maintenance pause is over, and the 0.10.x line is open.**
+> On 2026-11-27 the owner answered **D1 = `cloud`** (screen metadata may be
+> analysed by a cloud provider) and **D7 = `yes`** (npm publication is
+> authorised), and partially answered **D2** (several custom models wanted,
+> DeepSeek first; the A/B/C form is still to be chosen), so the line that was
+> waiting on those answers starts at **0.10.0 — cloud analysis + multi-model
+> selection (option A baseline) + first-npm-publish preparation**. After the
+> `v0.9.2` tag an engineering-only package-metadata regression guard joined the
+> tree (no tag, no new patch), so the current tree is **558** tests against
+> **557** at the tag. **D10 and D11 are still unanswered and stay gated**, no
+> `1.0.0` is planned, and **no npm publish has happened**: the registry still
+> answers **404** and this machine is not logged in to npm.
 > `v0.9.1` is an annotated tag whose tree is **557** green tests, schema **v10**, **18** panel
 > routes (9 `GET` + 9 `POST`), **5** slash commands, 23 tools, 8 skills, and no new
 > host peer; the previous line closed at `v0.8.4` (537 tests) and its two
@@ -23,7 +30,8 @@
 > only** — `docs/CUTOVER_REHEARSAL.md` and `npm run rehearsal` walk the fixture
 > chain (20/20 checks at `v0.7.6`, re-run green on the `v0.8.1` tree) and no
 > `source: owned` default has been flipped. The package is still **not on the
-> npm registry** (D7 unanswered), so every release here is a tag and a GitHub
+> npm registry** — D7 is now answered `yes`, but no publish has run and this
+> machine is not logged in — so every release here is still a tag and a GitHub
 > Release only.
 >
 > **Measured on the `v0.9.1` tree:** **557** tests green (544 on `v0.9.0`, 537 on
@@ -60,7 +68,9 @@
 > dayflow import` CLI is **not on 0.9**; it is recommended for the cutover line,
 > beside the no-Dayflow runbook. **Owner-gated work does not enter 0.9:** image
 > admission (D1/D2/D11), the cutover (D10 plus a real week), any npm publish
-> (D7), and the owned-journal write path stay deferred.
+> (D7), and the owned-journal write path stay deferred — the owner has since
+> answered D1 and D7 and partially D2, which shapes the 0.10.x line below, not
+> this closed one.
 >
 > **After 0.9.1 the host moved, and that opens exactly one more patch: 0.9.2 —
 > DSH `0.2.2-rc.5` compatibility (landed).** The DSH app installed on this
@@ -78,12 +88,16 @@
 > admission check is peer-range based and the existing `^0.2.0-rc.2` peers
 > already admit `0.2.2-rc.5`, so no installed user is blocked — what is stale is
 > the declaration and the verification, which is exactly why this is
-> maintenance and not an emergency. 0.9.2 gets its own tag and GitHub Release,
-> then the line returns to maintenance: **the pause stays in force and the five
-> owner decisions are untouched.**
+> maintenance and not an emergency. 0.9.2 got its own tag and GitHub Release,
+> and the line returned to maintenance. **That pause ended on 2026-11-27:** the
+> owner answered D1 (`cloud`) and D7 (`yes`) and partially D2 (several custom
+> models, DeepSeek first; form open), which opens the **0.10.x** line in
+> §0.10.x below. The five-question page now records three statuses rather than
+> five open questions ([`OWNER_DECISIONS.md`](OWNER_DECISIONS.md)).
 >
-> **After 0.9.1 the project is in maintenance — paused pending owner decisions,
-> not abandoned.** No further decision-free *feature* patch is worth a tag at
+> **After 0.9.1 the project went into maintenance — paused pending owner
+> decisions, not abandoned; that pause ended on 2026-11-27.** No further
+> decision-free *feature* patch was worth a tag at
 > this revision (the compatibility fix above is maintenance, not a theme): the
 > six remaining candidates (the `dsh dayflow import` CLI,
 > month/week query batching, a11y/i18n/UX, docs/README parity, test dedup, and
@@ -101,7 +115,9 @@
 > [`RUNBOOK.md`](RUNBOOK.md), the single-file operator manual (first run, safe
 > switches, data and backup, upgrade, rollback, maintenance checks,
 > troubleshooting). It is docs only — it opens no route, command, tool, skill,
-> schema step, or default, and cuts no tag — so it does not change this pause.
+> schema step, or default, and cuts no tag — so it did not change that pause.
+> The pause ended on 2026-11-27: the owner answered D1 (`cloud`) and D7 (`yes`)
+> and partially D2, and the 0.10.x line opens below.
 >
 > **What remains after this line:** the owned-journal write path (the editing
 > tools still go through Dayflow), the `dsh dayflow import` CLI (cutover line),
@@ -110,34 +126,42 @@
 > activity attribution, goal analytics beyond stored-data rendering, embeddings,
 > and Phase 5. The native port's stored-data read gaps are all closed now: its
 > last *Missing* read, the close history, landed in 0.9.1, leaving image
-> admission and the cutover there — both owner-gated. 1.0.0 follows the deferred
-> cutover and a real captured week; the owner decisions it needs are in
-> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, unchanged by 0.9 and
-> consolidated in [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
+> admission (D11) and the cutover (D10) there — both still owner-gated. **D1 is
+> now answered (`cloud`) and D7 (`yes`), with D2 partially answered, so the
+> 0.10.x line carries the cloud analysis and multi-model work; 1.0.0 still
+> follows D10 and a real captured week.** The owner decisions it needs are in
+> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, unchanged by 0.9, and
+> consolidated — with the new answers — in
+> [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
 >
-> Last revised: 2026-11-27, after the `v0.9.2` tag (`ccac653`): **22 tags and
-> 22 GitHub Releases** (`v0.9.2` **Latest**; the `v0.6.0` gap backfilled after
-> the 0.8.4 close); 0.8.0's three ledger follow-ups, 0.8.1's briefs reading view,
-> and 0.8.4's release close landed; 0.8.2 image admission and 0.8.3 cutover are
-> deferred to the next line; 0.9.0 (month/week goal and rating surfaces) and
-> 0.9.1 (close-history surface) landed with GitHub Releases, closing the 0.9.x
-> line's functional scope at `v0.9.1`; 0.9.2 (DSH `0.2.2-rc.5` compatibility)
-> landed too as the line's one maintenance tag, and the line returned to
-> maintenance; after that tag the six remaining decision-free candidates were
-> evaluated and none is worth a tag, so the project
-> is in maintenance, paused pending the five owner decisions consolidated in
-> [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md). The one decision-free fix found
-> after that evaluation is the **DSH `0.2.2-rc.5` compatibility gap** — the running
-> host is newer than the declared cohort and the pinned dev toolchain — which
-> opens the maintenance patch **0.9.2 (landed; `v0.9.2`, the 22nd tag and
-> Release)** and changes none of the decisions: no `0.10.0` and no 1.0.0 opens
-> without the owner, and the analysis contract is still **text-only** until
-> D1/D2/D11 are answered. After the tag the
+> Last revised: 2026-11-27, after the `v0.9.2` tag (`ccac653`) and the owner's
+> answers that opened 0.10.x: **22 tags and 22 GitHub Releases** (`v0.9.2`
+> **Latest**; the `v0.6.0` gap backfilled after the 0.8.4 close); 0.8.0's three
+> ledger follow-ups, 0.8.1's briefs reading view, and 0.8.4's release close
+> landed; 0.8.2 image admission and 0.8.3 cutover are deferred to the next line;
+> 0.9.0 (month/week goal and rating surfaces) and 0.9.1 (close-history surface)
+> landed with GitHub Releases, closing the 0.9.x line's functional scope at
+> `v0.9.1`; 0.9.2 (DSH `0.2.2-rc.5` compatibility) landed too as the line's one
+> maintenance tag, and the line returned to maintenance. The six remaining
+> decision-free candidates evaluated after that close still are not worth a tag.
+> The one decision-free fix found after that evaluation was the **DSH
+> `0.2.2-rc.5` compatibility gap** — the running host is newer than the declared
+> cohort and the pinned dev toolchain — which opened the maintenance patch
+> **0.9.2 (landed; `v0.9.2`, the 22nd tag and Release)** and changed none of the
+> decisions. **The pause that followed ended on 2026-11-27:** the owner answered
+> **D1 = `cloud`** and **D7 = `yes`** and partially answered **D2** (several
+> custom models, DeepSeek first; the A/B/C form is open), so the **0.10.x line
+> is open** — 0.10.0 cloud analysis + multi-model selection (option A baseline)
+> + first-npm-publish preparation, planned in
+> [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) and summarised in §0.10.x below.
+> **D10 and D11 remain unanswered and gated**, the analysis contract stays
+> **text-only** until D11 is answered, and no npm publish has run (the registry
+> still answers **404** and this machine is not logged in). After the tag the
 > decision-free operator runbook ([`RUNBOOK.md`](RUNBOOK.md)) was written as the
 > first 1.0.0 engineering prep — docs only, no tag. An engineering-only
 > package-metadata regression guard (`tests/compatibility.test.ts`) joined the
 > suite after that tag too — no tag and no new patch — so the current tree is
-> **558** tests against **557** at `v0.9.2`, and the pause stays in force.
+> **558** tests against **557** at `v0.9.2`.
 
 ## Where this starts
 
@@ -993,27 +1017,32 @@ former 0.8.2 scope), the Phase 4 `source: owned` cutover (D10 plus a real
 captured week; the former 0.8.3 scope), any npm publish (D7), the `dsh dayflow
 import` CLI, and the owned-journal write path. The 1.0.0 prerequisites — a real
 captured week, **D10**, **D1/D2**, **D11**, **D7**, and the first-run/rollback
-runbook — are unchanged and untouched by this line; they remain in
+runbook — were unchanged and untouched by this line; they remain in
 [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G and are restated in
-[`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §4.
+[`PATCH_PLAN_0.9.md`](PATCH_PLAN_0.9.md) §4 (the owner has since answered D1
+`cloud` and D7 `yes` and partially D2, and §0.10.x and §Next line above record
+the updated status).
 
 ### After 0.9.1 — maintenance, paused pending owner decisions
 
-**`v0.9.1` is the last planned *functional* tag, and the project now sits in
+**`v0.9.1` was the last planned *functional* tag, and the project went into
 maintenance; the one post-close exception is the 0.9.2 host-compatibility patch
-described below.** It is **paused pending the owner's answers, not abandoned**:
+described below.** It was **paused pending the owner's answers, not abandoned**:
 the plugin works at its current scope (readable journal, briefs, review queue,
 panel views, native capture and text-only analysis on the safe defaults), every
 tag has a Release, and the suite is green (re-run at this revision, after the
 post-tag guard: **558 pass, 0 fail** — **557** at the `v0.9.2` tag) — but
 everything left is owner-gated, a new product surface, or not
-worth a release, so no `0.10.0` or `1.0.0` is opened. The `0.9.2` compatibility
-patch is not a counter-example: it was opened by the harness's own version move
-*after* the evaluation below, changes no default, ships nothing a user can see or
-configure, and needs no owner answer. The next action is still the single
-five-question list in [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md). This section
-records the evaluation that reached that conclusion, so a later round does not
-re-litigate it.
+worth a release, so no `0.10.0` or `1.0.0` was opened then. The `0.9.2`
+compatibility patch is not a counter-example: it was opened by the harness's own
+version move *after* the evaluation below, changes no default, ships nothing a
+user can see or configure, and needs no owner answer. The next action at that
+revision was the single five-question list in
+[`OWNER_DECISIONS.md`](OWNER_DECISIONS.md). This section records the evaluation
+that reached that conclusion, so a later round does not re-litigate it. **The
+pause ended on 2026-11-27** — D1 (`cloud`) and D7 (`yes`) answered, D2 partially
+answered — and the 0.10.x line opened (see *After 0.9.2 — the pause ends: 0.10.x
+opens*).
 
 **Decision-free candidates evaluated at this revision — none worth a tag.** Each
 was judged against three tests: is the change user-visible? is there a real risk
@@ -1031,12 +1060,13 @@ or defect? is it worth a tag? The verdicts:
 **Verdict: “No further decision-free *feature* patch is worth a tag at this
 revision.”** The one fix the evaluation did not and could not cover is the host's
 own version move — DSH `0.2.2-rc.5` arrived after `v0.9.1` and after this review
-— and that is the single maintenance patch opened below, 0.9.2. If the owner
-answers, the state changes: a `yes` on D10 plus the real week resumes the cutover
-line (with the CLI import beside the no-Dayflow runbook), while D1/D2/D11/D7
-shape 1.0.0 and image admission. If the owner does not answer, this is where the
-project stays — complete at its current scope, maintained, and waiting on
-[`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
+— and that is the single maintenance patch opened below, 0.9.2. **The owner has
+since answered:** D1 (`cloud`) and D7 (`yes`) are answered and D2 is partially
+answered, which opened the 0.10.x line; a `yes` on D10 plus the real week still
+resumes the cutover line (with the CLI import beside the no-Dayflow runbook),
+while D11 and D2's remaining form shape the later line. Until those come, the
+project holds at 0.10.x — complete at its current scope, maintained, and waiting
+on [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md).
 
 **Engineering-only guard added after the `v0.9.2` tag — no tag, no new patch,
 pause unchanged.** The metadata 0.9.2 realigned — the
@@ -1052,9 +1082,10 @@ conservative `~3.18.4` peer), the DSH peer ranges, the empty `dependencies`, and
 the absence of an attachment package — with each assertion message naming the
 drifted field, so the next upgrade fails at the declaration instead of drifting
 silently. It is engineering-only: it adds no behaviour, default, route, schema,
-command, tool, skill, or dependency, produces no tag and no release, and leaves
-the pause and the five owner questions exactly as they are. It is the one case
-the tree gained after the tag, so the current tree is **558** tests against
+command, tool, skill, or dependency, produces no tag and no release, and left
+the pause and the five owner questions exactly as they were at the time (the
+owner has since answered D1/D7 and partially D2, opening 0.10.x). It is the one
+case the tree gained after the tag, so the current tree is **558** tests against
 **557** at `v0.9.2`; that count is a maintenance measurement, not a patch.
 
 ### 0.9.2 — DSH 0.2.2-rc.5 compatibility (landed)
@@ -1116,8 +1147,9 @@ verification — maintenance-class work under the pause.
   above), not a new dependency or peer.
 - Release: `v0.9.2` is tagged with a GitHub Release from the CHANGELOG section
   (`v0.9.2` becomes the 22nd tag and Release); npm still answers **404** (D7) and
-  no publish happens; the line returns to maintenance and the five owner
-  questions are unchanged.
+  no publish happens; the line returned to maintenance, and the five owner
+  questions were untouched by the patch at the time. The owner has since
+  answered D1/D7 and partially D2, which opened 0.10.x (§0.10.x).
 
 **Why 0.9.2 and not 0.10.0.** It is a patch by every test in this roadmap: no new
 surface, no new default, no schema/route/config change, no new dependency, and no
@@ -1147,49 +1179,128 @@ dependency pins and a lockfile, with no migration, no profile state, and no
 configuration key to switch (R8's config-first rule has nothing to act on); a
 defective tag is corrected by a forward patch, never by moving it.
 
+### After 0.9.2 — the pause ends: 0.10.x opens (2026-11-27)
+
+**The maintenance pause is over.** On 2026-11-27 the owner answered **D1 =
+`cloud`**, **D7 = `yes`**, and partially **D2** (several custom models wanted,
+DeepSeek first; the A/B/C form is still open). The three answers are recorded
+with their safe-default and unlock effects in
+[`OWNER_DECISIONS.md`](OWNER_DECISIONS.md); this section records the line they
+open. What changes is narrow and deliberate:
+
+- **D1 `cloud`** permits screen metadata to be analysed by a cloud provider
+  after an explicit `analysis.consent: cloud`; the default profile still makes no
+  call, and because **D11 is still open** the contract stays **text-only** (no
+  pixels, no attachment peer, no `privacy_apps`).
+- **D7 `yes`** authorises npm publication, but **nothing has been published**:
+  the registry still answers **404** and this machine is not logged in. The
+  publish is a separate reviewed step that needs an npm login/token, 2FA, and the
+  owner's explicit version confirmation; it creates no tag and moves no Release.
+- **D2's partial answer** is the direction, not the form: 0.10.0 ships option
+  **A** (a named model list with one active entry per call), and **B**
+  (fallback)/**C** (custom `baseURL`) wait for the owner's form choice.
+
+What does not change: the 0.9.x record above (closed at `v0.9.1` for function plus
+the 0.9.2 maintenance tag), **D10 and D11's safe defaults**, the absence of any
+cutover default, the text-only analysis contract, and the fact that no `1.0.0`
+is planned — D10 plus a real captured week still gate it. The line's plan is
+[`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md).
+
+## 0.10.x iterations
+
+The 0.10.x line is the first line opened after the 0.9.x close, and it is
+**not** a renumbering of the deferred 0.8.2/0.8.3 slots: image admission (D11)
+and the cutover (D10) stay out. It carries the analysis work the owner's answers
+authorised — **cloud analysis plus multi-model selection (option A baseline)** —
+and it prepares, without performing, the first npm publish. Its execution plan is
+[`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md): the configuration shape and
+validation, the file-level deliverables, the acceptance at the assertion level,
+the deferred forms, the release/publish strategy, and the real-cloud
+verification that CI cannot provide.
+
+| Patch | Theme | Roadmap item | Status |
+| --- | --- | --- | --- |
+| 0.10.0 | Cloud analysis + multi-model selection (option A baseline), provider setup, first-npm-publish preparation: a named `analysis.models` list (`{id, provider, model, label?}`) with exactly one active entry per call (first entry by default, `analysis.model` selects an entry id), the legacy `analysis.provider`/`analysis.model` pair unchanged when the list is empty, both consent gates and the scheduled closes/briefs using the active pair, and the analysis status line naming the active model; a new `docs/PROVIDERS.md` documenting host-provider/`apiKeyEnv`-or-credentials setup, rotation, and the text-only cloud disclosure; one recorded real-cloud run. No schema, route, command, tool, skill, host peer, runtime dependency, image, cutover, or write-path change; the npm publish itself is a separate owner-confirmed step, not part of this patch | Phase 3.6 (cloud analysis and its honest privacy copy) and the Native port analysis line; owner answers **D1 = `cloud`**, **D2 partially answered (multi-model direction, option A)**, **D7 = `yes` (publication authorised, not executed)** | **open — planned in [`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md); not implemented and not tagged** |
+
+Order rationale: 0.10.0 goes first because it is the only patch the two full
+answers point at — D1 makes a real analysed day/week possible, D2's direction
+asks for several custom models with DeepSeek first, and the tree can call one
+hand-written pair but cannot name a set of models or tell the user which one is
+active. Option A is the minimum shape that serves that answer without inventing
+the fallback/`baseURL` semantics the owner has not chosen. The provider-setup
+page and one real-cloud run are part of the patch, not follow-ups: without them
+"cloud analysis works" is a claim this tree has never evidenced, and CI
+deliberately never calls a model. The legacy pair is frozen, so no existing
+profile changes behaviour. **B/C wait for D2's form**, image admission waits for
+D11, the cutover waits for D10 and the real week, and the `dsh dayflow import`
+CLI and the owned-journal write path stay off this line. The npm publish is
+authorised by D7 but is **not** part of the patch: it is a separate reviewed step
+after the tag, with an npm-login/token precondition this machine does not yet
+meet and the owner's explicit version confirmation; the recommended first-publish
+version is 0.10.0, with the 0.9.2-first alternative and its cost in
+[`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md) §4.
+
+**The line's tags at this revision:** none yet. `v0.9.2` (`ccac653`) remains the
+repository's latest tag and GitHub Release, the trail is **22 tags / 22
+Releases**, and npm still answers **404** (D7 answered, publish not executed).
+A `v0.10.0` cut would be the **23rd** tag and Release; it is not cut until the
+plan's acceptance — including one recorded real-cloud run and no committed
+secret — is green.
+
+**Not on 0.10.x (deferred, gated, or a separate act):** image admission (D1
+answered, but **D2 vision-capable entries and D11** are not), the Phase 4
+`source: owned` cutover (**D10** plus a real captured week), D2's **B**
+(fallback) and **C** (custom `baseURL`) forms, the `dsh dayflow import` CLI, the
+owned-journal write path, and the **npm publish execution** itself (a separate
+owner-confirmed step, see the plan §4). The 1.0.0 prerequisites are otherwise
+unchanged: D1/D7 are now decided but D2's form, D11, D10, and the real captured
+week still stand.
+
 ## Next line (1.0.0)
 
 The 0.9.x line's two functional patches landed without a functional default
-change, and the 0.9 line is the decision-free holding line above: it changes no
-default, no capture, no analysis, and no import, so nothing in it touches the
-1.0.0 prerequisites. The line's functional scope is closed at `v0.9.1`, with its
-one maintenance patch 0.9.2 (host compatibility, landed) changing none of
-those prerequisites either, so **1.0.0 is gated on the owner, not on
-engineering:**
+change, and its one maintenance patch 0.9.2 changed none of the 1.0.0
+prerequisites. The 0.10.x line now carries the analysis work the owner's answers
+authorised — D1 = `cloud` and D2's multi-model direction, with 0.10.0 shipping
+option A — and prepares the first npm publication D7 authorised, but it still
+changes no capture, import, or cutover default, so **1.0.0 remains gated on the
+owner, not on engineering:**
 
 1. **1.0.0 prerequisites (all required):** a real captured week on the owned
    default (capture on, `source: owned`, Dayflow closed, zero data loss across
    restarts, recorded in `docs/CUTOVER_REHEARSAL.md`); **D10** explicit
-   authorisation to flip the default; **D1/D2** answered for an analysed week
-   (or the capture-only variant with `consent: none`); **D11** image admission
-   decided (1.0.0 can ship text-only on a "not now"); **D7** npm publication
-   decided (1.0.0 is the natural first publish, but it is a separate reviewed
-   step and changes no tag); and the first-run/rollback runbook exercised — the
-   manual itself is now written ([`RUNBOOK.md`](RUNBOOK.md)); what the
-   prerequisite still needs is the walkthrough on a real cutover, so D10 and the
-   week are unchanged as gates.
-2. **Not without the owner:** image admission (D1/D2/D11), the cutover default
-   flip (D10), any npm publish (D7), and the owned-journal write path.
-3. **The first action of the next round:** put the five questions (D10, D1, D2,
-   D11, D7) in front of the owner as one short list — the consolidated list,
+   authorisation to flip the default (**still open**); **D1/D2** satisfied for an
+   analysed week — D1 is answered (`cloud`) and option A makes a named pair
+   configurable, but **D2's form is only partially answered**, so its "decided"
+   box stays open until the owner picks A/B/C or explicitly accepts A; **D11**
+   image admission decided (**still open**; 1.0.0 can ship text-only on an
+   explicit "not now"); **D7** npm publication decided (**answered `yes`** — the
+   publish itself is a separate reviewed step that needs credentials and the
+   owner's version confirmation and changes no tag, so 1.0.0 can ship as a GitHub
+   Release even if the publish is still pending); and the first-run/rollback
+   runbook exercised — the manual is written ([`RUNBOOK.md`](RUNBOOK.md)); what
+   the prerequisite still needs is the walkthrough on a real cutover, so D10 and
+   the week are unchanged as gates.
+2. **Not without the owner:** image admission (D11, with vision-capable D2
+   entries), the cutover default flip (D10), the publish execution itself (D7's
+   reviewed step), and the owned-journal write path.
+3. **The next action on the decision list:** D10 and D11 (explanations already
+   given), plus the D2 A/B/C form. D1 and D7 are answered; the consolidated list,
    with each question's options, safe default, unlocked patch, and the cost of
-   not answering, is [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md); the full
-   recommendation, with the branches (pause, the 0.9.x holding line, or a
-   cutover-driven 1.0.0), is in
-   [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G, and the 0.9 plan restates
-   the prerequisites in §4.
-4. **No answer, no line.** While the five questions are unanswered the project
-   stays in maintenance: no 1.0.0 is planned or tagged and no new feature patch
-   is opened. The already-opened 0.9.2 compatibility patch is maintenance, not a
-   line start — it changes no default and asks nothing of the owner. A "not now"
-   is an answer that keeps the safe default and changes nothing structurally; a
-   missing answer keeps the pause.
+   not answering, is [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md). Engineering's
+   line in the meantime is the 0.10.0 plan
+   ([`PATCH_PLAN_0.10.md`](PATCH_PLAN_0.10.md)).
+4. **No 1.0.0 line without the remaining answers.** 0.10.x does not open 1.0.0
+   and does not flip a default: while D10 is unanswered there is no cutover, and
+   while D11 is unanswered releases stay text-only. A "not now" is an answer that
+   keeps the safe default and changes nothing structurally; a missing answer
+   keeps the gate.
 
 **Engineering prep that needs no owner answer.** Three items on or beside the
 1.0.0 checklist need no decision from the owner: the operator runbook, the
 cutover rehearsal, and the CLI import that stays queued behind the cutover. They
-can proceed in maintenance without an answer — and doing so changes no default,
-cuts no tag, and does not start the line:
+can proceed without an answer — and doing so changes no default, cuts no tag,
+and does not start the line:
 
 - **The operator runbook was written this round.** [`RUNBOOK.md`](RUNBOOK.md)
   is the single-file manual for the machine as it is today at `v0.9.1` (tagged,
@@ -1213,14 +1324,14 @@ cuts no tag, and does not start the line:
   no-Dayflow runbook it makes usable. It is deliberately not built here, so this
   round does not front-run a line that is itself gated.
 
-The 0.9.2 compatibility patch is this round's other decision-free work: it is
-maintenance rather than 1.0.0 prep, changes no default or decision, and is
+The 0.9.2 compatibility patch was the paused round's other decision-free work:
+maintenance rather than 1.0.0 prep, it changed no default or decision and is
 recorded above rather than here.
 
 These are not a 1.0.0 and not a release: no route, schema step, tool, skill,
 command, or default changes, and no tag follows from the three prep items. They
-are recorded so a later round can see what is already done before the owner
-answers.
+are recorded so a later round can see what is already done; the 0.10.x line is
+separate from them and contains no cutover or import work.
 
 ## What this deliberately does not do
 
@@ -1235,9 +1346,10 @@ answers.
   import or by the agent writing what it did. The native port's analysis phase
   (0.7.1–0.8.0, text-only through the line so far) is the deliberate exception,
   and it goes through `ctx.llm.stream()` with one strict JSON contract, not a
-  rebuilt provider zoo. 0.8.0/0.8.1 stay text-only too; pixels would arrive only
-  in the owner-gated 0.8.2, which is **deferred to the next line**, so the 0.8
-  line ships text-only with no attachment peer.
+  rebuilt provider zoo. 0.10.x turns on **cloud analysis** behind the explicit
+  consent the owner authorised and adds a named model list, but the contract
+  stays **text-only**; pixels would arrive only after **D11** (the deferred 0.8.2
+  scope, owner-gated and not on this line), so no attachment peer exists.
 - **No card-stack review as the centre.** It stays available and defaults to off
   (3.5). The review that matters is the distillation, loop, and improvement
   queue.
@@ -1290,9 +1402,10 @@ answers.
 0.6.0 and 3.5 in 0.7.0, the 0.8 line closed at 0.8.4, and the 0.9 line closed at
 `v0.9.1` for function (0.9.0's month/week goal and rating surfaces and 0.9.1's
 close-history surface, plus the post-close 0.9.2 compatibility maintenance
-patch), so the current order of work is the
-1.0.0 prerequisites and the five owner questions, not this list; it stays because
-the reasoning still explains why the early work was sequenced that way.*
+patch), so the current order of work is the 0.10.x line and then the 1.0.0
+prerequisites with the remaining owner questions (D10, D11, D2's form), not this
+list; it stays because the reasoning still explains why the early work was
+sequenced that way.*
 
 If only one thing is built next, build **phase 1 + phase 2**: the owned schema
 and the importer. They are unglamorous, they do not change a single user-visible
@@ -1339,12 +1452,15 @@ that default should stay on; question 4 is made concrete by 0.7.4's automation
 cap (at most three proposals a day at confidence ≥ 0.6, inside the store's own
 five-a-day cap) and the decisions listed in [PATCH_PLAN.md](PATCH_PLAN.md) §6
 and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §6. D10 and D11 were the two new
-owner decisions the 0.8 line needed; with D1/D2 also unanswered, all four sit
-on the 1.0.0 line — the closed 0.9.x line was decision-free and needed none of
-them — and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G lists them with the
-release each unblocks (1.0.0 for the cutover, a later line for image
-admission). The five release-gating decisions are consolidated, with options,
-safe defaults, and what each unlocks, in
+owner decisions the 0.8 line needed; **D10 and D11 are still open**, while **D1
+is answered `cloud`**, **D7 is answered `yes`** (publication authorised, not
+executed), and **D2 is partially answered** (multi-model direction; A/B/C form
+open). Those three answers opened the 0.10.x line above; the remaining two sit
+on the 1.0.0 line, and
+[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.4 G lists them with the release
+each unblocks (1.0.0 for the cutover, a later line for image admission). The
+five release-gating decisions are consolidated, with options, safe defaults, and
+what each unlocks, in
 [`OWNER_DECISIONS.md`](OWNER_DECISIONS.md); the questions above are product-shape
 questions that no tag waits on.
 
