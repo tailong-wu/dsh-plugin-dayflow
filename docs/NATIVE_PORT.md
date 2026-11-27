@@ -2,10 +2,11 @@
 
 **Status:** proposed, owner-selected direction (option C). Phase 0 (the
 feasibility spike) and Phase 1 (the capture engine) landed in the 0.7.0
-development line, and Phase 2's foundation (analysis modules, schema v8, consent
-gate, fake-adapter pipeline) landed in 0.7.1; all of it stays behind
-default-off configuration. The analysis worker that runs on its own, the briefs,
-and the automation scheduler are not implemented yet.
+development line, Phase 2's foundation (analysis modules, schema v8, consent
+gate, fake-adapter pipeline) landed in 0.7.1, and Phase 2's runtime (the worker,
+the host-LLM adapter, the status route, and the panel analysis line) landed in
+0.7.2; all of it stays behind default-off configuration. The briefs and the
+automation scheduler (Phase 3) are not implemented yet.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -44,25 +45,26 @@ Already reusable:
   store under `$DSH_HOME/dayflow/frames/`, `screenshots` rows with
   `source_id = 'native'`, `maxFramesPerDay`, persistent resume state in
   `capture_state`, and a retention sweep.
+- Phase 2 analysis: the 0.7.1 foundation (window grouping, consent gate, strict
+  JSON prompt, idempotent `activities`/`observations` writes) and the 0.7.2
+  runtime (host-LLM adapter, injectable-timer worker, `GET
+  /api/dayflow/analysis/status`, the panel's read-only analysis line, and
+  `/dayflow-analyze`). Still text-only: a window travels as app / window-title /
+  hash metadata, not image bytes.
 - The host services this plan needs: `llm` (`ctx.llm.stream`, adapters are
   registered per provider), `attachments` (`saveImage` → `ImageAttachmentRef`),
   `systemPrompt`, `tools`, `skills`, `timer`, `connection`, `agentDefaultModel`.
 
 Missing (the whole port):
 
-- Frame preprocessing (downscale) for analysis; dedupe and retention already run
-  in the capture engine.
-- An analysis pipeline *running by itself*: the 0.7.1 foundation (window
-  grouping, consent gate, JSON validation, idempotent `activities`/`observations`
-  writes) is in place and tested with a fake adapter, but no worker, timer,
-  status route, or real provider call exists yet.
-- Sessionisation, category assignment, and card persistence.
+- Image preprocessing (downscale) and image admission for analysis; dedupe and
+  retention already run in the capture engine, and 0.7.x sends app / window
+  title / hash metadata rather than pixels.
 - Daily standup / weekly brief generation written back into the store.
-- A scheduler that runs capture analysis and the day/week close jobs inside the
-  host process, with catch-up after sleep or restart.
-- The consent, budget, and privacy controls that gate the above (the analysis
-  settings and the pure consent gate exist; the budget ledger and status surface
-  do not yet).
+- A scheduler that runs the day/week close jobs inside the host process, with
+  catch-up after sleep or restart.
+- The Phase 3 automation that consumes the analysis ledger: reflections, review
+  proposals, memory claims, and task session matching after a day closes.
 
 ---
 
@@ -393,9 +395,9 @@ and status.
   (`source_id = 'native'`, idempotent `source_key`), and `capture_state`
   timestamps (`last_frame_at`, `last_sweep_at`) plus the pause flag.
 - Retention: a sweep every `capture.retentionCheckMinutes` deletes files older
-  than the retention window and removes empty day directories. Because no
-  analysis path exists yet, `keepFramesDays: 0` (the default) still keeps at
-  least one day of frames.
+  than the retention window and removes empty day directories. The engine's
+  sweep is the fallback for frames no analysis window took; a window analysed
+  successfully deletes its own frames when `keepFramesDays: 0` (see Phase 2).
 - `src/index.ts`: the engine is created inside a host `ctx.effect` and started
   when `capture.enabled` is true — independent of the panel — and stopped on
   unload. The panel's permission probe reuses the same lazily created provider,
@@ -406,8 +408,10 @@ and status.
   local-only run against a temporary journal and frames directory; the live
   `$DSH_HOME/dayflow` is never touched.
 
-**Still not implemented:** the analyse worker and its prompt/JSON pipeline,
-activity-card persistence, daily/weekly briefs, and the automation scheduler.
+**Still not implemented when Phase 1 shipped:** the analyse worker and its
+prompt/JSON pipeline, activity-card persistence, daily/weekly briefs, and the
+automation scheduler. The pipeline landed in 0.7.1 and the worker, status route,
+and panel analysis line in 0.7.2; the briefs and automation remain Phase 3.
 The pause/resume route and the insights capture line already landed in Phase 0
 and are unchanged.
 
@@ -418,15 +422,19 @@ Fake provider tests cover all of it; the real-capture smoke runs locally.
 
 ### Phase 2 — Analysis pipeline into activity cards (1.5–2 weeks)
 
-**Status: foundation landed (0.7.1); the worker and real provider calls continue
-on the 0.7.x line.** The pipeline can turn stored frames into `activities` rows
-today, but only when a caller (a test or a script) invokes it: nothing schedules
-it, and the default `analysis.consent: 'none'` blocks every call.
+**Status: the text-only slice is complete (0.7.2).** The 0.7.1 foundation turns
+stored frames into `activities` rows under the consent gate, and 0.7.2 runs it on
+its own: the worker ticks on `analysis.intervalMinutes`, the host's `llm` service
+backs the calls, the status route and the panel analysis line report the ledger,
+and `/dayflow-analyze` triggers one tick. A default profile still analyses
+nothing — `analysis.consent: 'none'` blocks every call — and images are still
+metadata (app, window title, hash), not pixels.
 
 **Scope.** Frames become `activities` rows through `ctx.llm.stream`.
 
-- `analyse/llm.ts`: provider/model resolution (config, else
-  `agentDefaultModel`), retry with backoff, token accounting, hard budget stop.
+- `analyse/llm.ts`: provider/model resolved from the analysis config (there is
+  no implicit agent default), retry with backoff, token accounting, hard budget
+  stop.
 - `analyse/prompt.ts`: strict JSON contract — `title`, `summary`, `category`,
   `subcategory`, `apps`, `distractions`, `confidence`; category list injected
   from the owned `categories` table; the untrusted-content rule restated.
@@ -434,8 +442,8 @@ it, and the default `analysis.consent: 'none'` blocks every call.
   `ctx.attachments.saveImage`, call execution, JSON validation, sessionisation
   (merge adjacent windows by app/category/gap), `activities` + `observations`
   writes, `analysis_jobs` state machine and idempotent `source_key`.
-- Panel day view already reads the owned store; no new UI needed beyond the
-  capture line.
+- Panel day view already reads the owned store; the only new UI is the 0.7.2
+  read-only analysis line under the capture line.
 
 **Landed scope (0.7.1):**
 
@@ -465,10 +473,41 @@ it, and the default `analysis.consent: 'none'` blocks every call.
 - Tests: scripted fake-adapter replay, consent/store/prompt/LLM suites, and the
   pipeline suite — zero network, zero screen capture, no host `llm` call.
 
-**Not in 0.7.1:** the worker/timer, `GET /api/dayflow/analysis/status`, panel
-progress, the budget ledger surface, a manual analyze command, and any real
-provider or image call. Those are 0.7.2; images stay text-only metadata (app,
-window title, hash) until then.
+**Landed scope (0.7.2):**
+
+- `src/analyse/host.ts`: the production adapter over the host's `ctx.llm`
+  service — `provider`/`model`/`system`, one user message, and a cancellation
+  signal in; aggregated text deltas out; the provider-reported input/output
+  tokens handed back for the ledger.
+- `src/analyse/worker.ts`: an injectable-timer worker that runs one tick
+  immediately on start and then every `analysis.intervalMinutes`, never overlaps
+  ticks, backs off while consecutive ticks fail, and stops with the plugin
+  lifecycle. A failing tick is logged and scheduled again instead of crashing
+  the host.
+- `src/analyse/status.ts` and `GET /api/dayflow/analysis/status`: the switches,
+  the consent gate's reason, the worker state, today's job counts, the call and
+  token ledger (read from `analysis_jobs`, not a second counter), the last job
+  time, and the daily budgets. A missing journal answers zeros and is not
+  created by the read.
+- The Journal insights panel adds a **read-only analysis line** under the
+  capture line: off, waiting for consent, a missing provider or model, paused
+  with capture, running or idle, or a stopped worker — plus today's failures,
+  the call/token budget, and the last job's local time. With a consent set it
+  also discloses what leaves the machine (frontmost app, window title, and
+  frame hash; no image, and `cloud` says the metadata leaves the Mac). It has
+  no button: enabling analysis stays a profile edit, so the panel keeps its one
+  entry.
+- `/dayflow-analyze`: one manual tick through the same consent gate; failures
+  come back as command text, never as a thrown error.
+- `analysis.intervalMinutes` (1–60, default 5). No schema change.
+- Tests stay zero-network: the host adapter and the worker run on fake streams
+  and injected timers.
+
+**Also not in 0.7.2:** image admission and downscaling (the model sees app /
+window-title / hash metadata, not screen pixels), and a catch-up replay for
+windows a blocked tick marked `skipped`. Those rows are terminal, so turning
+consent on later does not re-queue them; replaying a day is a later patch, and
+daily/weekly briefs plus the automation scheduler are Phase 3.
 
 **Acceptance.** A scripted replay (30 stored frames + scripted model adapter,
 no network) yields deterministic activities and a rendered day view; replaying
@@ -581,8 +620,9 @@ the only unknown (can the host process capture the screen and read the frontmost
 app?) without touching the analysis pipeline. Phase 1 then added the capture
 engine behind the same default-off switch, writing frames and `screenshots`
 rows but still no analysis; 0.7.1 then added the analysis foundation behind a
-fake adapter. Phases 2–3 parallelise across analysis and
-briefs/automation with fake adapters in CI; Phase 4 is the cutover.
+fake adapter, and 0.7.2 ran that pipeline on the host's model service and made
+its state visible in the panel. Phase 3 adds briefs/automation with fake
+adapters in CI; Phase 4 is the cutover.
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three
 parallel workstreams, plus one real week of dogfooding before `1.0.0`.

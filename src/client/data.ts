@@ -1,12 +1,13 @@
 /**
  * Browser-side reads of the host's panel routes.
  *
- * Both routes sit behind the same `/api` trust fence and session cookie as the
+ * Every route sits behind the same `/api` trust fence and session cookie as the
  * rest of the client, so a same-origin fetch with credentials is enough.
  * @module dsh-plugin-dayflow/client/data
  */
 
 import {
+  PANEL_ANALYSIS_STATUS_PATH,
   PANEL_CAPTURE_PAUSE_PATH,
   PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
@@ -21,6 +22,7 @@ import {
   PANEL_WEEK_PATH,
 } from '../panel-contract.js';
 import type {
+  PanelAnalysisStatus,
   PanelCaptureStatusResponse,
   PanelConfig,
   PanelDay,
@@ -36,6 +38,18 @@ import type {
   PanelTaskScanResponse,
   PanelWeek,
 } from '../panel-contract.js';
+
+/**
+ * The analysis worker's status line's data, as the host reports it.
+ *
+ * The contract module names the wire shape once, beside its builder; this alias
+ * keeps the client's own imports free of the host-side analysis modules, which
+ * no browser bundle may pull in.
+ */
+export type AnalysisStatusSummary = PanelAnalysisStatus['analysis'];
+
+/** Answer to an analysis status read. */
+export type AnalysisStatusResponse = PanelAnalysisStatus;
 
 async function readError(response: Response): Promise<string> {
   try {
@@ -167,6 +181,25 @@ export async function fetchCaptureStatus(signal?: AbortSignal): Promise<PanelCap
   });
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as PanelCaptureStatusResponse;
+}
+
+/**
+ * Read the analysis worker's status line's data.
+ *
+ * The enablement, the consent decision, the worker state, today's job counts,
+ * and the call/token budget all come back in one answer, so the line renders
+ * from one read instead of several.
+ * @param signal - caller cancellation.
+ * @returns the analysis status.
+ */
+export async function fetchAnalysisStatus(signal?: AbortSignal): Promise<AnalysisStatusResponse> {
+  const response = await fetch(PANEL_ANALYSIS_STATUS_PATH, {
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+    ...(signal === undefined ? {} : { signal }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as AnalysisStatusResponse;
 }
 
 /**

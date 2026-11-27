@@ -6,6 +6,42 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The 0.7.2 analysis runtime, text-only and still inert on a default profile:
+  when `capture.enabled` and `analysis.enabled` are both on and the host's model
+  service is available, an `AnalysisWorker` runs one tick immediately and then
+  every `analysis.intervalMinutes` (1–60, default 5), driving the 0.7.1 pipeline
+  through a new host adapter (`src/analyse/host.ts`) over `ctx.llm` — aggregated
+  text deltas out, the provider-reported input/output tokens recorded on
+  `analysis_jobs`. Ticks never overlap, a failing tick is logged and rescheduled
+  instead of crashing the host, and the worker starts and stops with the plugin
+  lifecycle. No schema change.
+- `GET /api/dayflow/analysis/status` and `src/analyse/status.ts`: the
+  enablement and consent decision, the worker state, today's queued / running /
+  completed / failed / skipped job counts, the call and token ledger read from
+  `analysis_jobs` (not a second counter), the last job time, and the daily
+  budgets. A status read never creates the journal.
+- The Journal insights panel shows a read-only **analysis line** under the
+  capture line: off, waiting for consent, a missing provider or model, paused
+  with capture, running, idle, or a stopped worker — with today's failed count,
+  the call/token budget (for example `3/120 calls · 12k/200k tokens`), and the
+  last job's local time. Once a consent is set it also carries one quiet
+  sentence on what leaves the machine (the frontmost app, window title, and
+  frame hash — never the image; a `cloud` consent says the metadata leaves the
+  Mac). No button and no new view: analysis is enabled in the profile, so the
+  panel keeps its single entry point. Both languages carry the new copy, and
+  the line falls back to "analysis off" when the route is unavailable.
+- `/dayflow-analyze`: one manual analysis tick for the current Dayflow day
+  through the same consent gate; a blocked or failed tick returns command text
+  rather than throwing into the host.
+- Still inert on a default profile: `analysis.consent: 'none'` blocks every
+  model call, and a `cloud` or `local` consent needs an explicit
+  `analysis.provider` and `analysis.model` — there is no implicit default. A
+  window the gate blocks is recorded as a terminal `skipped` job, so enabling
+  consent later does not replay it (catch-up is future work), and frames still
+  reach the model as app / window-title / hash metadata rather than image bytes.
+
 ## [0.7.1] - 2026-11-27
 
 ### Added

@@ -1803,6 +1803,116 @@ export const PANEL_CSS = `
   line-height: 16px;
 }
 
+/* The analysis status strip sits directly under the capture line: the same
+ * quiet shape one step smaller, and deliberately without any control. Grey is
+ * off or a stopped worker, amber is a gate the profile has to unblock, green is
+ * a live worker; the call/token budget and any failure count sit on the right.
+ * Only host tokens are used, so both light and dark themes adapt on their own. */
+
+.dfp-analysis-line {
+  --dfp-analysis-tone: var(--dsw-alias-label-tertiary);
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--dfp-analysis-tone) 3%, var(--dsw-alias-bg-layer-1));
+  box-shadow: var(--dsw-elevation-soft);
+}
+
+.dfp-analysis-line.is-on {
+  --dfp-analysis-tone: var(--dsw-static-green-500);
+}
+
+.dfp-analysis-line.is-warn {
+  --dfp-analysis-tone: var(--dsw-static-amber-500);
+}
+
+.dfp-analysis-line.is-off {
+  --dfp-analysis-tone: var(--dsw-alias-label-tertiary);
+}
+
+.dfp-analysis-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--dfp-analysis-tone);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dfp-analysis-tone) 14%, transparent);
+}
+
+.dfp-analysis-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.dfp-analysis-state {
+  color: var(--dsw-alias-label-primary);
+  font-size: 11.5px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dfp-analysis-hint {
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dfp-analysis-last {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The one-sentence consent disclosure. It takes its own full-width row so a
+ * narrow sidebar wraps it instead of clipping the privacy copy; it stays quiet
+ * because it is context, not a warning. */
+.dfp-analysis-privacy {
+  flex: 1 1 100%;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10.5px;
+  line-height: 15px;
+  white-space: normal;
+}
+
+.dfp-analysis-side {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dfp-analysis-failed {
+  color: var(--dsw-static-amber-600);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dfp-analysis-budget {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 `;
 
 /**

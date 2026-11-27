@@ -67,6 +67,8 @@ export interface CaptureConfig {
 export interface AnalysisConfig {
   /** Run the analyser at all. It also needs capture enabled and a consent. */
   enabled?: boolean;
+  /** Minutes between analysis worker ticks (1-60). */
+  intervalMinutes?: number;
   /** Whether frames may be sent to a provider; `none` keeps analysis local-only/off. */
   consent?: AnalysisConsent;
   /**
@@ -125,6 +127,8 @@ export interface ResolvedCaptureConfig {
 /** Validated analysis settings. */
 export interface ResolvedAnalysisConfig {
   readonly enabled: boolean;
+  /** Minutes between analysis worker ticks; the worker backs off when a tick fails. */
+  readonly intervalMinutes: number;
   readonly consent: AnalysisConsent;
   /** Provider ids accepted as local under `consent: 'local'`, in written order. */
   readonly localProviders: readonly string[];
@@ -257,6 +261,12 @@ const CaptureSchema = z
 const AnalysisSchema = z
   .object({
     enabled: z.boolean().default(true).description('Run the frame analyser. It also needs capture enabled.'),
+    intervalMinutes: z
+      .natural()
+      .min(1)
+      .max(60)
+      .default(5)
+      .description('Minutes between analysis worker ticks (1-60).'),
     consent: z
       .union([z.const('none'), z.const('cloud'), z.const('local')])
       .default('none')
@@ -512,6 +522,7 @@ export function resolveConfig(config: DayflowConfig = {}): ResolvedConfig {
 
   const analysis: ResolvedAnalysisConfig = {
     enabled: analysisInput.enabled ?? true,
+    intervalMinutes: resolveInteger(analysisInput.intervalMinutes, 5, 1, 60, 'analysis.intervalMinutes'),
     consent: resolveChoice(analysisInput.consent, ANALYSIS_CONSENTS, 'none', 'analysis.consent'),
     localProviders: resolveStringList(analysisInput.localProviders, 'analysis.localProviders'),
     provider: analysisInput.provider?.trim() ?? '',

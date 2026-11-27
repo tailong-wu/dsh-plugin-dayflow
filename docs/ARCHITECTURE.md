@@ -108,11 +108,14 @@ increment; use `source: dayflow` when you need app edits.
 src/
   index.ts        plugin entry: name, inject, Config, apply()
   config.ts       schema + validation
-  analyse/        frame analysis foundation (0.7.1; no worker or timer yet)
+  analyse/        text-only frame analysis (0.7.1 foundation, 0.7.2 worker)
     jobs.ts       analysis_jobs state machine, attempts cap, per-day call/token totals
     consent.ts    the pure consent/allow gate checked before any provider call
     prompt.ts     strict JSON contract, category list injection, untrusted-content rule
     llm.ts        caller-supplied stream wrapper: retries, timeout, token accounting, fake adapter
+    host.ts       adapts the host llm service (text blocks only, no images)
+    worker.ts     interval worker, single-flight ticks, backoff, manual runOnce
+    status.ts     read-only analysis status/ledger payload for the panel route
     pipeline.ts   window grouping, output validation, sessionisation, activities/observations writes
   day.ts          4 AM days, Monday 4 AM weeks, formatting
   db.ts           lazy node:sqlite, read-only open, query helper

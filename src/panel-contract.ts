@@ -3,8 +3,12 @@
  *
  * This module must stay dependency-free and browser-safe: the client bundle
  * imports it, so nothing here may reach for `node:` builtins or host services.
+ * The one import below is type-only, so it is erased from the client bundle;
+ * it keeps the analysis status wire shape defined once, beside its builder.
  * @module dsh-plugin-dayflow/panel-contract
  */
+
+import type { AnalysisStatusPayload } from './analyse/status.js';
 
 /** One timeline card, as the panel renders it. */
 export interface PanelCard {
@@ -258,6 +262,14 @@ export interface PanelCapturePauseRequest {
   paused: boolean;
 }
 
+/**
+ * The analysis status line's answer: job counts, the day's call and token
+ * budgets, the worker's state, and the consent gate's blocked reason.
+ */
+export interface PanelAnalysisStatus {
+  analysis: AnalysisStatusPayload;
+}
+
 /** Whether the panel's entry points are exposed. */
 export interface PanelConfig {
   enabled: boolean;
@@ -288,6 +300,9 @@ export const PANEL_CAPTURE_STATUS_PATH = '/api/dayflow/capture/status';
 
 /** Exact Fetch route that pauses or resumes native capture. */
 export const PANEL_CAPTURE_PAUSE_PATH = '/api/dayflow/capture/pause';
+
+/** Exact Fetch route for the analysis worker's status and the day's budget ledger. */
+export const PANEL_ANALYSIS_STATUS_PATH = '/api/dayflow/analysis/status';
 
 /** Exact Fetch route for the journal insights (tasks, review, memory, reflections). */
 export const PANEL_INSIGHTS_PATH = '/api/dayflow/insights';

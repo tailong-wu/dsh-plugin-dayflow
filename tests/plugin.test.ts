@@ -106,16 +106,21 @@ function fakeContext(): { ctx: Context; capture: Capture } {
   return { ctx, capture };
 }
 
-test('apply registers the three human slash commands', () => {
+test('apply registers the four human slash commands', () => {
   const { ctx, capture } = fakeContext();
   apply(ctx, { databasePath: fixture.path });
 
   assert.deepEqual(
     capture.commands.map((command) => command.name),
-    ['dayflow-task', 'dayflow-remember', 'dayflow-reflect'],
+    ['dayflow-task', 'dayflow-remember', 'dayflow-reflect', 'dayflow-analyze'],
   );
   for (const command of capture.commands) {
     assert.ok(command.description.length > 0, `${command.name} has a description`);
+    if (command.name === 'dayflow-analyze') {
+      // The manual analysis tick takes no argument: it analyses the current day.
+      assert.equal(command.input, undefined, 'the analysis tick declares no input hint');
+      continue;
+    }
     assert.ok(command.input !== undefined, `${command.name} declares an input hint`);
     assert.ok(command.input.hint.length > 0, `${command.name} has a usable input hint`);
   }
@@ -127,7 +132,7 @@ test('the slash commands do not depend on the panel being enabled', () => {
 
   assert.deepEqual(
     capture.commands.map((command) => command.name),
-    ['dayflow-task', 'dayflow-remember', 'dayflow-reflect'],
+    ['dayflow-task', 'dayflow-remember', 'dayflow-reflect', 'dayflow-analyze'],
     'a headless panel still gets human quick capture',
   );
   assert.deepEqual(capture.routes, [], 'panel: false registers no Fetch routes');
@@ -165,6 +170,7 @@ test('apply registers twenty-three tools, eight skills, and one prompt section',
     ['dayflow', 'long-task', 'memory', 'onboarding', 'reflection', 'review-queue', 'standup', 'weekly-review'],
   );
   assert.deepEqual([...capture.routes].sort(), [
+    '/api/dayflow/analysis/status',
     '/api/dayflow/capture/pause',
     '/api/dayflow/capture/status',
     '/api/dayflow/day',

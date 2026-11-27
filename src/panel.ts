@@ -15,6 +15,8 @@ import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-client-connection';
 
 import { readDatabase } from './tools/shared.js';
+import { buildAnalysisStatus } from './analyse/status.js';
+import type { AnalysisStatusPayload } from './analyse/status.js';
 import { countScreenshotsForDay, readCaptureState, writeCaptureState } from './capture/state.js';
 import { journalCategories, withJournal, withJournalWrite } from './journal.js';
 import { IconStore } from './icons.js';
@@ -28,6 +30,7 @@ import type { LongTaskPayload, TaskHistoryDayInput } from './tasks.js';
 import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekWindowContaining } from './day.js';
 import { DayflowError, isDayflowError } from './errors.js';
 import {
+  PANEL_ANALYSIS_STATUS_PATH,
   PANEL_CAPTURE_PAUSE_PATH,
   PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
@@ -46,6 +49,7 @@ import {
   shiftDayKey,
 } from './panel-contract.js';
 import type {
+  PanelAnalysisStatus,
   PanelCapturePermission,
   PanelCaptureStatus,
   PanelCaptureStatusResponse,
@@ -639,6 +643,17 @@ export interface PanelRouteOptions {
    * injected; without a probe the panel reports `unknown` instead of guessing.
    */
   capturePermission?: () => Promise<PanelCapturePermission>;
+  /**
+   * Builds the analysis status the status route answers with. The composition
+   * injects this when it owns the worker; without it the route builds the
+   * status from the journal and the configuration itself.
+   */
+  analysisStatus?: () => Promise<AnalysisStatusPayload> | AnalysisStatusPayload;
+  /**
+   * The worker's current state. Only read by the route's own status builder,
+   * which uses it when no `analysisStatus` builder is injected.
+   */
+  analysisWorker?: () => { running: boolean };
 }
 
 /** The permission the status line reports when no probe is injected. */
@@ -694,6 +709,52 @@ async function buildCaptureStatus(
     if (state.lastFrameAt !== undefined) status.last_frame_at = state.lastFrameAt;
     return status;
   });
+}
+
+/**
+ * Read the persisted pause flag from the owned journal.
+ *
+ * The analysis status needs the same flag the capture line shows. A missing or
+ * unreadable journal reads as not paused: a status read must not create the
+ * file, and analysis is blocked by the switches and the consent gate anyway.
+ * @param runtime - the plugin runtime.
+ * @returns whether the user paused capture.
+ */
+function panelCapturePaused(runtime: ToolRuntime): boolean {
+  if (!existsSync(runtime.config.journalPath)) return false;
+  try {
+    return withJournal(runtime.config.journalPath, (db) => readCaptureState(db).paused);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Build the analysis status the Insights view shows.
+ *
+ * The composition may inject a ready-made builder because it is the only layer
+ * that knows the worker's state; when it does not, the route builds the status
+ * itself, so a panel registered without options still answers.
+ * @param runtime - the plugin runtime.
+ * @param options - the route options holding the injected builders.
+ * @returns the status response body.
+ */
+async function buildPanelAnalysisStatus(
+  runtime: ToolRuntime,
+  options: PanelRouteOptions,
+): Promise<PanelAnalysisStatus> {
+  if (options.analysisStatus !== undefined) {
+    return { analysis: await options.analysisStatus() };
+  }
+  const worker = options.analysisWorker?.();
+  return {
+    analysis: await buildAnalysisStatus({
+      journalPath: runtime.config.journalPath,
+      config: runtime.config,
+      paused: panelCapturePaused(runtime),
+      ...(worker === undefined ? {} : { worker }),
+    }),
+  };
 }
 
 /**
@@ -819,6 +880,21 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime, options:
           return jsonResponse({
             capture: await buildCaptureStatus(runtime, capturePermission),
           } satisfies PanelCaptureStatusResponse);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    // The analysis status line: the switches, the consent gate's answer, the
+    // worker's state, and today's job ledger. It is a read, so a missing
+    // journal answers zeros instead of being created by the request.
+    connection.fetch.register({
+      path: PANEL_ANALYSIS_STATUS_PATH,
+      methods: ['GET'],
+      requestBody: 'buffered',
+      fetch: async () => {
+        try {
+          return jsonResponse((await buildPanelAnalysisStatus(runtime, options)) satisfies PanelAnalysisStatus);
         } catch (error) {
           return failureResponse(error);
         }

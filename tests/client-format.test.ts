@@ -289,3 +289,52 @@ test('the insights copy exists in both dictionaries', () => {
   assert.equal(enT('activeTasksCount', { count: 3 }), '3 active');
   assert.equal(zhT('activeTasksCount', { count: 3 }), '3 个进行中');
 });
+
+test('the analysis status copy exists in both dictionaries', () => {
+  const keys = [
+    'analysisOff',
+    'analysisOffHint',
+    'analysisWaitingConsent',
+    'analysisWaitingConsentHint',
+    'analysisNeedsProvider',
+    'analysisNeedsModel',
+    'analysisNeedsConfig',
+    'analysisNeedsConfigHint',
+    'analysisProviderNotLocal',
+    'analysisProviderNotLocalHint',
+    'analysisPaused',
+    'analysisPausedHint',
+    'analysisRunning',
+    'analysisIdle',
+    'analysisWorkerStopped',
+    'analysisWorkerStoppedHint',
+    'analysisFailed',
+    'analysisBudget',
+    'analysisLastJob',
+    'analysisPrivacy',
+    'analysisPrivacyCloud',
+  ];
+  for (const key of keys) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+  }
+  // The budget, failure, and last-job labels interpolate host numbers; both
+  // dictionaries must carry every placeholder so no language leaks a raw `{…}`.
+  for (const dictionary of [EN, ZH]) {
+    const budget = dictionary['analysisBudget'] ?? '';
+    for (const placeholder of ['{calls}', '{maxCalls}', '{tokens}', '{maxTokens}']) {
+      assert.ok(budget.includes(placeholder), `analysisBudget carries ${placeholder}`);
+    }
+    assert.match(dictionary['analysisFailed'] ?? '', /\{count\}/);
+    assert.match(dictionary['analysisLastJob'] ?? '', /\{time\}/);
+  }
+  assert.equal(
+    enT('analysisBudget', { calls: 3, maxCalls: 120, tokens: '12k', maxTokens: '200k' }),
+    '3/120 calls · 12k/200k tokens',
+  );
+  assert.equal(zhT('analysisBudget', { calls: 3, maxCalls: 120, tokens: '12k', maxTokens: '200k' }), '调用 3/120 · token 12k/200k');
+  assert.equal(enT('analysisFailed', { count: 2 }), '2 failed');
+  assert.equal(zhT('analysisFailed', { count: 2 }), '2 个失败');
+  assert.equal(enT('analysisLastJob', { time: '9:12 AM' }), 'Last job 9:12 AM');
+  assert.equal(zhT('analysisLastJob', { time: '09:12' }), '上次任务 09:12');
+});

@@ -1,15 +1,20 @@
 /**
  * Optional human slash commands: quick capture that writes the owned journal
- * directly, without a model turn.
+ * directly, without a model turn, plus one manual analysis trigger.
  *
  * The host `commands` service is injected dynamically, like the panel's
  * `connection`, so a headless composition (or an older host without a command
- * registry) still loads the tools, the skills, and the context. Each command is
- * a plain capture action:
+ * registry) still loads the tools, the skills, and the context. Each capture
+ * command is a plain journal action:
  *
  * - `/dayflow-task <title>` adds a long task the user owns;
  * - `/dayflow-remember <claim>` appends a dated preference claim;
  * - `/dayflow-reflect <text>` appends a line to today's day reflection.
+ *
+ * `/dayflow-analyze` is different: it runs one analysis tick through the
+ * callback the composition injects, because the worker and its host `llm`
+ * binding live above this module. It takes no input, and it still goes through
+ * the same consent gate as the scheduled worker.
  *
  * A handler opens the journal only while it writes, and every failure becomes
  * an `{ kind: 'error' }` result: a slash command must never throw into the host.
@@ -26,7 +31,31 @@ import { createLongTask } from './tasks.js';
 import type { ToolRuntime } from './tools/shared.js';
 
 /** The host-facing names of the quick-capture commands, without a leading slash. */
-export const DAYFLOW_COMMAND_NAMES = ['dayflow-task', 'dayflow-remember', 'dayflow-reflect'] as const;
+export const DAYFLOW_COMMAND_NAMES = ['dayflow-task', 'dayflow-remember', 'dayflow-reflect', 'dayflow-analyze'] as const;
+
+/** The result of the injected manual-analysis callback. */
+export interface AnalysisRunOutcome {
+  /** Whether the run completed without failing a window and without a gate. */
+  ok: boolean;
+  /** The user-facing summary; shown as an error result when `ok` is false. */
+  text: string;
+}
+
+/** Optional callbacks a composition injects; a headless one passes none. */
+export interface CommandOptions {
+  /**
+   * Run one analysis tick for the current Dayflow day. The composition supplies
+   * this once its worker exists; without it `/dayflow-analyze` answers with an
+   * error result instead of failing.
+   */
+  runAnalysis?: () => Promise<AnalysisRunOutcome>;
+}
+
+/**
+ * The text `/dayflow-analyze` shows when no analysis runner is available: the
+ * switches are off, or the host exposes no `llm` service to run against.
+ */
+const ANALYSIS_UNAVAILABLE_TEXT = 'analysis is not enabled or the model service is unavailable';
 
 /** Evidence strength stamped on a claim captured with `/dayflow-remember`. */
 const QUICK_CLAIM_CONFIDENCE = 0.7;
@@ -46,7 +75,7 @@ export interface CommandRegistration {
     name: string;
     description: string;
     input?: { hint: string };
-    handler: (invocation: { rawInput: string; signal: AbortSignal }) => CommandOutcome;
+    handler: (invocation: { rawInput: string; signal: AbortSignal }) => CommandOutcome | Promise<CommandOutcome>;
   }): () => void;
 }
 
@@ -153,15 +182,41 @@ function captureReflection(runtime: ToolRuntime, rawInput: string): CommandOutco
   }
 }
 
+/**
+ * `/dayflow-analyze` — run one analysis tick through the injected callback.
+ *
+ * The handler never throws: a missing callback, a rejected run, and a run that
+ * reports failure all become error results. It respects the same gates as the
+ * worker because the callback runs the same pipeline.
+ * @param options - the composition's analysis runner, when it has one.
+ * @param signal - the host's cancellation signal for this invocation.
+ * @returns the user-facing result.
+ */
+async function runAnalysisCommand(options: CommandOptions, signal: AbortSignal): Promise<CommandOutcome> {
+  const runAnalysis = options.runAnalysis;
+  if (runAnalysis === undefined) return { kind: 'error', text: ANALYSIS_UNAVAILABLE_TEXT };
+  try {
+    if (signal.aborted) return { kind: 'error', text: 'the analysis command was cancelled' };
+    const result = await runAnalysis();
+    return { kind: result.ok ? 'success' : 'error', text: result.text };
+  } catch (error) {
+    return { kind: 'error', text: messageOf(error) };
+  }
+}
+
 /** One command's registration data, with its name typed against the exported list. */
 interface CommandDefinition {
   name: (typeof DAYFLOW_COMMAND_NAMES)[number];
   description: string;
-  hint: string;
-  capture: (runtime: ToolRuntime, rawInput: string) => CommandOutcome;
+  /** Placeholder the host shows after the command; absent for a no-input command. */
+  hint?: string;
+  /** The journal-writing action, for a capture command. */
+  capture?: (runtime: ToolRuntime, rawInput: string) => CommandOutcome;
+  /** The composition callback, for a command that runs background work. */
+  run?: (options: CommandOptions, signal: AbortSignal) => Promise<CommandOutcome>;
 }
 
-/** The quick-capture surface, in the order it is registered. */
+/** The command surface, in the order it is registered. */
 const COMMANDS: readonly CommandDefinition[] = [
   {
     name: 'dayflow-task',
@@ -181,18 +236,30 @@ const COMMANDS: readonly CommandDefinition[] = [
     hint: 'Reflection text',
     capture: captureReflection,
   },
+  {
+    name: 'dayflow-analyze',
+    description: 'Run one manual analysis tick for the current Dayflow day (same consent gates as the worker).',
+    run: runAnalysisCommand,
+  },
 ];
 
 /**
- * Register the three quick-capture commands on the host's command registry.
+ * Register the four human commands on the host's command registry.
  *
- * Every handler is self-contained: it writes inside its own
- * {@link withJournalWrite} call and converts any failure into an error result,
- * so a bad capture never breaks the host's command loop.
+ * Every handler is self-contained: a capture writes inside its own
+ * {@link withJournalWrite} call and an analysis run is delegated to the
+ * composition's callback, and any failure becomes an error result, so a bad
+ * invocation never breaks the host's command loop.
  * @param ctx - the scoped context carrying the host `commands` service.
  * @param runtime - the plugin runtime, for the owned journal path.
+ * @param options - optional composition callbacks; omitting them leaves the
+ *   commands that need one answering with an error result.
  */
-export function registerCommands(ctx: { commands?: CommandRegistration } | undefined, runtime: ToolRuntime): void {
+export function registerCommands(
+  ctx: { commands?: CommandRegistration } | undefined,
+  runtime: ToolRuntime,
+  options: CommandOptions = {},
+): void {
   // A host without the command registry (or a composition that calls the
   // dynamic injection with a partial context) simply gets no commands.
   if (ctx === undefined || ctx.commands === undefined || typeof ctx.commands.register !== 'function') return;
@@ -200,8 +267,13 @@ export function registerCommands(ctx: { commands?: CommandRegistration } | undef
     ctx.commands.register({
       name: command.name,
       description: command.description,
-      input: { hint: command.hint },
-      handler: (invocation) => command.capture(runtime, invocation.rawInput),
+      ...(command.hint === undefined ? {} : { input: { hint: command.hint } }),
+      handler: (invocation) => {
+        if (command.capture !== undefined) return command.capture(runtime, invocation.rawInput);
+        if (command.run !== undefined) return command.run(options, invocation.signal);
+        // Unreachable for the table above, but a handler must always answer.
+        return { kind: 'error', text: 'this command has no handler' };
+      },
     });
   }
 }

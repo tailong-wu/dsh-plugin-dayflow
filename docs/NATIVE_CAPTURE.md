@@ -2,26 +2,29 @@
 
 [← Back to README](../README.md)
 
-> **Status:** Phase 0 and Phase 1 are **landed**, and the analysis foundation
-> (Phase 2 groundwork) landed in `0.7.1` on the `0.7.x` line: the owned journal is
-> at schema version 8 with `capture_state` and `analysis_jobs`, plus the capture
-> provider, the capture engine, the analysis pipeline behind its consent gate,
-> and the capture status/pause routes with their panel line. Capture is still off
-> by default and **no worker runs the analyzer yet** — real model calls are the
-> `0.7.2` step. The rest of Phase 2–4 (worker/status, cards and briefs, cutover)
-> is planned in [NATIVE_PORT.md](NATIVE_PORT.md).
+> **Status:** Phase 0/1 and the text-only analysis slice are **landed** on the
+> `0.7.x` line: the owned journal is at schema version 8 with `capture_state` and
+> `analysis_jobs`, plus the capture provider, the capture engine, the analysis
+> pipeline behind its consent gate, the analysis worker (`0.7.2`), the
+> capture/analysis status routes, and the two compact panel lines. Capture and
+> analysis are still off/inert by default: with `analysis.consent: none` (the
+> default) the worker runs no model call, and with no configured
+> `analysis.provider`/`model` it records `provider-unset`/`model-unset` skips.
+> The rest of Phase 2–4 (image admission, cards and briefs, cutover) is planned
+> in [NATIVE_PORT.md](NATIVE_PORT.md).
 
 The plugin can record its own screen activity instead of only reading what the
 Dayflow app captured. **Phase 1 is the capture engine**: it records frames into
-the owned journal. `0.7.1` adds the analysis foundation (window grouping, the
-consent gate, strict JSON validation, and the `activities`/`observations`
-writes), which is test-triggered only — no worker or timer calls it yet.
+the owned journal. `0.7.1` added the analysis foundation and `0.7.2` makes it
+operable: an interval worker calls the pipeline, a status route and a panel line
+show what it is doing, and `/dayflow-analyze` runs one manual tick. The call is
+text-only — app, window title, and the frame hash; no image is ever sent.
 Everything below is off by default.
 
 - **Capture is off by default.** Setting `capture.enabled: true` starts the
   engine with the plugin. The engine does not depend on the panel, so it runs
   with `panel: false` too. The `capture` block carries the knobs below; the
-  `analysis` block now configures the 0.7.1 pipeline (still no worker), and the
+  `analysis` block configures the `0.7.2` worker and pipeline, and the
   `automation` block is validated but unused.
 - **The engine records on an interval.** Every `capture.intervalSeconds` it
   checks the persisted pause flag, whether the screen is locked or the display
@@ -44,6 +47,17 @@ Everything below is off by default.
   day directories. With the 0.7.1 analysis pipeline, a successful window deletes
   its frames immediately when `keepFramesDays: 0`; the engine's sweep still
   covers frames no analysis ever took (at least one day is kept).
+- **Analysis runs on an interval when it is allowed to.** With capture and
+  analysis both enabled, the host `llm` service available, a configured
+  provider/model, and a non-`none` consent, the analysis worker ticks every
+  `analysis.intervalMinutes`. Every tick still goes through the same pure consent
+  gate, so a profile left at the defaults analyses nothing.
+- **Analysis is observable.** `GET /api/dayflow/analysis/status` reports the
+  consent, worker state, job counts, and today's call/token ledger; the insights
+  view shows it as one compact line under the capture line, and
+  `/dayflow-analyze` runs one manual tick. The per-day call cap is enforced by
+  the pipeline; the token budget is recorded and shown, with hard enforcement
+  landing in `0.7.3`.
 - **Status and pause are wired.** `GET /api/dayflow/capture/status` reports the
   capture and analysis switches, the macOS Screen Recording permission, today's
   native frame count, and the persisted pause flag; `POST
@@ -51,11 +65,10 @@ Everything below is off by default.
   version 8). The Journal insights view shows it as one compact capture line —
   off, on, paused, or permission needed — with a Pause/Resume button when
   capture is configured on.
-- **What does not happen yet:** no worker, timer, status route, or panel
-  progress for analysis; no activity cards in the timeline from native frames;
-  no briefs and no automation. The 0.7.1 pipeline exists and is tested with a
-  fake model adapter, but nothing calls it on a schedule and no real provider is
-  contacted until 0.7.2.
+- **What does not happen yet:** no image admission (text-only), no skipped-job
+  catch-up when consent is turned on later, no native cards in the Dayflow
+  backend's timeline, no briefs, and no automation. Those are later `0.7.x`
+  patches or `0.8.0` (image), listed in [PATCH_PLAN.md](PATCH_PLAN.md).
 - **Nothing is written by a status read.** With no journal, the status route
   answers zeros and does not create the file; only the pause write and the
   engine open it.

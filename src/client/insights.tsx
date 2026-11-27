@@ -12,6 +12,12 @@
  * pause flag. Phase 0 has no recorder yet, so the line reports the configured
  * state instead of implying that frames are being written.
  *
+ * Under it, a second read-only line reports the analysis worker: whether
+ * analysis is enabled, what the consent gate is still waiting for, whether the
+ * worker runs or idles, today's failures, and the call/token budget it spends.
+ * It is deliberately not a control surface — analysis is switched on in the
+ * profile, and the panel keeps its one entry point and no new buttons.
+ *
  * Tasks, memory claims, and today's reflection can also be added from the view
  * itself: a ToDo-style row at the bottom of each of those three sections writes
  * the owned journal directly and refreshes the page on success. Adding a task
@@ -27,16 +33,18 @@ import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
 import type { PanelCaptureStatus, PanelInsights, PanelTaskScanResponse, PanelTaskSummary } from '../panel-contract.js';
+import type { AnalysisStatusSummary } from './data.js';
 import {
   addMemory,
   addReflection,
   addTask,
+  fetchAnalysisStatus,
   fetchCaptureStatus,
   linkTaskHistory,
   scanTaskHistory,
   setCapturePaused,
 } from './data.js';
-import { formatDuration, formatShare, shortDate } from './format.js';
+import { formatClock, formatDuration, formatShare, panelLanguage, shortDate } from './format.js';
 import type { Translate } from './format.js';
 import type { Phase } from './types.js';
 
@@ -67,6 +75,28 @@ const OFF_CAPTURE_STATUS: PanelCaptureStatus = {
   analysis_enabled: false,
   analysis_consent: 'none',
   frames_today: 0,
+};
+
+/**
+ * What the analysis line shows when the host does not answer: analysis off.
+ *
+ * The budget fields are the shipped defaults, so a host that predates the
+ * status route still renders the same quiet "off" line instead of a blank.
+ */
+const OFF_ANALYSIS_STATUS: AnalysisStatusSummary = {
+  enabled: false,
+  consent: 'none',
+  intervalMinutes: 5,
+  worker: 'stopped',
+  queued: 0,
+  running: 0,
+  completed: 0,
+  failed: 0,
+  skipped: 0,
+  callsToday: 0,
+  maxCallsPerDay: 120,
+  tokensToday: { input: 0, output: 0 },
+  dailyTokenBudget: 200_000,
 };
 
 /** Where the optional history scan of a just-added task stands. */
@@ -112,6 +142,24 @@ function addFailureMessage(cause: unknown, t: Translate): string {
   const message = rawMessage(cause).trim();
   if (message === '') return t('addItemFailed');
   return humanize(message, t);
+}
+
+/**
+ * Shorten a call or token count for the status line's budget summary.
+ *
+ * The line sits on one compact row, so 200000 reads as "200k" and 1200000 as
+ * "1.2M"; the raw number stays in the tooltip-free budget read, never invented.
+ * @param value - the count to shorten.
+ * @returns the compact label, or "0" for a missing or negative count.
+ */
+function compactCount(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  if (value < 1_000) return String(Math.round(value));
+  if (value < 1_000_000) {
+    const thousands = value / 1_000;
+    return thousands >= 100 ? `${Math.round(thousands)}k` : `${Math.round(thousands * 10) / 10}k`;
+  }
+  return `${Math.round((value / 1_000_000) * 10) / 10}M`;
 }
 
 /** The first non-empty line of a reflection body, shortened for the list. */
@@ -288,6 +336,130 @@ function CaptureLine(props: {
 }
 
 /**
+ * The one state the analysis line reports, and the tone it draws.
+ *
+ * The order is the contract: disabled first, then a consent-gate block with its
+ * precise reason, then a stopped worker, and only then the running/idle split.
+ * A reason wins over "stopped" because it is the one thing the user can unblock
+ * in the profile; a failure count never changes the state, it sits beside it.
+ */
+interface AnalysisView {
+  /** The dot and background tone. */
+  tone: 'is-on' | 'is-warn' | 'is-off';
+  /** The short state copy. */
+  state: string;
+  /** The quiet next-step hint, when the line has one. */
+  hint?: string;
+}
+
+/**
+ * Choose the line's state from the host's analysis status.
+ * @param status - the analysis status, as the route answered it.
+ * @param t - the bound translator.
+ * @returns the tone, state copy, and optional hint.
+ */
+function analysisView(status: AnalysisStatusSummary, t: Translate): AnalysisView {
+  if (!status.enabled) {
+    return { tone: 'is-off', state: t('analysisOff'), hint: t('analysisOffHint') };
+  }
+  if (status.reason !== undefined && status.reason !== '') {
+    switch (status.reason) {
+      case 'consent:none':
+        return { tone: 'is-warn', state: t('analysisWaitingConsent'), hint: t('analysisWaitingConsentHint') };
+      case 'provider-unset':
+        return { tone: 'is-warn', state: t('analysisNeedsProvider'), hint: t('analysisNeedsConfigHint') };
+      case 'model-unset':
+        return { tone: 'is-warn', state: t('analysisNeedsModel'), hint: t('analysisNeedsConfigHint') };
+      case 'consent:provider-not-local':
+        return {
+          tone: 'is-warn',
+          state: t('analysisProviderNotLocal'),
+          hint: t('analysisProviderNotLocalHint'),
+        };
+      case 'paused':
+        return { tone: 'is-warn', state: t('analysisPaused'), hint: t('analysisPausedHint') };
+      default:
+        return { tone: 'is-warn', state: t('analysisNeedsConfig'), hint: t('analysisNeedsConfigHint') };
+    }
+  }
+  // A host may report the consent without a reason (e.g. the status was built
+  // without a consent decision); consent none is still the same wait for the
+  // user, so it reads the same.
+  if (status.consent === 'none') {
+    return { tone: 'is-warn', state: t('analysisWaitingConsent'), hint: t('analysisWaitingConsentHint') };
+  }
+  if (status.worker !== 'running') {
+    return { tone: 'is-off', state: t('analysisWorkerStopped'), hint: t('analysisWorkerStoppedHint') };
+  }
+  if (status.queued + status.running > 0) return { tone: 'is-on', state: t('analysisRunning') };
+  return { tone: 'is-on', state: t('analysisIdle') };
+}
+
+/**
+ * The compact, read-only analysis line under the capture line.
+ *
+ * It reports what the worker is doing and what today has cost — state, failures,
+ * the call/token budget, and the last job's local time — and deliberately
+ * carries no control: enabling analysis or changing its consent is a profile
+ * edit, so the panel keeps its one entry point and no second control surface.
+ * @param props - the analysis status and the translator.
+ * @returns the line in its current tone.
+ */
+function AnalysisLine(props: { status: AnalysisStatusSummary; t: Translate }): ReactNode {
+  const { status, t } = props;
+  const view = analysisView(status, t);
+  const budget = t('analysisBudget', {
+    calls: compactCount(status.callsToday),
+    maxCalls: compactCount(status.maxCallsPerDay),
+    tokens: compactCount(status.tokensToday.input + status.tokensToday.output),
+    maxTokens: compactCount(status.dailyTokenBudget),
+  });
+  const lastJob =
+    status.lastJobAt === undefined
+      ? ''
+      : formatClock(new Date(status.lastJobAt).toISOString(), panelLanguage(t));
+  // The consent disclosure is the one privacy statement the line carries: as
+  // soon as analysis may call a model, say what actually leaves the machine.
+  // A cloud consent adds the sentence that says the metadata leaves the Mac.
+  const privacy =
+    status.consent === 'none'
+      ? ''
+      : status.consent === 'cloud'
+        ? `${t('analysisPrivacy')} ${t('analysisPrivacyCloud')}`
+        : t('analysisPrivacy');
+
+  return (
+    <div className={`dfp-analysis-line ${view.tone}`} role="status">
+      <span className="dfp-analysis-dot" aria-hidden="true" />
+      <span className="dfp-analysis-copy">
+        <span className="dfp-analysis-state">{view.state}</span>
+        {view.hint !== undefined && (
+          <>
+            <Sep />
+            <span className="dfp-analysis-hint">{view.hint}</span>
+          </>
+        )}
+        {lastJob !== '' && (
+          <>
+            <Sep />
+            <span className="dfp-analysis-last">{t('analysisLastJob', { time: lastJob })}</span>
+          </>
+        )}
+        {privacy !== '' && <span className="dfp-analysis-privacy">{privacy}</span>}
+      </span>
+      {status.enabled && (
+        <span className="dfp-analysis-side">
+          {status.failed > 0 && (
+            <span className="dfp-analysis-failed">{t('analysisFailed', { count: status.failed })}</span>
+          )}
+          <span className="dfp-analysis-budget">{budget}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
  * The capture card under a task add: offer to scan the recent history, preview
  * the days whose activity matches the task, and link the confirmed ones.
  *
@@ -418,6 +590,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   const [captureStatus, setCaptureStatus] = useState<PanelCaptureStatus | undefined>(undefined);
   const [captureBusy, setCaptureBusy] = useState(false);
   const [captureError, setCaptureError] = useState('');
+  const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatusSummary | undefined>(undefined);
 
   useEffect(() => {
     if (typeof loadInsights !== 'function') {
@@ -458,6 +631,27 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
       () => {
         if (controller.signal.aborted) return;
         setCaptureStatus(OFF_CAPTURE_STATUS);
+      },
+    );
+    return () => {
+      controller.abort();
+    };
+  }, [nonce]);
+
+  // The analysis line rides the same refresh: one more read alongside the
+  // insights read. A host without the route (or a failed probe) degrades to the
+  // off state silently, because analysis being unavailable is not a load error
+  // and must not add noise to a journal that already loaded.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAnalysisStatus(controller.signal).then(
+      (answer) => {
+        if (controller.signal.aborted) return;
+        setAnalysisStatus(answer.analysis);
+      },
+      () => {
+        if (controller.signal.aborted) return;
+        setAnalysisStatus(OFF_ANALYSIS_STATUS);
       },
     );
     return () => {
@@ -568,6 +762,8 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
           onToggle={toggleCapture}
         />
       )}
+
+      {analysisStatus !== undefined && <AnalysisLine status={analysisStatus} t={t} />}
 
       {phase === 'loading' && data === undefined && <div className="dfp-state">{t('insightsLoading')}</div>}
 

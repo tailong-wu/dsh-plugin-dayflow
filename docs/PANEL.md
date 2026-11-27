@@ -70,6 +70,18 @@ card placed at its time and tinted with its category colour.
   button, so the plugin keeps one entry. The task, memory, and reflection blocks
   also take an inline add, and a newly added task can be offered a history scan
   (see [Quick capture](QUICK_CAPTURE.md)); the review queue does not.
+- Above those sections sit two quiet status lines. The first is the native
+  capture strip (permission, today's frame count, Pause/Resume). The second
+  reports the **analysis worker** as read-only: off, waiting for consent, a
+  missing provider or model, paused with capture, running, idle, or a stopped
+  worker; today's failed count; the call and token budget (for example
+  `3/120 calls · 12k/200k tokens`); and the last job's local time. Once a
+  consent lets analysis call a model it also states, in one quiet sentence,
+  what leaves the machine — the frontmost app, window title, and frame hash,
+  never the image — and a `cloud` consent adds that this metadata leaves the
+  Mac while no image is sent. It has **no button** — analysis is enabled and
+  consented in the profile — so the panel keeps its single entry point and adds
+  no second control surface.
 
 ## Panel routes and icons
 
@@ -81,9 +93,10 @@ card placed at its time and tinted with its category colour.
   `POST /api/dayflow/reflections` on the same bridge, and the post-add history
   scan and its link submit `POST /api/dayflow/tasks/scan` and
   `POST /api/dayflow/tasks/link`. The native capture line adds
-  `GET /api/dayflow/capture/status` and `POST /api/dayflow/capture/pause`
-  (see [Native capture](NATIVE_CAPTURE.md)). Together with the icon route
-  below, those are the panel's host Fetch routes — thirteen in all, seven `GET`
+  `GET /api/dayflow/capture/status` and `POST /api/dayflow/capture/pause`, and
+  the analysis line adds `GET /api/dayflow/analysis/status` (see
+  [Native capture](NATIVE_CAPTURE.md)). Together with the icon route
+  below, those are the panel's host Fetch routes — fourteen in all, eight `GET`
   and six `POST`. It never touches the database itself.
 - Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
   `favicon.ico` per domain on first use and caches it under

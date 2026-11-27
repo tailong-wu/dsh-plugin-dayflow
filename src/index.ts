@@ -12,9 +12,15 @@
  * most recent non-superseded memory claims, so the model starts each session
  * knowing what is in flight. Empty data injects nothing.
  *
- * On hosts that expose the command registry, three optional slash commands give
+ * On hosts that expose the command registry, four optional slash commands give
  * the user quick capture that writes the owned journal directly, without a model
- * turn: `/dayflow-task`, `/dayflow-remember`, and `/dayflow-reflect`.
+ * turn (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`), plus one
+ * manual analysis trigger (`/dayflow-analyze`).
+ *
+ * When capture and analysis are both enabled, one {@link AnalysisWorker} runs
+ * the analysis pipeline on its own timer. It lives behind a dynamic `llm`
+ * injection: a composition without the model service still loads everything
+ * else, and a worker without an analyser never starts.
  *
  * The timeline covers screen activity only. It has no location, calendar, or
  * presence data, so a quiet stretch means nothing was captured rather than
@@ -23,12 +29,17 @@
  */
 
 import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { Context } from '@deepseek-ai/cordis';
 
 import { Config, resolveConfig } from './config.js';
 import type { DayflowConfig } from './config.js';
+import { createHostAnalyser } from './analyse/host.js';
+import type { HostLlmLike } from './analyse/host.js';
+import type { AnalysisRunResult } from './analyse/pipeline.js';
+import { AnalysisWorker } from './analyse/worker.js';
 import { readPreferences } from './categories.js';
 import { registerCommands } from './commands.js';
 import type { CommandRegistration } from './commands.js';
@@ -77,6 +88,24 @@ export function skillsDirectory(): string {
 }
 
 /**
+ * Render one manual analysis run for `/dayflow-analyze`.
+ * @param result - what the run did.
+ * @returns a one-line, user-facing summary.
+ */
+function describeAnalysisRun(result: AnalysisRunResult): string {
+  if (result.outcome === 'empty') return `${result.day}: no frames to analyse`;
+  const parts = [`${result.day}: ${String(result.analysed)}/${String(result.windows)} window(s) analysed`];
+  if (result.activitiesWritten > 0) parts.push(`${String(result.activitiesWritten)} card(s) written`);
+  if (result.skipped > 0) parts.push(`${String(result.skipped)} skipped`);
+  if (result.failed > 0) parts.push(`${String(result.failed)} failed`);
+  if (result.outcome === 'blocked') parts.push(`blocked by ${result.blockedReason ?? 'a gate'}`);
+  return parts.join(' · ');
+}
+
+/** The text the analysis command shows when no worker is mounted. */
+const ANALYSIS_UNAVAILABLE_TEXT = 'analysis is not enabled or the model service is unavailable';
+
+/**
  * Mount the Dayflow plugin.
  * @param ctx - the harness context.
  * @param config - validated profile configuration.
@@ -88,6 +117,11 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
     preferences: () => readPreferences(),
     presence: () => detectDayflow(resolved.databasePath),
   };
+
+  // The worker is created only when the host exposes `llm`; the command seam is
+  // read lazily because the command registry is injected before the worker.
+  let analysisWorker: AnalysisWorker | undefined;
+  let analysisRunner: (() => Promise<{ ok: boolean; text: string }>) | undefined;
 
   for (const tool of readTools(runtime)) ctx.tools.register(tool);
   for (const tool of journalImportTools(runtime)) ctx.tools.register(tool);
@@ -125,7 +159,12 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
         return 'unknown';
       }
     };
-    registerPanelRoutes(ctx, runtime, { capturePermission });
+    registerPanelRoutes(ctx, runtime, {
+      capturePermission,
+      // The status line reads the worker's state through this hook; it answers
+      // "stopped" until the analysis worker has been mounted.
+      analysisWorker: () => analysisWorker?.status() ?? { running: false },
+    });
   }
 
   if (resolved.capture.enabled) {
@@ -151,8 +190,41 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
   // Budgeted, read-only context: active long tasks and recent memory claims.
   // A profile can switch it off; empty data contributes no context at all.
   registerMemoryContext(ctx, runtime);
-  // Optional human commands: hosts without a command registry skip them.
+  // Optional human commands: hosts without a command registry skip them. The
+  // analysis command reads `analysisRunner` lazily, so it is registered before
+  // the worker exists and answers with an error result until one does.
   ctx.inject(['commands'], (scoped) => {
-    registerCommands(scoped as unknown as { commands: CommandRegistration }, runtime);
+    registerCommands(scoped as unknown as { commands: CommandRegistration }, runtime, {
+      runAnalysis: () =>
+        analysisRunner === undefined
+          ? Promise.resolve({ ok: false, text: ANALYSIS_UNAVAILABLE_TEXT })
+          : analysisRunner(),
+    });
   });
+
+  if (resolved.capture.enabled && resolved.analysis.enabled) {
+    // Frame analysis needs captured frames and a model service. It is mounted
+    // inside a dynamic `llm` injection: a composition without the host LLM
+    // keeps the rest of the plugin but starts no worker, rather than running a
+    // pipeline whose missing analyser would write skipped terminal jobs.
+    ctx.inject(['llm'], (scoped) => {
+      const llm = (scoped as unknown as { llm: HostLlmLike }).llm;
+      const worker = new AnalysisWorker({
+        journalPath: runtime.config.journalPath,
+        framesDirectory: join(dirname(runtime.config.journalPath), 'frames'),
+        config: resolved,
+        analyser: createHostAnalyser(llm),
+      });
+      analysisWorker = worker;
+      analysisRunner = () =>
+        worker.runOnce().then((result) => ({
+          ok: result.failed === 0 && result.outcome !== 'blocked',
+          text: describeAnalysisRun(result),
+        }));
+      scoped.effect(() => {
+        worker.start();
+        return () => worker.stop();
+      }, 'dayflow analysis: worker');
+    });
+  }
 }

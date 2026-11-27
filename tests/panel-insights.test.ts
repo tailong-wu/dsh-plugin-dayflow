@@ -1,7 +1,7 @@
 /**
  * Insights host end-to-end: the payload builder reads the owned journal, and the
- * exact Fetch routes `/api/dayflow/insights` and the write routes behind the
- * view serve and grow that journal.
+ * exact Fetch routes `/api/dayflow/insights`, `/api/dayflow/analysis/status`,
+ * and the write routes behind the view serve and grow that journal.
  *
  * The builder must be read-only in the strongest sense: a fresh install (no
  * journal file) yields four empty lists without creating the file, and repeated
@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  PANEL_ANALYSIS_STATUS_PATH,
   PANEL_CAPTURE_PAUSE_PATH,
   PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
@@ -34,6 +35,7 @@ import {
   shiftDayKey,
 } from '../src/panel-contract.js';
 import type {
+  PanelAnalysisStatus,
   PanelCapturePermission,
   PanelCaptureStatusResponse,
   PanelInsights,
@@ -44,6 +46,14 @@ import type {
   PanelTaskScanResponse,
 } from '../src/panel-contract.js';
 import { buildPanelInsights, registerPanelRoutes } from '../src/panel.js';
+import {
+  analysisJobKey,
+  completeAnalysisJob,
+  createAnalysisJob,
+  failAnalysisJob,
+  skipAnalysisJob,
+  startAnalysisJob,
+} from '../src/analyse/jobs.js';
 import type { ResolvedConfig } from '../src/config.js';
 import { readCaptureState, recordScreenshotRow, writeCaptureState } from '../src/capture/state.js';
 import { dayWindowContaining } from '../src/day.js';
@@ -72,9 +82,11 @@ interface RegisteredRoute {
   fetch: (request: Request) => Promise<Response>;
 }
 
-/** The options the capture routes accept from the host composition. */
+/** The options the capture and analysis status routes accept from the host composition. */
 interface PanelRouteOptions {
   capturePermission?: () => Promise<PanelCapturePermission>;
+  analysisStatus?: () => PanelAnalysisStatus['analysis'] | Promise<PanelAnalysisStatus['analysis']>;
+  analysisWorker?: () => { running: boolean };
 }
 
 /** A cordis-shaped host whose only connection member is the Fetch registry. */
@@ -119,6 +131,13 @@ async function fetchCaptureStatus(routes: Map<string, RegisteredRoute>): Promise
   const route = routes.get(PANEL_CAPTURE_STATUS_PATH);
   assert.ok(route, `route ${PANEL_CAPTURE_STATUS_PATH} is not registered`);
   return route.fetch(new Request(`http://127.0.0.1${PANEL_CAPTURE_STATUS_PATH}`));
+}
+
+/** GET the analysis status route the way the browser would. */
+async function fetchAnalysisStatus(routes: Map<string, RegisteredRoute>): Promise<Response> {
+  const route = routes.get(PANEL_ANALYSIS_STATUS_PATH);
+  assert.ok(route, `route ${PANEL_ANALYSIS_STATUS_PATH} is not registered`);
+  return route.fetch(new Request(`http://127.0.0.1${PANEL_ANALYSIS_STATUS_PATH}`));
 }
 
 /**
@@ -181,6 +200,16 @@ function captureConfig(enabled: boolean): ResolvedConfig['capture'] {
 /** SHA-256 of one file's bytes, used to prove a read changed nothing. */
 function fileHash(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+/**
+ * The profile's analysis block with only the fields a test needs varied, so
+ * the status assertions do not depend on the helper's defaults.
+ * @param overrides - the analysis fields to change.
+ * @returns the analysis configuration.
+ */
+function analysisConfig(overrides: Partial<ResolvedConfig['analysis']> = {}): ResolvedConfig['analysis'] {
+  return { ...makeRuntime('/nonexistent/dayflow/chunks.sqlite').config.analysis, ...overrides };
 }
 
 test('a missing journal answers four empty lists without creating the journal', async () => {
@@ -402,8 +431,8 @@ test('the insights route coexists with the other panel routes and answers JSON',
   const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
   const routes = fakeHost(runtime);
 
-  // The thirteen exact Fetch routes share the registry without replacing each
-  // other: seven reads plus the six writes that back the inline add rows, the
+  // The fourteen exact Fetch routes share the registry without replacing each
+  // other: eight reads plus the six writes that back the inline add rows, the
   // post-add history scan/link pair, and the native capture pause flag.
   const readPaths = [
     PANEL_DAY_PATH,
@@ -413,6 +442,7 @@ test('the insights route coexists with the other panel routes and answers JSON',
     PANEL_CONFIG_PATH,
     PANEL_INSIGHTS_PATH,
     PANEL_CAPTURE_STATUS_PATH,
+    PANEL_ANALYSIS_STATUS_PATH,
   ];
   const writePaths = [
     PANEL_TASK_ADD_PATH,
@@ -908,4 +938,140 @@ test('the capture pause route persists the pause flag and answers with the rerea
     const error = (await bad.json()) as { error: string };
     assert.equal(typeof error.error, 'string');
   }
+});
+
+test('the analysis status route reports zeros without creating the journal', async () => {
+  const journalPath = journalFile('analysis-off');
+  assert.equal(existsSync(journalPath), false);
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+
+  const response = await fetchAnalysisStatus(fakeHost(runtime));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual((await response.json()) as PanelAnalysisStatus, {
+    analysis: {
+      enabled: false,
+      consent: 'none',
+      intervalMinutes: 5,
+      worker: 'stopped',
+      queued: 0,
+      running: 0,
+      completed: 0,
+      failed: 0,
+      skipped: 0,
+      callsToday: 0,
+      maxCallsPerDay: 120,
+      tokensToday: { input: 0, output: 0 },
+      dailyTokenBudget: 200_000,
+      reason: 'capture-disabled',
+    },
+  });
+  assert.equal(existsSync(journalPath), false, 'a status read must not create the journal');
+});
+
+test('the analysis status route reports the paused gate, the ledger, and the injected worker', async () => {
+  const journalPath = journalFile('analysis-on');
+  const day = todayKey();
+  const base = Math.floor(Date.now() / 1_000) - 3_600;
+  const db = openJournal(journalPath);
+  try {
+    writeCaptureState(db, { paused: true });
+    const makeJob = (offset: number) =>
+      createAnalysisJob(db, {
+        jobKey: analysisJobKey(day, base + offset),
+        day,
+        windowStartTs: base + offset,
+        windowEndTs: base + offset + 600,
+      });
+    makeJob(0);
+    startAnalysisJob(db, makeJob(1_000).id);
+    const completed = makeJob(2_000);
+    startAnalysisJob(db, completed.id);
+    completeAnalysisJob(db, completed.id, { model: 'test-model', inputTokens: 1_234, outputTokens: 234 });
+    const failed = makeJob(3_000);
+    startAnalysisJob(db, failed.id);
+    failAnalysisJob(db, failed.id, 'the model said no');
+    skipAnalysisJob(db, makeJob(4_000).id, 'consent:none');
+    // A job from an earlier Dayflow day must not leak into today's ledger.
+    const yesterday = shiftDayKey(day, -1);
+    const earlier = createAnalysisJob(db, {
+      jobKey: analysisJobKey(yesterday, base),
+      day: yesterday,
+      windowStartTs: base,
+      windowEndTs: base + 600,
+    });
+    startAnalysisJob(db, earlier.id);
+  } finally {
+    db.close();
+  }
+
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', {
+    journalPath,
+    capture: captureConfig(true),
+    analysis: analysisConfig({ consent: 'cloud', provider: 'openai', model: 'test-model' }),
+  });
+  const routes = fakeHost(runtime, { analysisWorker: () => ({ running: true }) });
+
+  const response = await fetchAnalysisStatus(routes);
+  assert.equal(response.status, 200);
+  const body = (await response.json()) as PanelAnalysisStatus;
+  const { lastJobAt, ...rest } = body.analysis;
+  assert.equal(typeof lastJobAt, 'number', 'today holds jobs, so the last job time is present');
+  assert.deepEqual(rest, {
+    enabled: true,
+    consent: 'cloud',
+    intervalMinutes: 5,
+    worker: 'running',
+    queued: 1,
+    running: 1,
+    completed: 1,
+    failed: 1,
+    skipped: 1,
+    // Only a started job is a call: queued and skipped jobs have attempts 0.
+    callsToday: 3,
+    maxCallsPerDay: 120,
+    tokensToday: { input: 1_234, output: 234 },
+    dailyTokenBudget: 200_000,
+    reason: 'paused',
+  });
+
+  // Resuming capture clears the gate: allowed analysis carries no `reason` at all.
+  const resumedDb = openJournal(journalPath);
+  try {
+    writeCaptureState(resumedDb, { paused: false });
+  } finally {
+    resumedDb.close();
+  }
+  const resumed = (await (await fetchAnalysisStatus(routes)).json()) as PanelAnalysisStatus;
+  assert.equal('reason' in resumed.analysis, false, 'allowed analysis reports no blocked reason');
+});
+
+test('the analysis status route serves an injected builder without touching the journal', async () => {
+  const journalPath = journalFile('analysis-injected');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const payload: PanelAnalysisStatus = {
+    analysis: {
+      enabled: true,
+      consent: 'local',
+      intervalMinutes: 3,
+      worker: 'running',
+      queued: 2,
+      running: 0,
+      completed: 4,
+      failed: 1,
+      skipped: 0,
+      callsToday: 5,
+      maxCallsPerDay: 60,
+      tokensToday: { input: 100, output: 20 },
+      dailyTokenBudget: 50_000,
+      lastJobAt: 1_800_000_000_000,
+    },
+  };
+  const routes = fakeHost(runtime, { analysisStatus: () => payload.analysis });
+
+  const response = await fetchAnalysisStatus(routes);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()) as PanelAnalysisStatus, payload);
+  assert.equal(existsSync(journalPath), false, 'an injected builder still must not create the journal');
 });

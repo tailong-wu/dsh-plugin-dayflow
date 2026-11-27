@@ -385,6 +385,7 @@ test('capture, analysis, and automation default to safe values', () => {
   });
   assert.deepEqual(resolved.analysis, {
     enabled: true,
+    intervalMinutes: 5,
     consent: 'none',
     provider: '',
     model: '',

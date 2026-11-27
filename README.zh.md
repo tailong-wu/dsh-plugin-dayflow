@@ -37,13 +37,14 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   `journal_memory`、`journal_reflection` 和 6 个编辑工具。全表 → [docs/TOOLS.md](docs/TOOLS.md)。
 - **8 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`、`long-task`、`memory`、`reflection`。
 - **可选 Web 面板**：月历分段圆环、周泳道、日视图，以及 **Journal insights（洞察）** 视图；只有一个头部按钮、
-  一个标签页和 13 条 host Fetch 路由。细节 → [docs/PANEL.md](docs/PANEL.md)。
+  一个标签页和 14 条 host Fetch 路由。细节 → [docs/PANEL.md](docs/PANEL.md)。
 - **快速记录**：三条斜杠命令（`/dayflow-task`、`/dayflow-remember`、`/dayflow-reflect`），洞察视图里的内联添加行，
   以及新建任务后的历史扫描与关联。→ [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md)。
 - **预算化记忆上下文**：active 长任务与最近的带日期记忆 claim 会注入，硬上限 1000 字节、60 秒缓存；
   没有值得说的内容时完全不注入。
-- **原生采集（预览）**：Phase 1 把帧写入自有日志，默认关闭；0.7.1 补上分析地基并用 fake adapter 验证，
-  但仍没有 worker、也不真正调用模型。→ [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
+- **原生采集（预览）**：Phase 1 把帧写入自有日志，默认关闭；0.7.1 补上 consent 门禁后的分析管线，
+  0.7.2 让它跑在宿主的模型服务上，并在面板里显示状态行——默认 profile 仍然不会分析。
+  → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
 - **除 `dsh` 外零运行时依赖**：SQLite 来自 `node:sqlite`；Dayflow 编辑走应用的本地 Unix socket，自建日志则写自己的 SQLite 文件。
 
 深入文档（英文）：[工具](docs/TOOLS.md) · [面板](docs/PANEL.md) · [快速记录](docs/QUICK_CAPTURE.md) ·
@@ -146,10 +147,19 @@ profile 也可以把入口整个关掉。
 
 Phase 0 与 Phase 1 已落地：配置、采集状态（0.7.1 之前为 schema v7）、macOS 原生 provider，以及默认关闭的
 `capture.enabled` 背后的采集引擎。引擎按间隔把帧写入自有日志，跳过暂停、锁屏、空闲和暂停应用的
-tick，对近似帧去重并执行保留清理。0.7.1 补上分析**地基**：consent 门禁、幂等的「帧 →
-`activities`/`observations`」管线（schema v8 `analysis_jobs`），以及零网络的 fake-adapter 测试。
-**它还不会自己运行**——没有 worker、定时器、状态路由或面板进度，真实模型调用在 0.7.2 到来，且默认
-`analysis.consent: 'none'` 会拦下所有调用——所以 profile 仍然只采集不分析，采集也仍然默认关闭。
+tick，对近似帧去重并执行保留清理。0.7.1 补上分析管线：consent 门禁、幂等的「帧 →
+`activities`/`observations`」写入（schema v8 `analysis_jobs`），并已用 fake adapter 零网络验证。
+
+0.7.2 让它真正运行并可见，**仍然是纯文本**：当 `capture.enabled` 与 `analysis.enabled` 同时开启、且宿主的
+模型服务可用时，analysis worker 按 `analysis.intervalMinutes`（默认 5）tick，通过宿主调用配置的
+`analysis.provider`/`analysis.model`，并把每个窗口的调用与 token 用量记进当天的预算账本。Journal insights
+面板在采集行下方新增只读的 **analysis 行**：分析未启用、等待 consent、缺 provider/model、随采集暂停、
+运行中、空闲或 worker 未运行，并带当天失败数、调用/token 预算和上次任务时间；
+`GET /api/dayflow/analysis/status` 返回同一组数字；设置授权后，该行还会说明离开机器的内容：
+只有前台 app、窗口标题和帧 hash，不含图像。`/dayflow-analyze` 用同一门禁手动跑一次 tick；面板里
+没有按钮，分析仍在 profile 里开启，面板保持单入口。默认 profile 依旧不分析：`analysis.consent: 'none'`
+拦下所有调用，`cloud`/`local` 授权必须显式配置 provider 与 model，且进入模型的只是 app / 窗口标题 / hash
+元数据而不是图像字节。采集本身仍然默认关闭。
 
 本地验证（不碰真实数据）：
 
@@ -192,7 +202,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 - 删除活动会连带删除 observations，无法完全恢复；工具要求先确认，且只有用户本人能打开
   Dayflow 的编辑开关。
 - 原生采集默认关闭，帧只写入 `$DSH_HOME/dayflow/frames/`（目录 `0700`、文件 `0600`），
-  有保留清理；分析不会自动运行，未设置 `cloud` 授权与 provider/model 前也不会外发（0.7.2）。
+  有保留清理；只有在采集与分析都开启时分析才会 tick，未设置 `cloud` 授权与 provider/model 前也不会外发。
 - 面板的 favicon 抓取是唯一的对外请求：每个域名一次 `favicon.ico`，不带 cookie 与 referrer，
   拒绝 loopback 与裸 IP；设 `icons: false` 可完全关闭。
 
@@ -201,7 +211,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 ```sh
 npm install
 npm run build                # TypeScript → lib/，以及 client bundle
-npm test                     # 384 个测试
+npm test                     # 构建、类型检查并运行测试套件
 npm run typecheck            # 同时类型检查源码与测试
 npm run smoke                # 读取本机真实 Dayflow 数据库
 npm run native:smoke         # 只测采集 provider，不写入任何数据

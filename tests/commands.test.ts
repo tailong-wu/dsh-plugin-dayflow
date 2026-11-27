@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { after, test } from 'node:test';
 
 import { DAYFLOW_COMMAND_NAMES, registerCommands } from '../src/commands.js';
-import type { CommandRegistration } from '../src/commands.js';
+import type { CommandOptions, CommandRegistration } from '../src/commands.js';
 import { dayWindowContaining } from '../src/day.js';
 import { withJournal } from '../src/journal.js';
 import { listMemoryClaims } from '../src/memory.js';
@@ -40,7 +40,7 @@ interface CapturedCommand {
   name: string;
   description: string;
   input?: { hint: string };
-  handler: (invocation: { rawInput: string; signal: AbortSignal }) => CommandOutcome;
+  handler: (invocation: { rawInput: string; signal: AbortSignal }) => CommandOutcome | Promise<CommandOutcome>;
 }
 
 interface Harness {
@@ -48,14 +48,16 @@ interface Harness {
   readonly disposers: readonly (() => void)[];
   readonly journalPath: string;
   run(name: string, rawInput: string): CommandOutcome;
+  runAsync(name: string, rawInput: string): Promise<CommandOutcome>;
 }
 
 /**
  * Register the commands against a fake host registry and return a runner.
  * @param journalPath - the owned journal these commands should write.
+ * @param options - composition callbacks, such as the analysis runner.
  * @returns the captured registrations and a runner that invokes one handler.
  */
-function harness(journalPath: string): Harness {
+function harness(journalPath: string, options: CommandOptions = {}): Harness {
   const commands: CapturedCommand[] = [];
   const disposers: (() => void)[] = [];
   const registry: CommandRegistration = {
@@ -68,20 +70,27 @@ function harness(journalPath: string): Harness {
   };
   // The source database is never opened by these commands, only the journal.
   const runtime = makeRuntime(join(directory, 'unused-source.sqlite'), { journalPath });
-  registerCommands({ commands: registry }, runtime);
+  registerCommands({ commands: registry }, runtime, options);
+  const find = (name: string): CapturedCommand => {
+    const command = commands.find((entry) => entry.name === name);
+    assert.ok(command, `command ${name} is registered`);
+    return command;
+  };
   return {
     commands,
     disposers,
     journalPath,
     run(name, rawInput) {
-      const command = commands.find((entry) => entry.name === name);
-      assert.ok(command, `command ${name} is registered`);
-      return command.handler({ rawInput, signal: new AbortController().signal });
+      // Every capture command is synchronous; a promise here is a test bug.
+      return find(name).handler({ rawInput, signal: new AbortController().signal }) as CommandOutcome;
+    },
+    async runAsync(name, rawInput) {
+      return await find(name).handler({ rawInput, signal: new AbortController().signal });
     },
   };
 }
 
-test('registerCommands registers the three quick-capture commands', () => {
+test('registerCommands registers the four human commands', () => {
   const commands = harness(journalFile('register'));
   assert.deepEqual(
     commands.commands.map((command) => command.name),
@@ -89,16 +98,59 @@ test('registerCommands registers the three quick-capture commands', () => {
   );
   for (const command of commands.commands) {
     assert.ok(command.description.length > 0, `${command.name} has a description`);
-    assert.ok(command.input !== undefined, `${command.name} declares an input hint`);
-    assert.ok(command.input.hint.length > 0, `${command.name} has a usable input hint`);
     assert.equal(typeof command.handler, 'function', `${command.name} has a handler`);
   }
-  assert.equal(commands.disposers.length, 3, 'each registration returns a disposer');
+  // The three capture commands take input; the analysis trigger takes none.
+  for (const name of ['dayflow-task', 'dayflow-remember', 'dayflow-reflect']) {
+    const command = commands.commands.find((entry) => entry.name === name);
+    assert.ok(command, `${name} is registered`);
+    assert.ok(command.input !== undefined, `${name} declares an input hint`);
+    assert.ok(command.input.hint.length > 0, `${name} has a usable input hint`);
+  }
+  const analyse = commands.commands.find((command) => command.name === 'dayflow-analyze');
+  assert.ok(analyse, 'dayflow-analyze is registered');
+  assert.equal(analyse.input, undefined, 'the analysis trigger has no input hint');
+  assert.equal(
+    analyse.description,
+    'Run one manual analysis tick for the current Dayflow day (same consent gates as the worker).',
+  );
+  assert.equal(commands.disposers.length, 4, 'each registration returns a disposer');
   for (const dispose of commands.disposers) {
     assert.equal(typeof dispose, 'function');
     assert.doesNotThrow(dispose);
   }
-  assert.deepEqual([...DAYFLOW_COMMAND_NAMES], ['dayflow-task', 'dayflow-remember', 'dayflow-reflect']);
+  assert.deepEqual([...DAYFLOW_COMMAND_NAMES], [
+    'dayflow-task',
+    'dayflow-remember',
+    'dayflow-reflect',
+    'dayflow-analyze',
+  ]);
+});
+
+test('dayflow-analyze maps the injected runner and never throws without one', async () => {
+  const unavailable = await harness(journalFile('analyze-unavailable')).runAsync('dayflow-analyze', '');
+  assert.equal(unavailable.kind, 'error');
+  assert.equal(unavailable.text, 'analysis is not enabled or the model service is unavailable');
+
+  const succeeded = await harness(journalFile('analyze-ok'), {
+    runAnalysis: async () => ({ ok: true, text: '2026-11-20: 1/1 window(s) analysed · 1 card(s) written' }),
+  }).runAsync('dayflow-analyze', '');
+  assert.deepEqual(succeeded, {
+    kind: 'success',
+    text: '2026-11-20: 1/1 window(s) analysed · 1 card(s) written',
+  });
+
+  const refused = await harness(journalFile('analyze-gated'), {
+    runAnalysis: async () => ({ ok: false, text: '2026-11-20: blocked by consent:none' }),
+  }).runAsync('dayflow-analyze', '');
+  assert.deepEqual(refused, { kind: 'error', text: '2026-11-20: blocked by consent:none' });
+
+  const rejected = await harness(journalFile('analyze-rejected'), {
+    runAnalysis: async () => {
+      throw new Error('the analysis journal is unreadable');
+    },
+  }).runAsync('dayflow-analyze', '');
+  assert.deepEqual(rejected, { kind: 'error', text: 'the analysis journal is unreadable' });
 });
 
 test('dayflow-task rejects blank input without opening the journal and stores a user task', () => {

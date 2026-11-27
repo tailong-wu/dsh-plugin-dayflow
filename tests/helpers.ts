@@ -73,6 +73,7 @@ export function makeRuntime(
     },
     analysis: {
       enabled: true,
+      intervalMinutes: 5,
       consent: 'none',
       provider: '',
       model: '',

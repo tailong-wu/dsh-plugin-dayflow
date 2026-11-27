@@ -1,14 +1,17 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: **0.7.0 is the current baseline**, tagged `v0.7.0` on 2026-11-27
-> (commit `45a7e42`), not yet on the npm registry, and without a GitHub Release.
-> `main` is now the **0.7.x patch line**: the work ahead is six small, tagged
-> patches (0.7.1–0.7.6), planned in [`PATCH_PLAN.md`](PATCH_PLAN.md) and
-> summarised in *Patch iterations (0.7.x)* below. The 0.6.0 release (tagged
-> `v0.6.0`) shipped the **read path** of Phases 1+2 only — the owned schema, its
-> forward migration, the Dayflow importer, and the owned read backend; 0.7.0 is
-> the increment that closed the rest of the read surface, put the journal's
-> memory layer in place, and landed native capture Phase 0/1.
+> Status: **0.7.1 is the current head**, tagged `v0.7.1` on 2026-11-27 (commit
+> `0256a64`), not yet on the npm registry, and without a GitHub Release. 0.7.0
+> (`v0.7.0`, `45a7e42`) remains the **phase baseline**: it closed the read
+> surface and landed native capture Phase 0/1. `main` is the **0.7.x patch
+> line**: 0.7.1 has landed (the analysis foundation, text-only and inert by
+> default), 0.7.2 is finalised in [`PATCH_PLAN.md`](PATCH_PLAN.md) and in
+> progress, and 0.7.3–0.7.6 remain planned; the line is summarised in *Patch
+> iterations (0.7.x)* below. The 0.6.0 release (tagged `v0.6.0`) shipped the
+> **read path** of Phases 1+2 only — the owned schema, its forward migration,
+> the Dayflow importer, and the owned read backend; 0.7.0 is the increment that
+> closed the rest of the read surface, put the journal's memory layer in place,
+> and landed native capture Phase 0/1.
 >
 > 0.7.0 closes the Phase 3 read gap with `dayflow_journal`, `dayflow_goals`,
 > `dayflow_observations`, and `dayflow_review_ratings`, and surfaces the goal and
@@ -29,21 +32,39 @@
 > `/api/dayflow/insights` route while the plugin keeps a single UI entry. Native
 > capture Phase 0 (provider plus Swift helper) and Phase 1 (the capture engine)
 > landed in 0.7.0 as well, default-off, with owned schema version 7
-> (`capture_state`) and the capture status/pause routes; nothing is analysed yet.
+> (`capture_state`) and the capture status/pause routes; nothing was analysed
+> then.
+>
+> 0.7.1 (`v0.7.1`) landed the native port's **Phase 2 foundation** behind a
+> consent gate: owned schema version 8 (`analysis_jobs`) and five `src/analyse/`
+> modules that turn stored frames into `activities`/`observations` — window
+> grouping, a strict JSON contract, sessionisation, idempotent writes, retries,
+> the per-day call cap, and frame release at `keepFramesDays: 0` — plus the pure
+> consent gate (including the explicit `analysis.localProviders` allowlist for a
+> `local` consent). It is deliberately **text-only** (frontmost app, window
+> title, frame hash; no image) and nothing is scheduled or called for real: no
+> worker, no status route, no panel line, no manual command, no provider call.
+> Its `skipped` jobs are terminal — enabling consent later does not replay
+> earlier windows; 0.7.2 keeps that and the catch-up policy is a 0.7.3 candidate.
 >
 > Still later work: the owned-journal write path (the editing tools still go
 > through Dayflow and refuse `source: owned`), the `dsh dayflow import` CLI, the
 > month/week panel surfaces (only the day view carries goals and review marks
 > today; month and week do not yet), the interactive review-queue and task panel
-> UI (the Journal insights view renders both read-only), the `review.cards`
-> switch (the plugin never had a card stack, so that switch has no surface here
-> yet), task tagging from the summarization prompt, automatic activity
-> attribution (matching is an inspectable `suggest` step the agent calls), the
-> scheduled lint job, native port Phases 2–4 (the analyse worker, briefs and
-> automation, cutover), release closure (npm publication, GitHub Releases), and
-> Phase 5. Phase 5 and everything after it remain proposals.
-> Last revised: 2026-11-27 (0.7.0 tagged as the baseline; the next work is the
-> 0.7.x patch line).
+> UI (the Journal insights view renders both read-only — planned as 0.7.3), the
+> `review.cards` switch (the plugin never had a card stack, so that switch has no
+> surface here yet), task tagging from the summarization prompt, automatic
+> activity attribution (matching is an inspectable `suggest` step the agent
+> calls), the rest of native port Phase 2 (planned as 0.7.2: worker/timer,
+> analysis status route, panel analysis line, `/dayflow-analyze`, budget surface,
+> and the text-only host `llm` adapter), briefs and automation (Phase 3, 0.7.4),
+> image admission (pixels need a host attachment peer; a 0.8.0 candidate, not on
+> the 0.7.x line), the scheduled lint job (0.7.5), the Phase 4 cutover, release
+> closure (npm publication, GitHub Releases — 0.7.6), and Phase 5. Phase 5 and
+> everything after it remain proposals.
+> Last revised: 2026-11-27 (0.7.1 landed as the current head; 0.7.2 finalised in
+> [`PATCH_PLAN.md`](PATCH_PLAN.md) and in progress, with skipped-window catch-up
+> deferred and the analysis contract text-only for the whole line).
 
 ## Where this starts
 
@@ -380,12 +401,15 @@ request (asserted on the request bodies in a test) and does reach a local-model
 request intact; its duration still appears in totals; the settings copy contains
 the limitation text.
 
-**Status at 0.7.0:** not implemented — there is no summarization boundary yet,
-so there is nothing to redact. `capture.pauseApps` already skips capture of a
+**Status at 0.7.1:** not implemented for pixels — no image is admitted yet, so
+there is nothing to redact. `capture.pauseApps` already skips capture of a
 matching app entirely (stronger than redaction), and cloud analysis stays off by
-default until its own consent. The `privacy_apps` list is **not** scheduled on
-the 0.7.x line; it becomes a candidate for 0.7.2 only if the owner selects cloud
-consent (see [PATCH_PLAN.md](PATCH_PLAN.md) §6).
+default until its own consent. 0.7.2 is the patch that makes a `local` or
+`cloud` consent exercisable for the first time, but its contract is **text-only**
+(frontmost app, window title, frame hash; no pixels), so it ships the 3.6
+limitation copy next to the analysis line instead of a redaction list. The
+`privacy_apps` list is **not** scheduled on the 0.7.x line; it becomes required
+with image admission, a 0.8.0 candidate (see [PATCH_PLAN.md](PATCH_PLAN.md)).
 
 ### Phase 3.7 — Long-horizon task tracking
 
@@ -542,11 +566,21 @@ insights capture status/pause line, and the engine itself — an interval timer
 wired into the plugin lifecycle only when `capture.enabled` is true, which skips
 paused, locked, idle, and `pauseApps` ticks, dedupes with dHash, writes frames
 under `$DSH_HOME/dayflow/frames/` plus `screenshots` rows, caps the day, and
-sweeps retention. The analyse worker, activity cards, briefs, and automation
-scheduling are the 0.7.1–0.7.5 patches on the 0.7.x line (see *Patch iterations
-(0.7.x)* below and [`PATCH_PLAN.md`](PATCH_PLAN.md)); the Phase 4 cutover is
-rehearsed in 0.7.6 but belongs to the next minor line. The phasing above (Phase 5
-and later) is untouched by this line until the native path lands.
+sweeps retention. Phase 2's foundation landed in 0.7.1 (tagged `v0.7.1`) behind
+the consent gate: owned schema v8 `analysis_jobs`, the five `analyse/` modules
+(window grouping, strict JSON contract, sessionisation, idempotent writes,
+retries, the per-day call cap, and frame release at `keepFramesDays: 0`), and the
+pure consent gate; the contract is **text-only** (frontmost app, window title,
+frame hash) and nothing runs on its own. **0.7.2** makes it visible and operable:
+the analysis worker/timer, the text-only host `llm` adapter over
+`ctx.llm.stream`, `GET /api/dayflow/analysis/status`, one analysis line in the
+insights view, `/dayflow-analyze`, the budget ledger read from `analysis_jobs`,
+and `analysis.intervalMinutes`; no schema change, and skipped jobs stay terminal
+(automatic catch-up is deferred). Briefs and automation scheduling are the 0.7.4
+patch, the scheduled lint the 0.7.5 patch, and the release close 0.7.6; the Phase
+4 cutover is rehearsed in 0.7.6 but belongs to the next minor line; image
+admission (pixels) is not on this line (0.8.0 candidate). The phasing above
+(Phase 5 and later) is untouched by this line until the native path lands.
 
 ### Phase 5 — Personalization that acts
 
@@ -564,15 +598,17 @@ it remains a proposal.
 ## Patch iterations (0.7.x)
 
 0.7.0 closed the long development line; `main` moved to small tagged patches so
-every change is reviewable, testable, and revertible on its own. The execution
-plan is [`PATCH_PLAN.md`](PATCH_PLAN.md): it carries each patch's deliverables at
-file level, the acceptance assertions, the owner decisions and safe defaults,
-and the risks and rollback. One line each, all **planned**:
+every change is reviewable, testable, and revertible on its own. **0.7.1 has
+landed**, 0.7.2 is finalised in the plan and in progress on `main` (untagged),
+and 0.7.3–0.7.6 remain planned. The
+execution plan is [`PATCH_PLAN.md`](PATCH_PLAN.md): it carries each patch's
+deliverables at file level, the acceptance assertions, the owner decisions and
+safe defaults, and the risks and rollback. One line each:
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
-| 0.7.1 | Analysis foundation: the `analyse/` modules, consent gate, schema v8 `analysis_jobs`, fake-adapter tests — nothing leaves the machine | Native port Phase 2 | landed |
-| 0.7.2 | Analysis visible: worker timer, analysis status route and panel line, budget ledger, `/dayflow-analyze` | Native port Phase 2 | planned |
+| 0.7.1 | Analysis foundation: the `analyse/` modules, consent gate, schema v8 `analysis_jobs`, fake-adapter tests; text-only, skipped jobs terminal — nothing leaves the machine | Native port Phase 2 | landed |
+| 0.7.2 | Analysis visible: worker timer, text-only host `llm` adapter, analysis status route and panel line, budget ledger, `/dayflow-analyze`; no schema change | Native port Phase 2 | in progress |
 | 0.7.3 | Interactive insights: decide review items and attach/detach task sessions in the panel | Phase 3.5 / 3.7 remain | planned |
 | 0.7.4 | The day closes itself: briefs, reflection, review proposals, task sessions, weekly close | Native port Phase 3 | planned |
 | 0.7.5 | Scheduled memory lint and a weekly digest (proposals, never auto-repair) | Phase 4 lint remain | planned |
@@ -582,7 +618,11 @@ Ordering note: the interactive panel (0.7.3) lands **before** the automation tha
 fills the review queue (0.7.4), because a queue whose only decision path is an
 agent turn becomes the chore Risk 7 warns about. The Phase 4 default cutover is
 not part of this line — it belongs to the next minor release after a real week of
-capture.
+capture. Two items are deliberately **not** in 0.7.2: skipped-window catch-up (a
+state-machine and cost decision deferred to the 0.7.3 window or 0.8.0; see
+[PATCH_PLAN.md](PATCH_PLAN.md)) and image admission (a host attachment peer plus a
+vision contract; a 0.8.0 candidate, so the analysis contract stays text-only on
+this line).
 
 ## What this deliberately does not do
 
@@ -595,8 +635,9 @@ capture.
 - **No reimplementation of Dayflow's AI pipeline outside the native port.** The
   plugin does not need to turn screenshots into cards if the cards arrive by
   import or by the agent writing what it did. The native port's analysis phase
-  (0.7.1–0.7.4) is the deliberate exception, and it goes through
-  `ctx.llm.stream()` with one strict JSON contract, not a rebuilt provider zoo.
+  (0.7.1–0.7.4, text-only on the whole 0.7.x line) is the deliberate exception,
+  and it goes through `ctx.llm.stream()` with one strict JSON contract, not a
+  rebuilt provider zoo.
 - **No card-stack review as the centre.** It stays available and defaults to off
   (3.5). The review that matters is the distillation, loop, and improvement
   queue.

@@ -29,28 +29,31 @@ when a profile needs to share or back up the imported journal.
 
 ## Analysis and automation configuration
 
-Both blocks are validated at load time. `analysis` has its pipeline foundation
-on the 0.7.1 line: a caller (today a test; 0.7.2 adds the worker and the
-`/dayflow-analyze` command) can turn stored frames into `activities`/`observations`
-rows, gated by `analysis.consent`. **Nothing runs on a timer yet** — there is no
-worker, no status route, and no panel progress — and `automation` is still
-unused, so its keys change nothing. Screenshots are only sent to a model when
-consent is `cloud` **and** both `provider` and `model` are set; that real call
-path starts in 0.7.2, so today an unconfigured profile analyses nothing.
-Defaults are shown; `provider` and `model` empty mean "use the agent's default
-route".
+Both blocks are validated at load time. On the 0.7.2 line `analysis` runs on its
+own: when `capture.enabled` and `analysis.enabled` are both on and the host's
+model service is available, the plugin starts an analysis worker that ticks
+every `analysis.intervalMinutes` and turns stored frames into
+`activities`/`observations` rows. It stays inert on a default profile: the
+shipped `analysis.consent: 'none'` blocks every model call, and a consent only
+works with an explicit `provider` **and** `model` — there is no implicit agent
+default route and no implicit image upload. The panel's analysis line and
+`GET /api/dayflow/analysis/status` report the worker's state and the day's
+call/token ledger; `/dayflow-analyze` runs one manual tick through the same
+consent gate. `automation` is still unused, so its keys change nothing.
+Defaults are shown.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `analysis.enabled` | `true` | Run the frame analyser (also needs capture enabled). |
 | `analysis.consent` | `none` | `none`, `cloud` (frames may leave the machine), or `local` (only providers listed in `localProviders`). |
 | `analysis.localProviders` | `[]` | Provider ids accepted as local under `consent: local`, matched case-insensitively and exactly; empty accepts no provider. |
-| `analysis.provider` | `''` | Model provider id; empty uses the agent default. |
-| `analysis.model` | `''` | Model id; empty uses the provider default. |
+| `analysis.provider` | `''` | Model provider id; empty blocks analysis with a "needs provider" status. |
+| `analysis.model` | `''` | Model id; empty blocks analysis with a "needs model" status. |
+| `analysis.intervalMinutes` | `5` | Minutes between worker ticks (1–60). |
 | `analysis.windowMinutes` | `10` | Minutes of frames grouped into one analysis window (1–60). |
 | `analysis.framesPerWindow` | `3` | Representative frames sent per window (1–5). |
 | `analysis.maxCallsPerDay` | `120` | Hard cap on analysis calls for one day (1–1000). |
-| `analysis.dailyTokenBudget` | `200000` | Hard cap on analysis tokens for one day (1000–2000000). |
+| `analysis.dailyTokenBudget` | `200000` | Daily token budget reported in the status/panel ledger (1000–2000000). It is recorded and shown in 0.7.2; hard enforcement lands in 0.7.3. |
 
 | Key | Default | Meaning |
 | --- | --- | --- |

@@ -41,14 +41,14 @@ stayed. That is the whole dataset.
 - **8 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`,
   and `reflection`.
 - **An optional Web panel**: month segmented rings, week swim lanes, a day view, and a **Journal insights**
-  view — one header button, one tab, and 13 host Fetch routes. Details → [docs/PANEL.md](docs/PANEL.md).
+  view — one header button, one tab, and 14 host Fetch routes. Details → [docs/PANEL.md](docs/PANEL.md).
 - **Quick capture**: three slash commands (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`), inline
   add rows in the insights view, and a post-add history scan → [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
 - **A budgeted memory context**: active long tasks and recent dated claims are injected under a hard
   1000-byte cap with a 60-second cache; nothing is injected when there is nothing worth saying.
-- **Native capture (preview)**: Phase 1 records frames into the owned journal, off by default; 0.7.1 adds an
-  analysis foundation verified with fake adapters, still with no worker or real model call
-  → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
+- **Native capture (preview)**: Phase 1 records frames into the owned journal, off by default; 0.7.1 added the
+  analysis pipeline behind a consent gate, and 0.7.2 runs it on the host's model service with a status line in
+  the panel — still inert on a default profile → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
 - **Zero runtime dependencies** beyond `dsh`: SQLite comes from `node:sqlite`; Dayflow edits use the
   app's local Unix socket, while the owned journal has its own SQLite file.
 
@@ -169,11 +169,21 @@ the quick-capture shortcuts in [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
 Phase 0 and Phase 1 have landed: config, capture state (schema v7 before 0.7.1), a native macOS provider, and
 the capture engine behind a default-off `capture.enabled`. The engine records frames into the owned journal on
 an interval, skips paused, locked, idle, and paused-app ticks, dedupes near-identical frames, and enforces
-retention. 0.7.1 adds the analysis **foundation**: a consent gate, an idempotent frames → `activities` /
-`observations` pipeline (schema v8 `analysis_jobs`), and fake-adapter tests that verify it with no network.
-**It does not run by itself yet** — there is no worker, timer, status route, or panel progress, real provider
-calls arrive in 0.7.2, and the default `analysis.consent: 'none'` blocks every call — so a profile still
-captures without analysing anything, and capture remains off by default.
+retention. 0.7.1 added the analysis pipeline: a consent gate and an idempotent frames → `activities` /
+`observations` pipeline (schema v8 `analysis_jobs`), verified with fake adapters and no network.
+
+0.7.2 makes it run and visible, **text-only**: when `capture.enabled` and `analysis.enabled` are both on and
+the host's model service is available, an analysis worker ticks every `analysis.intervalMinutes` (5 by
+default), calls the configured `analysis.provider`/`analysis.model` through the host, and records each
+window's call and token use in the day's budget ledger. The Journal insights panel shows a read-only
+**analysis line** under the capture line — off, waiting for consent, a missing provider or model, paused,
+running, idle, or a stopped worker, with today's failures, the call/token budget, and the last job — and
+`GET /api/dayflow/analysis/status` answers the same numbers. Once a consent is set the line also states
+what leaves the machine: the frontmost app, window title, and frame hash, never the image. `/dayflow-analyze`
+runs one manual tick through the same gate; there is no button in the panel, so analysis stays enabled in the
+profile and the panel keeps its one entry. It is still inert on a default profile: `analysis.consent: 'none'`
+blocks every call, a `cloud` or `local` consent needs an explicit provider and model, and frames reach the
+model as app / window title / hash metadata rather than image bytes. Capture itself remains off by default.
 
 Verify it locally without touching real data:
 
@@ -219,8 +229,9 @@ default, and the capture/analysis/automation blocks are in
 - Deletions also remove the underlying observations and cannot be fully undone; the tools
   require confirmation first, and only the user can enable Dayflow's edit switch.
 - Native capture is off by default and writes frames only to `$DSH_HOME/dayflow/frames/`
-  (directory `0700`, file `0600`) with retention enforced; analysis never runs on its own, and no
-  frame is sent away without the `cloud` consent plus a configured provider and model (0.7.2).
+  (directory `0700`, file `0600`) with retention enforced; analysis only ticks while capture and
+  analysis are both enabled, and no frame is sent away without the `cloud` consent plus a configured
+  provider and model.
 - The panel's favicon fetch is the only outbound request: one `favicon.ico` per domain, no
   cookies or referrer, loopback and bare-IP names refused, and `icons: false` stops it.
 
@@ -229,7 +240,7 @@ default, and the capture/analysis/automation blocks are in
 ```sh
 npm install
 npm run build                # TypeScript → lib/, plus the client bundle
-npm test                     # 384 tests
+npm test                     # build, type-check, and run the test suite
 npm run typecheck            # type-check sources and tests together
 npm run smoke                # read this Mac's real Dayflow database
 npm run native:smoke         # capture provider only; writes nothing
