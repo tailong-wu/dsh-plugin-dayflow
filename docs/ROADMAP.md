@@ -1,6 +1,6 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: **0.7.5 is the current head**, tagged `v0.7.5` on 2026-11-27 (commit
+> Status: **0.7.6 is the current head**, tagged `v0.7.6` on 2026-11-27 (commit
 > `f117cdc`); `main` is `81af8e3`, the commit that reconciled this roadmap and
 > the patch plan with the tagged tree. The line is not on the npm registry, and
 > no 0.7.x tag has a GitHub Release yet (`gh release list` still ends at the
@@ -114,7 +114,7 @@
 > is a no-op, and the weekly brief gains a single **`Memory health: …`** digest
 > paragraph plus `payload_json.memory_health` (a clean week says "nothing to
 > report"). The lint makes no model call, so it runs even when the week's model
-> call is gated off (the close itself is then recorded `skipped`). Tests 493
+> call is gated off (the close itself is then recorded `skipped`). Tests 494
 > (477 at 0.7.4), 18 panel routes, 5 commands, no new tool or skill, no GitHub
 > Release, not on npm.
 >
@@ -140,7 +140,7 @@
 > the current head at `f117cdc`; 0.7.6 is in progress, finalised as an
 > executable release-close checklist in [`PATCH_PLAN.md`](PATCH_PLAN.md) —
 > release trail, docs, rehearsal, npm default no-publish, config audit, gates —
-> measured on `81af8e3`: 493 tests, 18 routes, 5 commands, schema v10), with the
+> measured on the `v0.7.6` tree: 494 tests, 18 routes, 5 commands, schema v10), with the
 > three analysis-ledger follow-ups carried as **0.8.0 candidates by default**
 > and the analysis contract text-only for the whole line).
 

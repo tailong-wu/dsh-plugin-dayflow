@@ -17,7 +17,7 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.7.5` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
+> **状态：** `v0.7.6` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
 > ——请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
@@ -72,7 +72,7 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 
 ## 安装
 
-`0.7.x` 还没有发布到 registry（`v0.7.5` 已在本仓库打 tag）。在发布之前请从源码 checkout 安装——
+`0.7.x` 还没有发布到 registry（`v0.7.6` 已在本仓库打 tag）。在发布之前请从源码 checkout 安装——
 那装的正是本文描述的开发线；发布之后执行 `dsh plugin --profile web add dsh-plugin-dayflow` 即可。
 
 ### Desktop App

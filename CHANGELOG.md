@@ -6,6 +6,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-11-27
+
+### Added
+
+- `scripts/cutover-rehearsal.mjs` and `npm run rehearsal`: a fixture-based Phase 4
+  cutover dry run that drives the real capture engine (fake provider), the
+  analysis pipeline (fake text-only model), the daily brief, the day insight
+  pass, the weekly brief and the scheduled weekly lint inside one throwaway
+  directory, then reopens the journal and proves 13 table counts survive a
+  restart. It prints 20 named checks, never touches the screen or the network,
+  and exits non-zero on any mismatch.
+- `docs/CUTOVER_REHEARSAL.md`: the written pass/fail checklist for the Phase 4
+  rehearsal, its safety boundaries, the optional real-capture day, the rollback
+  path, the recorded fixture run, and the 0.7.0 → 0.7.5 config-defaults audit
+  (no existing default changed; three keys added, all inert or owner-set).
+
+### Changed
+
+- The 0.7.x documentation was reconciled with what actually shipped: the 0.7.4
+  weekly close writes one stored week brief (no weekly reflection and no review
+  pass), the memory lint and its digest are 0.7.5's, the journal schemas are
+  v8 `analysis_jobs`, v9 `automation_runs` + `briefs`, v10 the `lint` rebuild
+  with `briefs.payload_json`, every 0.7.x model call is text-only (images are
+  0.8.0 material), and the deferred analysis-ledger items stay 0.8.0 candidates.
+- GitHub Releases now exist for every 0.7.x tag: `v0.7.1`–`v0.7.5` were
+  backfilled by hand with the notes from their CHANGELOG sections, and `v0.7.6`
+  is released with this section.
+
+### Fixed
+
+- No npm publication: the line stays tagged and unpublished until the owner
+  authorizes D7; the README says so unambiguously.
+
 ## [0.7.5] - 2026-11-27
 
 ### Added
@@ -556,7 +589,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.6...HEAD
+[0.7.6]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.2...v0.7.3

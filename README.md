@@ -17,7 +17,7 @@ cloud analysis.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.7.5` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
+> **Status:** `v0.7.6` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
 > README describes — install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
@@ -80,7 +80,7 @@ is 0.8.0 material.
 
 ## Install
 
-No `0.7.x` release is on the registry yet (`v0.7.5` is tagged in this repository). Until one is,
+No `0.7.x` release is on the registry yet (`v0.7.6` is tagged in this repository). Until one is,
 install from a checkout — that builds the development line described here; once published, run
 `dsh plugin --profile web add dsh-plugin-dayflow`.
 
