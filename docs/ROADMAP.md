@@ -1,148 +1,56 @@
 # Roadmap: from a Dayflow reader to a personal agent memory
 
-> Status: **0.7.6 is the current head**, tagged `v0.7.6` on 2026-11-27 (commit
-> `f117cdc`); `main` is `81af8e3`, the commit that reconciled this roadmap and
-> the patch plan with the tagged tree. The line is not on the npm registry, and
-> no 0.7.x tag has a GitHub Release yet (`gh release list` still ends at the
-> older `v0.5.1`). 0.7.0 (`v0.7.0`, `45a7e42`) remains the **phase baseline**:
-> it closed the read surface and landed native capture Phase 0/1. `main` is the
-> **0.7.x patch line**: 0.7.1–0.7.5 have landed (the analysis foundation, the
-> worker/status/panel line that made it visible, the interactive insights panel,
-> the day that closes itself, then the scheduled memory lint and its digest),
-> and **0.7.6 is in progress** as the **release and compatibility close** — the
-> last patch of the line, finalised in [PATCH_PLAN.md](PATCH_PLAN.md) §0.7.6 as
-> an executable checklist (backfill the five GitHub Releases, npm decision with
-> no publication by default, docs reconciliation, the cutover rehearsal in
-> `docs/CUTOVER_REHEARSAL.md` and its `npm run rehearsal` fixture run, the
-> config-defaults audit, and the release gates); the line is summarised in
-> *Patch iterations (0.7.x)* below. The 0.6.0 release (tagged `v0.6.0`) shipped
-> the **read path** of Phases 1+2 only — the owned schema, its forward
-> migration, the Dayflow importer, and the owned read backend; 0.7.0 is the
-> increment that closed the
-> rest of the read surface, put the journal's memory layer in place, and landed
-> native capture Phase 0/1.
+> Status: **the 0.7.x line is closed and the 0.8.x line has started.** The last
+> 0.7 tag is `v0.7.6` (commit `007c287`, which is `main` and the line's final
+> commit), and all seven tags `v0.7.0`–`v0.7.6` have GitHub Releases. The line
+> shipped everything it planned except the three analysis-ledger follow-ups,
+> image admission, and the Phase 4 cutover, which it deliberately left to this
+> line: Phase 4 was **rehearsed only** — `docs/CUTOVER_REHEARSAL.md` and
+> `npm run rehearsal` walk the fixture chain (20/20 checks passed), and no
+> `source: owned` default was flipped. The package is still **not on the npm
+> registry** (D7 unanswered), so every release here is a tag and a GitHub
+> Release only. 0.7.0 (`v0.7.0`, `45a7e42`) remains the **phase baseline**.
 >
-> 0.7.0 closes the Phase 3 read gap with `dayflow_journal`, `dayflow_goals`,
-> `dayflow_observations`, and `dayflow_review_ratings`, and surfaces the goal and
-> review marks in the panel's day view. It also lands the Phase 3.5 **storage and
-> tool** slice: the `review_items` identity/decision queue (owned schema version
-> 3), the `journal_review` tool, and the `review-queue` skill. The same release
-> adds the Phase 3.7 **storage and tool** slice: long tasks and their per-day
-> sessions (owned schema version 4), the `journal_task` tool, the `long-task`
-> skill, and automatic task creation when a `task_proposal` is accepted. It also
-> adds the Phase 4 **storage and tool** slice: dated, append-and-supersede memory
-> claims (owned schema version 5), the `journal_memory` tool, the `memory` skill,
-> review-kept distillation/loop promotion into memory, FTS5 search with a `LIKE`
-> fallback, a budgeted dynamic memory context (1000-byte cap, cached, empty when
-> there is nothing to say), reflections written back into the journal (owned
-> schema version 6), the read-only memory lint (`journal_memory` action `lint`)
-> with its four findings, and an in-panel **Journal insights** view, which renders
-> the review queue, active tasks, memory claims, and reflections from a new
-> `/api/dayflow/insights` route while the plugin keeps a single UI entry. Native
-> capture Phase 0 (provider plus Swift helper) and Phase 1 (the capture engine)
-> landed in 0.7.0 as well, default-off, with owned schema version 7
-> (`capture_state`) and the capture status/pause routes; nothing was analysed
-> then.
+> **Measured on the `v0.7.6` tree:** 494 tests green, schema **v10**, **18**
+> panel routes, **5** slash commands, 23 tools, 8 skills, and no new host peer.
+> The 0.7 line's own record is [`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history)
+> and the per-patch table in *Patch iterations (0.7.x, line closed)* below.
 >
-> 0.7.1 (`v0.7.1`) landed the native port's **Phase 2 foundation** behind a
-> consent gate: owned schema version 8 (`analysis_jobs`) and five `src/analyse/`
-> modules that turn stored frames into `activities`/`observations` — window
-> grouping, a strict JSON contract, sessionisation, idempotent writes, retries,
-> the per-day call cap, and frame release at `keepFramesDays: 0` — plus the pure
-> consent gate (including the explicit `analysis.localProviders` allowlist for a
-> `local` consent). It is deliberately **text-only** (frontmost app, window
-> title, frame hash; no image) and nothing is scheduled or called for real: no
-> worker, no status route, no panel line, no manual command, no provider call.
-> Its `skipped` jobs are terminal — enabling consent later does not replay
-> earlier windows; 0.7.2 kept that, and the catch-up policy was re-triaged in the
-> 0.7.3 window and is an **0.8.0 candidate by default** (the owner has not
-> answered; 0.7.4 and 0.7.5 do not take it — see
-> [`PATCH_PLAN.md`](PATCH_PLAN.md)).
+> **0.8.x line.** The execution plan is
+> [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md), and the order is:
+> **0.8.0 — analysis ledger follow-ups** (the token budget as a post-call gate,
+> transient skipped-window catch-up bounded to yesterday, and the 04:00 day
+> tail; decision-free and finalised for implementation);
+> **0.8.1 — briefs reading view** (the stored day/week briefs in the insights
+> payload and the existing panel view; no new route, tab, or model call);
+> **0.8.2 — image admission** (**owner-gated** on D1/D2/D11: pixels through a
+> host attachment/vision contract, the 3.6 `privacy_apps` redaction list, and
+> the limitation copy; `includeImages: false` and fully inert until answered);
+> **0.8.3 — Phase 4 cutover** (**owner-gated** on D10 plus a real captured week:
+> `source: owned` becomes the default for a fresh capture-enabled profile with
+> no Dayflow database, the first-run walkthrough lands, and 1.0.0 follows a real
+> week without data loss); and
+> **0.8.4 — release close** (GitHub Releases for every shipped tag, the npm
+> decision with no publication by default, docs reconciliation, and explicit
+> deferral of any slot the owner did not unblock).
+> 0.8.0 and 0.8.1 need no decision and are the next work; 0.8.2/0.8.3 are
+> scoped in the plan but do not start until their gates are met; the version
+> slots are semantic, so an unanswered slot is deferred rather than renumbered.
 >
-> 0.7.2 (`v0.7.2`) made the analysis pipeline visible and operable: the
-> `AnalysisWorker` timer (one tick in flight, injectable timer seam, backoff), the
-> text-only host adapter over `ctx.llm.stream` (a content-block array, usage
-> recorded on `analysis_jobs`), `GET /api/dayflow/analysis/status` and the budget
-> ledger read from that table, one read-only analysis line under the capture line
-> in the Journal insights view (with the privacy disclosure), `/dayflow-analyze`,
-> and `analysis.intervalMinutes`. It changes no owned schema (v8), adds no host
-> peer, and stays inert by default (`consent: none`, capture off; the worker does
-> not even mount without the host `llm` service). The token numbers are shown but
-> only the call cap is a gate, and skipped windows stay terminal. Tests 408 (384
-> at 0.7.1), panel routes 14 (8 GET + 6 POST), no GitHub Release, not on npm.
+> **What remains after this line:** the owned-journal write path (the editing
+> tools still go through Dayflow), the `dsh dayflow import` CLI, the month/week
+> panel goal and rating surfaces, the `review.cards` switch (the plugin never
+> had a card stack, so the switch has no surface), task tagging from the
+> summarization prompt, automatic activity attribution, embeddings, and Phase 5.
+> 1.0.0 follows the cutover and a real captured week without data loss. Phase 5
+> and everything after it remain proposals.
 >
-> 0.7.3 (`v0.7.3`, `bebfd7a`) made the Journal insights view interactive: review
-> items are decided in place (keep/accept/discard/reject, with "Don't suggest
-> again" as a deliberate inline confirm that stores the hard suppression) and an
-> attached task day can be unlinked. Three POST routes back it
-> (`/api/dayflow/review`, `/api/dayflow/tasks/attach`,
-> `/api/dayflow/tasks/detach`; the route set grew 14 → 17: 8 GET + 9 POST), the
-> decision composer is shared with the `journal_review` tool, and
-> `PanelTaskSummary` gained an additive optional `sessions` field. No schema
-> change (v8), no model call, no new host peer or dependency, and the single UI
-> entry is unchanged. Tests 425 (408 at 0.7.2), 17 panel routes, no GitHub
-> Release, not on npm.
->
-> 0.7.4 (`v0.7.4`, `1375717`) landed native port **Phase 3, text-only
-> automation**: the day and the week close themselves. Schema **v9** adds
-> `automation_runs` (one idempotent row per attempted close) and `briefs`; a
-> daily close writes the standup into `daily_standup_entries`, the day's insight
-> pass writes one reflection, up to three model proposals at confidence ≥ 0.6,
-> and task sessions (weak guesses become review items), and the weekly close
-> writes one `briefs` row for the week that just ended. The scheduler runs at
-> `automation.dailyAt` (04:00) and `automation.weeklyOn`, with the new
-> `automation.catchUpDays` window (1–30, default 2) and older missed days
-> recorded `skipped`, never fabricated; a pure text gate reuses
-> `analysis.enabled`/`consent`/provider/model, the close jobs send activity text
-> only (never frames, window titles, or images), and the scheduler mounts only
-> inside the capture + analysis + host-`llm` block, so a default profile runs
-> nothing. It adds `GET /api/dayflow/automation/status` (route set 17 → **18**:
-> 9 GET + 9 POST), the panel's close-state line, and `/dayflow-run-close` (the
-> fifth command); no new tool, skill, host peer, or dependency, and no token
-> gate. Tests 477 (425 at 0.7.3), 18 panel routes, no GitHub Release, not on npm.
->
-> 0.7.5 (`v0.7.5`, `f117cdc`) added the **scheduled weekly memory lint** and its
-> digest. Schema **v10** rebuilds `automation_runs` in one transaction so its
-> `job` CHECK also accepts `'lint'` (every v9 row copied, no row rewritten) and
-> adds a nullable `briefs.payload_json` for the digest. As part of the weekly
-> close, a read-only pass (`src/automation/lint.ts`, `lintMemoryClaims`) turns
-> each finding into at most one `improvement` review proposal per subject —
-> which is at most one per claim per week — capped at three per pass and going
-> through the existing fingerprint, suppression, and daily cap; it **never**
-> supersedes, forgets, or writes a claim. It records one `automation_runs` row
-> with `job: 'lint'` and `day` = the week's Monday, so a re-run of the same week
-> is a no-op, and the weekly brief gains a single **`Memory health: …`** digest
-> paragraph plus `payload_json.memory_health` (a clean week says "nothing to
-> report"). The lint makes no model call, so it runs even when the week's model
-> call is gated off (the close itself is then recorded `skipped`). Tests 494
-> (477 at 0.7.4), 18 panel routes, 5 commands, no new tool or skill, no GitHub
-> Release, not on npm.
->
-> Still later work: the owned-journal write path (the editing tools still go
-> through Dayflow and refuse `source: owned`), the `dsh dayflow import` CLI, the
-> month/week panel surfaces (only the day view carries goals and review marks
-> today; month and week do not yet), the `review.cards` switch (the plugin never
-> had a card stack, so that switch has no surface here yet), task tagging from
-> the summarization prompt, automatic activity attribution (matching is an
-> inspectable `suggest` step the agent calls), a briefs reading view (the
-> daily/weekly briefs are stored, but the panel has no briefs surface yet), the
-> analysis-ledger follow-ups 0.7.2 left behind (skipped-window catch-up, the
-> token cap as a gate, the 04:00 day tail — re-triaged and now **0.8.0
-> candidates by default**, deliberately outside 0.7.4 and 0.7.5), image
-> admission (pixels need a host attachment peer; **0.8.0 material**, not on the
-> 0.7.x line), the Phase 4 cutover (**0.7.6 rehearses it only; flipping the
-> `source: owned` default is 0.8.0**, and 1.0.0 after a real captured week),
-> **release closure (0.7.6, in progress**: GitHub Releases backfilled for
-> `v0.7.1`–`v0.7.5` plus `v0.7.6` cut by the release tool, the npm decision —
-> unpublished by default under D7, docs reconciliation, the cutover rehearsal,
-> the config-defaults audit, the release gates), and Phase 5. Phase 5 and
-> everything after it remain proposals. Last revised: 2026-11-27 (0.7.5 remains
-> the current head at `f117cdc`; 0.7.6 is in progress, finalised as an
-> executable release-close checklist in [`PATCH_PLAN.md`](PATCH_PLAN.md) —
-> release trail, docs, rehearsal, npm default no-publish, config audit, gates —
-> measured on the `v0.7.6` tree: 494 tests, 18 routes, 5 commands, schema v10), with the
-> three analysis-ledger follow-ups carried as **0.8.0 candidates by default**
-> and the analysis contract text-only for the whole line).
+> Last revised: 2026-11-27, against `v0.7.6` (`007c287`): seven 0.7.x releases,
+> the 0.8.x plan written in [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md), the three
+> analysis-ledger follow-ups scheduled as **0.8.0**, the briefs reading view as
+> **0.8.1**, image admission as **0.8.2** and the cutover as **0.8.3** (both
+> owner-gated), and the analysis contract still **text-only** until D1/D2/D11
+> are answered.
 
 ## Where this starts
 
@@ -492,8 +400,10 @@ the analysis line instead of a redaction list — two locale keys: the text-only
 disclosure, plus the cloud-only "the metadata leaves the Mac" sentence. 0.7.4's
 close jobs send activity text only (never frames or window titles) behind that
 same consent, so this status does not change. The `privacy_apps` list is **not**
-scheduled on the 0.7.x line; it becomes required
-with image admission, a 0.8.0 candidate (see [PATCH_PLAN.md](PATCH_PLAN.md)).
+on the 0.7.x line; it becomes required with image admission, which is scheduled
+as **0.8.2** and owner-gated on D1/D2/D11 in
+[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md). Until it ships, the analysis contract
+stays text-only.
 
 ### Phase 3.7 — Long-horizon task tracking
 
@@ -641,16 +551,18 @@ weekly brief — schema v10, and no claim is ever written by it (D8/D9). With it
 phase 4's ingest/query/lint maintenance loop is complete on the 0.7.x line; the
 remaining phase-4 work is the cutover, not the lint.
 
-**The cutover, and what 0.7.6 does about it.** The Phase 4 default (`source:
-owned` when capture is enabled and no Dayflow database exists) is **not** on the
-0.7.x line. 0.7.6 rehearses it — `npm run rehearsal` walks the fixture chain
+**The cutover, and where it now sits.** The Phase 4 default (`source: owned`
+when capture is enabled and no Dayflow database exists) is **not** on the
+0.7.x line. 0.7.6 rehearsed it — `npm run rehearsal` walks the fixture chain
 (capture → analysis → day close → day insights → weekly lint → weekly brief →
-reopen) and `docs/CUTOVER_REHEARSAL.md` carries the pass/fail checklist and the
-record table (permission, frames, cards, standup, brief, reflection, queue,
-restart with no data loss); the fixture run needs no screen permission, network,
-or model. It flips nothing: the default flip is **0.8.0** (native preview), with
-**1.0.0** after a real captured week without data loss, per `NATIVE_PORT.md` §8
-Phase 4.
+reopen), passed **20/20**, and `docs/CUTOVER_REHEARSAL.md` carries the pass/fail
+checklist and the record table (permission, frames, cards, standup, brief,
+reflection, queue, restart with no data loss); the fixture run needs no screen
+permission, network, or model. It flipped nothing. The real cutover is
+**0.8.3**, **owner-gated** on D10 plus a real captured week on a fresh profile
+with no data loss; **1.0.0** follows that week, per `NATIVE_PORT.md` §8 Phase 4
+and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §0.8.3. A capture-only cutover
+(`consent: none`) is a narrower variant the owner may choose instead.
 
 ### Native port — capture and analysis inside the harness
 
@@ -678,10 +590,10 @@ the analysis worker/timer, the text-only host `llm` adapter over
 `ctx.llm.stream`, `GET /api/dayflow/analysis/status`, one analysis line under
 the capture line in the insights view (with the privacy disclosure),
 `/dayflow-analyze`, the budget ledger read from `analysis_jobs`, and
-`analysis.intervalMinutes`; no schema change (v8), and skipped jobs stay terminal
-(the skipped-window catch-up, the token-cap gate, and the 04:00 day tail were
-triaged in the 0.7.3 window and are **0.8.0 candidates by default** — the owner
-has not answered, and 0.7.5 is finalised single-theme). **0.7.3** added
+`analysis.intervalMinutes`; no schema change (v8), and skipped jobs stayed
+terminal on the 0.7.x line (the skipped-window catch-up, the token-cap gate, and
+the 04:00 day tail are now scheduled as **0.8.0** in
+[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md), closing the 0.7.2 debt). **0.7.3** added
 no native-port work: it is the panel's interactive layer (review decisions and
 task-session attach/detach) and touches neither capture nor
 analysis. **0.7.4 has landed and is native port Phase 3** (text-only
@@ -699,17 +611,20 @@ runs nothing. That patch also adds `GET /api/dayflow/automation/status` (route
 set 18) and `/dayflow-run-close`. **0.7.5** added the scheduled weekly memory
 lint and its digest (schema v10, proposals only, no claim writes) as part of the
 weekly close, so the text-only automation slice now covers the whole maintenance
-loop; **0.7.6** is the release close — it backfills the five missing releases,
-reconciles the docs, and rehearses the Phase 4 cutover in
-`docs/CUTOVER_REHEARSAL.md` — but it flips no default: the `source: owned` flip
-is 0.8.0 (native preview), and 1.0.0 follows a real captured week. Image
-admission (pixels) is not on this line (0.8.0 candidate). The phasing above (Phase 5 and later) is untouched by this
-line until the native path lands.
+loop; **0.7.6** closed the line — seven GitHub Releases, reconciled docs, and the
+Phase 4 cutover rehearsed in `docs/CUTOVER_REHEARSAL.md` — without flipping a
+default. The remaining native work is scheduled in
+[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md): **0.8.0** closes the three
+analysis-ledger follow-ups (text-only), **0.8.1** adds the briefs reading view,
+**0.8.2** admits images (owner-gated; the only patch that makes the contract
+non-text), and **0.8.3** is the cutover itself (owner-gated), with `1.0.0` after
+a real captured week. The phasing above (Phase 5 and later) is untouched by
+this line until the native path lands.
 
 ### Phase 5 — Personalization that acts
 
-Only after 4 is trustworthy. **Not on the 0.7.x line:** no patch above starts it;
-it remains a proposal.
+Only after 4 is trustworthy. **Not on the 0.7.x or 0.8.x line:** no patch
+above starts it; it remains a proposal.
 
 - **Planning**: turn open intentions and observed patterns into proposed tasks
   (the agent already has `dsh-tool-schedule` and a jobs system available).
@@ -721,17 +636,15 @@ it remains a proposal.
   notes, deduplicated, with a decay/review policy so the prompt does not fill
   with stale self-description.
 
-## Patch iterations (0.7.x)
+## Patch iterations (0.7.x, line closed)
 
-0.7.0 closed the long development line; `main` moved to small tagged patches so
-every change is reviewable, testable, and revertible on its own. **0.7.1–0.7.5
-have landed** (0.7.5's tagged tree is the baseline for the next patch), and
-**0.7.6 is in progress** as the release and compatibility close, finalised as an
-executable checklist in [`PATCH_PLAN.md`](PATCH_PLAN.md) §0.7.6. The execution
-plan is
-[`PATCH_PLAN.md`](PATCH_PLAN.md): it carries each patch's deliverables at file
-level, the acceptance assertions, the owner decisions and safe defaults, and the
-risks and rollback. One line each:
+0.7.0 closed the long development line; `main` then moved to small tagged
+patches so every change is reviewable, testable, and revertible on its own.
+**0.7.1–0.7.6 landed and the line is closed**: `v0.7.6` (`007c287`) is the last
+tag, all seven tags have GitHub Releases, and the package is still not on npm
+(D7 unanswered). The per-patch execution record — deliverables at file level,
+acceptance assertions, decisions and safe defaults, risks and rollback — is
+[`PATCH_PLAN.md`](PATCH_PLAN.md) (frozen history). One line each:
 
 | Patch | Theme | Roadmap item | Status |
 | --- | --- | --- | --- |
@@ -740,29 +653,77 @@ risks and rollback. One line each:
 | 0.7.3 | Interactive insights: decide review items and attach/detach task sessions in the panel — three POST routes, one shared decision module, no schema change or model call; panel routes 14 → 17, 425 tests | Phase 3.5 / 3.7 remain | landed |
 | 0.7.4 | The day closes itself: schema v9 `automation_runs` + `briefs`, daily standup and weekly brief, a daily insight pass (reflection, ≤3 proposals at ≥0.6 confidence, high-confidence task sessions), and the scheduler with `automation.catchUpDays` (1–30, default 2); panel routes 17 → 18, `/dayflow-run-close`, 477 tests | Native port Phase 3 | landed |
 | 0.7.5 | Scheduled memory lint and the weekly digest: schema v10 (`automation_runs` accepts `lint`, plus `briefs.payload_json`), a weekly advisory pass that proposes at most one item per claim per week through the existing queue rules and never writes a claim, and a Memory-health paragraph in the weekly brief; no route, command, tool, or entry change (18 routes, 5 commands), 493 tests | Phase 4 lint remainder | landed |
-| 0.7.6 | **in progress** — Release and compatibility close: GitHub Releases for all six 0.7.x tags (`v0.7.1`–`v0.7.5` backfilled from the corrected CHANGELOG, `v0.7.6` cut by the release tool), npm settled without publishing by default (D7 unanswered), docs reconciliation (the `[0.7.4]` weekly-close sentence, the v8/v9/v10 numbering, README command/reflection claims, CONFIGURATION/TOOLS/PANEL/ARCHITECTURE), `docs/CUTOVER_REHEARSAL.md` plus the repo-side `npm run rehearsal` fixture run and its test (neither ships), the 0.7.0→0.7.5 config-defaults audit, and both CI legs + `check:package` green; no plugin-source, schema, route, config, or default change | Release closure / Phase 4 rehearsal | in progress |
+| 0.7.6 | **landed** (`v0.7.6`, `007c287`) — Release and compatibility close: seven GitHub Releases (`v0.7.1`–`v0.7.5` backfilled from the corrected CHANGELOG, `v0.7.6` cut by the release tool), npm settled without publishing by default (D7 unanswered), docs reconciliation, the Phase 4 cutover rehearsed in `docs/CUTOVER_REHEARSAL.md` plus the repo-side `npm run rehearsal` (20/20 checks, not shipped), the config-defaults audit, and both CI legs + `check:package` green; no plugin-source, schema, route, config, or default change (494 tests, 18 routes, 5 commands, schema v10) | Release closure / Phase 4 rehearsal | landed |
+
+The line's landed record, kept from the status history this roadmap carried while
+the line was open (the intent, not a second changelog): 0.6.0 shipped the read
+path of Phases 1+2 — the owned schema, its forward migration, the Dayflow
+importer, and the owned read backend. 0.7.0 is the phase baseline: it closed the
+Phase 3 read gap (`dayflow_journal`, `dayflow_goals`, `dayflow_observations`,
+`dayflow_review_ratings`), landed the Phase 3.5/3.7/4 **storage and tool** slices
+(the review queue, long tasks, dated append-and-supersede memory, reflections,
+the budgeted memory context, and the read-only lint), added the Journal insights
+view, and landed native capture Phase 0/1 (provider + engine, default off,
+schema v7). 0.7.1 added the native port Phase 2 foundation (schema v8, the
+`analyse/` modules, the consent gate; text-only, skipped jobs terminal); 0.7.2
+made it visible (worker, text-only host `llm` adapter, status route, panel line,
+budget ledger, `/dayflow-analyze`; 408 tests, 14 routes); 0.7.3 made the insights
+view interactive (review decisions, task-session attach/detach; 425 tests, 17
+routes); 0.7.4 made the day close itself (schema v9, text-only automation, the
+scheduler with `automation.catchUpDays`, the fifth command; 477 tests, 18
+routes); 0.7.5 added the scheduled weekly memory lint and its digest (schema
+v10, proposals only, no claim writes; 493 tests); 0.7.6 closed the line as this
+table's last row records (494 tests). Every tag on the line was default-safe,
+none changed a default, and none is on npm.
 
 Ordering note: the interactive panel (0.7.3) landed **before** the automation
 that fills the review queue (0.7.4), because a queue whose only decision path is
 an agent turn becomes the chore Risk 7 warns about. The Phase 4 default cutover
-is not part of this line — it belongs to the next minor release after a real week
-of capture. Three analysis-ledger items are deliberately **not** in 0.7.2, 0.7.3
-or 0.7.4: skipped-window catch-up, the token cap as a gate, and the 04:00 day
-tail — all re-triaged and now **0.8.0 candidates by default**: the owner has not
-answered, 0.7.5 kept one theme (taking one early would need an explicit R1
-relaxation), and the decision is taken when 0.8.0 is scoped (see
-[PATCH_PLAN.md](PATCH_PLAN.md) §0.7.3 and §0.7.4). 0.7.4's own catch-up is
-about missed **close jobs** (`automation_runs`) and is bounded by
-`automation.catchUpDays`; it is not a replay of analysis-ledger skips. Image
-admission stays a 0.8.0 candidate (it needs a host attachment peer plus a vision
-contract), so the analysis contract stays text-only on this line.
+was never part of this line — it belongs to the next minor release after a real
+week of capture. The three analysis-ledger items (skipped-window catch-up, the
+token cap as a gate, the 04:00 day tail) were deliberately not in 0.7.2–0.7.5,
+kept as single-theme patches, and are now **scheduled as 0.8.0** because they
+need no owner answer. 0.7.4's own catch-up is about missed **close jobs**
+(`automation_runs`) and is bounded by `automation.catchUpDays`; it is not a
+replay of analysis-ledger skips. Image admission (pixels need a host attachment
+peer plus a vision contract) and the Phase 4 `source: owned` default flip carry
+into **0.8.2** and **0.8.3**, both owner-gated. The analysis contract stays
+text-only until the owner answers D1/D2/D11.
 
-**Deferred, all 0.8.0 candidates by default:** skipped-window catch-up, the
-token cap as a post-call gate, and the 04:00 day tail (the three analysis-ledger
-follow-ups), image admission (pixels plus the attachment peer), the briefs
-reading view, and the Phase 4 `source: owned` default flip. None is scheduled on
-the 0.7.x line; the decisions are taken when 0.8.0 is scoped, and 0.7.6 only
-rehearses the cutover.
+**Deferred from this line, now scheduled:** the three analysis-ledger
+follow-ups (**0.8.0**), the briefs reading view (**0.8.1**), image admission
+(**0.8.2**, owner-gated), and the Phase 4 `source: owned` default flip
+(**0.8.3**, owner-gated on D10 plus a real week). None was in a 0.7.x patch;
+0.7.6 only rehearsed the cutover. The 0.8.x plan is
+[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md).
+
+## 0.8.x iterations
+
+The 0.7.x line is closed and this is the current line. Its execution plan is
+[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md): patch-level deliverables, acceptance
+at the assertion level, the gates and owner decisions, and the version-slot rule
+(an unanswered owner-gated slot is deferred in 0.8.4, not renumbered). One line
+each:
+
+| Patch | Theme | Roadmap item | Status |
+| --- | --- | --- | --- |
+| 0.8.0 | Analysis ledger follow-ups: the token budget becomes a post-call gate, transient skips replay inside yesterday, and the 04:00 boundary gets a one-shot day tail; no schema, route, command, config key, or model change | Native port Phase 2 remainder | planned — finalised for implementation (next) |
+| 0.8.1 | Briefs reading view: the stored day/week briefs join the existing insights payload and panel view (a `briefs` array on `/api/dayflow/insights`), one read module, no new route, tab, or model call | Phase 3 standup/brief surface | planned |
+| 0.8.2 | Image admission (**owner-gated**: D1/D2/D11): an optional host attachment/vision contract, the `privacy_apps` redaction list, the 3.6 limitation copy, `includeImages: false` by default; the line is text-only until it ships | Native port Phase 2 image slice / 3.6 | planned — gated |
+| 0.8.3 | Phase 4 cutover (**owner-gated**: D10 plus a real captured week): `source: owned` default for a fresh capture-enabled profile, the first-run walkthrough; 1.0.0 follows the real week | Native port Phase 4 | planned — gated |
+| 0.8.4 | Release close: a release for every shipped tag, the npm decision with no publish by default, docs reconciliation, and explicit deferral of unshipped slots; flips nothing | Release closure | planned (after 0.8.3 or its deferral) |
+
+Order rationale: 0.8.0 is decision-free and pays the three debts 0.7.2 left —
+the money ledger is made honest before anything can flip a default; 0.8.1 is
+the decision-free visible win that makes 0.7.4/0.7.5's stored output readable;
+the owner-gated 0.8.2/0.8.3 follow in the roadmap's order, with the default flip
+last among the functional patches; 0.8.4 closes the line and flips nothing.
+0.8.0 and 0.8.1 ship under the safe defaults of
+[`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §6; 0.8.2 and 0.8.3 do not start until
+their gates are met, and an unanswered gate means the line still closes at
+0.8.4 with the slot deferred. If 0.8.0 has to split before its tag, the
+renumbering is written in the plan (§5); after the first tag of the line, slots
+are deferred rather than renumbered.
 
 ## What this deliberately does not do
 
@@ -775,9 +736,10 @@ rehearses the cutover.
 - **No reimplementation of Dayflow's AI pipeline outside the native port.** The
   plugin does not need to turn screenshots into cards if the cards arrive by
   import or by the agent writing what it did. The native port's analysis phase
-  (0.7.1–0.7.5, text-only on the whole 0.7.x line) is the deliberate exception,
+  (0.7.1–0.7.6, text-only on the whole 0.7.x line) is the deliberate exception,
   and it goes through `ctx.llm.stream()` with one strict JSON contract, not a
-  rebuilt provider zoo.
+  rebuilt provider zoo. 0.8.0/0.8.1 stay text-only too; pixels arrive only in
+  the owner-gated 0.8.2.
 - **No card-stack review as the centre.** It stays available and defaults to off
   (3.5). The review that matters is the distillation, loop, and improvement
   queue.
@@ -827,7 +789,7 @@ rehearses the cutover.
 ## Suggested first cut
 
 *Historical: this was the advice before any of it shipped. Phases 1+2 landed in
-0.6.0 and 3.5 in 0.7.0, so the current order of work is the 0.7.x patch line
+0.6.0 and 3.5 in 0.7.0, so the current order of work is the 0.8.x patch line
 above, not this list; it stays because the reasoning still explains why the
 early work was sequenced that way.*
 
@@ -874,7 +836,9 @@ Question 3 now has a shipped default (the context is on, capped at 1000 bytes,
 and `memoryContext: false` switches it off), so what remains open is whether
 that default should stay on; question 4 is made concrete by 0.7.4's automation
 cap (at most three proposals a day at confidence ≥ 0.6, inside the store's own
-five-a-day cap) and the decisions listed in [PATCH_PLAN.md](PATCH_PLAN.md) §6.
+five-a-day cap) and the decisions listed in [PATCH_PLAN.md](PATCH_PLAN.md) §6
+and [`PATCH_PLAN_0.8.md`](PATCH_PLAN_0.8.md) §6 (D10 and D11 are the two new
+owner decisions this line needs).
 
 ## References and credits
 

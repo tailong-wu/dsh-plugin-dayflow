@@ -17,7 +17,7 @@ cloud analysis.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.7.6` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
+> **Status:** `v0.8.0` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
 > README describes — install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
@@ -55,7 +55,9 @@ stayed. That is the whole dataset.
   the panel. 0.7.4 adds the text-only automation: the day closes at 04:00 and the week on Monday, with
   retries, a two-day catch-up window, and a standup, the day's reflection, one weekly brief, review proposals,
   and task sessions written into the owned journal (the stored week brief is the compressed week record; there
-  is no weekly reflection) — mounted with the analysis stack, and gated by `analysis.consent`,
+  is no weekly reflection). 0.8.0 closes the analysis-ledger follow-ups — the token budget is now a post-call
+  gate, configuration-caused skips replay within today and yesterday, and the 04:00 boundary gets one bounded
+  day-tail run. All of it is mounted with the analysis stack and gated by `analysis.consent`,
   `analysis.provider`, and `analysis.model` → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
 - **Zero runtime dependencies** beyond `dsh`: SQLite comes from `node:sqlite`; Dayflow edits use the
   app's local Unix socket, while the owned journal has its own SQLite file.
@@ -73,14 +75,14 @@ Deep documentation: [tools](docs/TOOLS.md) · [panel](docs/PANEL.md) · [quick c
 | Node.js ≥ 22.5 | Node 22.5–22.12 and 23.0–23.3 need `--experimental-sqlite`; Node 22.13+ and 23.4+ (24 included) do not. |
 | `dsh` ≥ 0.2.0-rc.2 | Peers on the 0.2 line of the harness; `pnpm` on `PATH` is needed only for `dsh plugin add`. |
 
-The 0.7.x line added **no** host peer beyond that declared cohort: `@deepseek-ai/dsh-llm` was already a
-peer and is the only host service the analysis path calls, and `@deepseek-ai/dsh-attachment` is **not** a
-dependency because the whole line is text-only. Image admission, which would need that attachment service,
-is 0.8.0 material.
+The 0.7.x and 0.8.0 lines added **no** host peer beyond that declared cohort: `@deepseek-ai/dsh-llm` was
+already a peer and is the only host service the analysis path calls, and `@deepseek-ai/dsh-attachment` is
+**not** a dependency because the line is text-only. Image admission, which would need that attachment service,
+remains owner-gated later in the 0.8.x line.
 
 ## Install
 
-No `0.7.x` release is on the registry yet (`v0.7.6` is tagged in this repository). Until one is,
+No `0.8.x` release is on the registry yet (`v0.8.0` is tagged in this repository). Until one is,
 install from a checkout — that builds the development line described here; once published, run
 `dsh plugin --profile web add dsh-plugin-dayflow`.
 
@@ -224,6 +226,23 @@ most one review proposal per claim per week, never edits, supersedes, or forgets
 memory-health digest into that week's brief — with schema v10 rebuilding `automation_runs` to record the
 `lint` job and adding the brief's digest column, and no new route, command, or configuration key.
 
+0.8.0 closes the analysis-ledger gaps, still text-only and with no new schema, route, command, tool, skill,
+or configuration key. The **token budget is now a gate**: the pipeline reads the day's recorded input+output
+tokens before a window starts and again right after each completed call, so once the recorded total reaches
+`analysis.dailyTokenBudget` the rest of that run's windows are skipped with reason `budget-tokens` — the call
+that crossed it was already paid, nothing is rolled back, and a later run the same day refuses new windows
+before starting. The **call cap stays pre-call** (reason `budget`), so the two limits stay distinct. **Skipped
+windows are no longer always terminal**: after every non-blocked run, a bounded replay pass (`src/analyse/skips.ts`)
+requeues configuration-caused skips from today and yesterday — analysis or capture disabled, paused,
+`consent: none`, a missing provider, model, or analyser, or a provider that is not local under
+`consent: local` — with attempts untouched and the previous reason kept in the job's `payload_json` for audit;
+`budget`, `budget-tokens`, `failed`, and unknown reasons are never replayed. The **04:00 day tail** fixes the
+boundary: after that replay the worker runs one bounded pipeline run for yesterday, once per day
+(checkpoint `analysis_tail_checked_on`), retried while the run is blocked, and a tail failure never changes
+today's outcome. The analysis status payload gains `tokenBudgetExhausted`, and the panel's analysis line turns
+amber with **Daily token budget reached** while it is true — still no route, still no button, and a default
+profile still makes no model call.
+
 Verify it locally without touching real data:
 
 ```sh
@@ -279,7 +298,7 @@ default, and the capture/analysis/automation blocks are in
 ```sh
 npm install
 npm run build                # TypeScript → lib/, plus the client bundle
-npm test                     # build, type-check, and run the 494-test suite
+npm test                     # build, type-check, and run the 521-test suite
 npm run typecheck            # type-check sources and tests together
 npm run smoke                # read this Mac's real Dayflow database
 npm run native:smoke         # capture provider only; writes nothing

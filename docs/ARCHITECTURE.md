@@ -50,7 +50,7 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   proposals — it never writes, supersedes, or forgets a `memory_claims` row — and
   the digest it returns is rendered into that week's `briefs` body and
   `payload_json`.
-- **Native analysis (0.7.1 pipeline, 0.7.2 worker, text-only on 0.7.x).**
+- **Native analysis (0.7.1 pipeline, 0.7.2 worker, 0.8.0 ledger gates).**
   `analyse/pipeline.ts` reads one Dayflow day's native `screenshots` rows
   (04:00–04:00), groups them into windows (`analysis.windowMinutes`, at most
   `framesPerWindow` representative frames), runs the pure consent gate, builds
@@ -68,9 +68,41 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   its `screenshots.file_path` is cleared, while the row, its key, and its hash
   stay; the engine's retention sweep is the fallback for frames no job took. It
   stays inert on a default profile (`analysis.consent: 'none'` blocks every
-  call), and the whole 0.7.x line is text-only: the model receives the
-  frontmost app, window title, and frame hash as metadata, never pixels. Image
-  admission is 0.8.0 material.
+  call), and the whole shipped line is text-only: the model receives the
+  frontmost app, window title, and frame hash as metadata, never pixels; image
+  admission remains owner-gated later in the 0.8.x line. Since 0.8.0 the same
+  ledger is money-bounded and self-healing, with no schema change: the day's
+  recorded `input_tokens + output_tokens` (summed from `analysis_jobs`) is
+  compared with `analysis.dailyTokenBudget` before a window starts and again
+  right after each completed call. A run that begins with the day already at the
+  cap starts no call, and once a completion puts the day at or above the budget
+  every remaining window in that run is recorded `skipped` with reason
+  `budget-tokens`; the call that crossed it stays complete (nothing is clawed
+  back), and the run result carries `outcome: 'budget'` with
+  `budgetKind: 'tokens'`. The call cap stays a pre-call gate (reason `budget`,
+  `budgetKind: 'calls'`) and wins when it trips first. `analyse/skips.ts` holds
+  the pure whitelist of configuration-caused skip reasons
+  (`TRANSIENT_SKIP_REASONS`: disabled/paused/consent/provider/model/analyser,
+  plus a non-local provider) and the bounded replay pass
+  `replaySkippedAnalysisWindows`, which requeues today's and yesterday's
+  transient skips `skipped → queued` with a conditional update after a
+  non-blocked tick — attempts are not reset, the previous reason is kept in
+  `payload_json` as `replayed_from` / `replayed_at`, a failed pass is logged
+  (`analysis.catch_up`) without changing the day's result, and `budget`,
+  `budget-tokens`, `failed`, and unknown reasons are never replayed. The worker
+  also runs the **04:00 day tail**: one bounded pipeline run for yesterday, so
+  yesterday's just-requeued windows are picked up in the same pass; the run is
+  guarded by the checkpoint
+  `analysis_tail_checked_on` in `capture_state` (the checkpoint holds today's
+  day key and is written for every non-blocked outcome; a blocked run leaves it
+  unwritten so a later consent fix that day still catches up). The tail runs in
+  its own `try/catch`: a throw is recorded on the worker's `lastError` and
+  logged as `analysis.day_tail`, but it never changes today's `lastOutcome`,
+  never counts toward the backoff, and never stops the loop. The checkpoint
+  lives beside the existing `capture_state` keys `paused`, `last_frame_at`, and
+  `last_sweep_at`. The status payload gains the additive
+  `tokenBudgetExhausted`, and the panel's analysis line turns amber (state
+  "Daily token budget reached") while the day's token budget is spent.
 - **Categories** live in the app's preferences
   (`teleportlabs.com.Dayflow`, key `colorCategories`), not in SQLite. They are
   read with `defaults export` and parsed from the plist.
@@ -129,15 +161,16 @@ increment; use `source: dayflow` when you need app edits.
 src/
   index.ts        plugin entry: name, inject, Config, apply()
   config.ts       schema + validation
-  analyse/        text-only frame analysis (0.7.1 foundation, 0.7.2 worker)
-    jobs.ts       analysis_jobs state machine, attempts cap, per-day call/token totals
+  analyse/        text-only frame analysis (0.7.1 foundation, 0.7.2 worker, 0.8.0 ledger gates)
+    jobs.ts       analysis_jobs state machine, attempts cap, per-day call/token totals the gates read
+    skips.ts      the pure skip-replay policy (TRANSIENT_SKIP_REASONS) and the bounded today/yesterday requeue pass
     consent.ts    the pure consent/allow gate checked before any provider call
     prompt.ts     strict JSON contract, category list injection, untrusted-content rule
     llm.ts        caller-supplied stream wrapper: retries, timeout, token accounting, fake adapter
     host.ts       adapts the host llm service (text blocks only, no images)
-    worker.ts     interval worker, single-flight ticks, backoff, manual runOnce
-    status.ts     read-only analysis status/ledger payload for the panel route
-    pipeline.ts   window grouping, output validation, sessionisation, activities/observations writes
+    worker.ts     interval worker, single-flight ticks, backoff, 04:00 day tail, manual runOnce
+    status.ts     read-only analysis status/ledger payload (incl. tokenBudgetExhausted) for the panel route
+    pipeline.ts   window grouping, output validation, sessionisation, pre/post-call budget gates, activities/observations writes
   briefs/         text-only day and week briefs written by the close (0.7.4)
     daily.ts      standup/daily brief from the day's activities → daily_standup_entries
     weekly.ts     seven-day rollup → briefs
@@ -202,7 +235,7 @@ end.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 494 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, cutover rehearsal, bundle
+npm test            # 521 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, cutover rehearsal, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps
@@ -227,11 +260,12 @@ Two other groups of scripts are documented where their subject is:
   Node 22.13+ and 23.4+ (24 included) do not.
 - `dsh` ≥ 0.2.0-rc.2: the plugin peers on the 0.2 line of the harness. Supported
   DSH releases are `0.2.0-rc.2` and `0.2.1-rc.2` (declared in
-  `dsh.compatibility.dshReleases`). The 0.7.x line added **no** host peer beyond
-  that declared cohort: `@deepseek-ai/dsh-llm` was already declared and is the
-  only host service the analysis path calls, and `@deepseek-ai/dsh-attachment`
-  is not a dependency because the line is text-only. Image admission, which
-  needs that attachment service, is 0.8.0 material.
+  `dsh.compatibility.dshReleases`). The 0.7.x and 0.8.0 lines added **no** host
+  peer beyond that declared cohort: `@deepseek-ai/dsh-llm` was already declared
+  and is the only host service the analysis path calls, and
+  `@deepseek-ai/dsh-attachment` is not a dependency because the line is
+  text-only. Image admission, which would need that attachment service, remains
+  owner-gated later in the 0.8.x line.
 - `pnpm` on `PATH` is only needed for `dsh plugin add`; a linked development
   install does not need it.
 

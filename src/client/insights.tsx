@@ -15,8 +15,10 @@
  * Under it, a second read-only line reports the analysis worker: whether
  * analysis is enabled, what the consent gate is still waiting for, whether the
  * worker runs or idles, today's failures, and the call/token budget it spends.
- * It is deliberately not a control surface — analysis is switched on in the
- * profile, and the panel keeps its one entry point and no new buttons.
+ * When the day's token budget is spent the line turns amber and names that stop
+ * instead of the normal running/idle state. It is deliberately not a control
+ * surface — analysis is switched on in the profile, and the panel keeps its one
+ * entry point and no new buttons.
  *
  * A third, slimmer line under it reports the scheduled day/week close: the day
  * boundary time, the last stored day close and its status, the weekday the week
@@ -119,6 +121,7 @@ const OFF_ANALYSIS_STATUS: AnalysisStatusSummary = {
   maxCallsPerDay: 120,
   tokensToday: { input: 0, output: 0 },
   dailyTokenBudget: 200_000,
+  tokenBudgetExhausted: false,
 };
 
 /**
@@ -578,9 +581,11 @@ function CaptureLine(props: {
  * The one state the analysis line reports, and the tone it draws.
  *
  * The order is the contract: disabled first, then a consent-gate block with its
- * precise reason, then a stopped worker, and only then the running/idle split.
- * A reason wins over "stopped" because it is the one thing the user can unblock
- * in the profile; a failure count never changes the state, it sits beside it.
+ * precise reason, then the day's spent token budget, then a stopped worker, and
+ * only then the running/idle split. A reason wins over "stopped" because it is
+ * the one thing the user can unblock in the profile; the budget wins over the
+ * running/idle split because the worker is fine — the day has simply spent what
+ * it may spend. A failure count never changes the state, it sits beside it.
  */
 interface AnalysisView {
   /** The dot and background tone. */
@@ -626,6 +631,12 @@ function analysisView(status: AnalysisStatusSummary, t: Translate): AnalysisView
   // user, so it reads the same.
   if (status.consent === 'none') {
     return { tone: 'is-warn', state: t('analysisWaitingConsent'), hint: t('analysisWaitingConsentHint') };
+  }
+  // The token budget is a per-day hard stop that leaves the worker healthy: the
+  // day's calls are spent, so the line says why nothing new is being analysed
+  // instead of drawing the normal idle tone.
+  if (status.tokenBudgetExhausted) {
+    return { tone: 'is-warn', state: t('analysisTokenBudget'), hint: t('analysisTokenBudgetHint') };
   }
   if (status.worker !== 'running') {
     return { tone: 'is-off', state: t('analysisWorkerStopped'), hint: t('analysisWorkerStoppedHint') };

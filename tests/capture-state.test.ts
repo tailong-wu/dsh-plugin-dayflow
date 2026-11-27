@@ -17,8 +17,10 @@ import type { DatabaseSync } from 'node:sqlite';
 import {
   countScreenshotsForDay,
   readCaptureState,
+  readCaptureStateValue,
   recordScreenshotRow,
   writeCaptureState,
+  writeCaptureStateValue,
 } from '../src/capture/state.js';
 import type { ScreenshotInput } from '../src/capture/state.js';
 import { Config, resolveConfig } from '../src/config.js';
@@ -229,9 +231,54 @@ test('capture state writes fail on a read-only connection', () => {
   try {
     assert.deepEqual(readCaptureState(readOnly), { paused: false });
     assert.throws(() => writeCaptureState(readOnly, { paused: true }), /readonly|read-only/i);
+    assert.throws(
+      () => writeCaptureStateValue(readOnly, 'analysis_tail_checked_on', '2026-10-19'),
+      /readonly|read-only/i,
+    );
   } finally {
     readOnly.close();
   }
+});
+
+test('a generic capture state value round-trips under any key', () => {
+  const path = journalPath();
+
+  withJournalDb(path, (db) => {
+    assert.equal(
+      readCaptureStateValue(db, 'analysis_tail_checked_on'),
+      undefined,
+      'an unset key reads as undefined rather than an error',
+    );
+
+    writeCaptureStateValue(db, 'analysis_tail_checked_on', '2026-10-19');
+    assert.equal(readCaptureStateValue(db, 'analysis_tail_checked_on'), '2026-10-19');
+
+    // Keys are trimmed on both sides, so a padded read finds the same row.
+    assert.equal(readCaptureStateValue(db, '  analysis_tail_checked_on  '), '2026-10-19');
+    writeCaptureStateValue(db, ' analysis_tail_checked_on ', '2026-10-20');
+    assert.equal(readCaptureStateValue(db, 'analysis_tail_checked_on'), '2026-10-20', 'a write replaces the value');
+
+    // The generic access is independent of the typed fields: neither hides nor
+    // rewrites the other.
+    writeCaptureState(db, { paused: true });
+    assert.equal(readCaptureStateValue(db, 'analysis_tail_checked_on'), '2026-10-20');
+    assert.deepEqual(readCaptureState(db), { paused: true });
+    writeCaptureStateValue(db, 'last_frame_at', 'still just text');
+    assert.deepEqual(readCaptureState(db), { paused: true }, 'an unparsable typed value stays ignored');
+  });
+});
+
+test('a generic capture state key must be non-empty', () => {
+  const path = journalPath();
+
+  withJournalDb(path, (db) => {
+    assert.throws(() => readCaptureStateValue(db, ''), isInvalidInput);
+    assert.throws(() => readCaptureStateValue(db, '   '), isInvalidInput);
+    assert.throws(() => writeCaptureStateValue(db, '', '2026-10-19'), isInvalidInput);
+    assert.throws(() => writeCaptureStateValue(db, '  ', '2026-10-19'), isInvalidInput);
+    assert.throws(() => writeCaptureStateValue(db, 'analysis_tail_checked_on', invalidConfig(42)), isInvalidInput);
+    assert.equal(readCaptureStateValue(db, 'analysis_tail_checked_on'), undefined, 'a rejected write stored nothing');
+  });
 });
 
 // ---------------------------------------------------------------------------

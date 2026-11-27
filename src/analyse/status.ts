@@ -5,7 +5,9 @@
  * The ledger is the analysis-job table, not a second counter: a call is a job
  * that was actually started (`attempts > 0`), and the day's tokens are the
  * usage recorded on the completed jobs. That keeps the status honest even
- * after a restart, because it reads what the pipeline already wrote.
+ * after a restart, because it reads what the pipeline already wrote. The same
+ * reading decides `tokenBudgetExhausted`, the line the panel shows when the
+ * day's spend has reached the configured token cap.
  *
  * Reading status is a pure read: a missing journal answers all zeros without
  * creating the file, and an unreadable journal answers zeros rather than
@@ -65,8 +67,15 @@ export interface AnalysisStatusPayload {
   maxCallsPerDay: number;
   /** Tokens recorded on today's completed jobs. */
   tokensToday: { input: number; output: number };
-  /** The configured soft token cap for one day. */
+  /** The configured daily token cap, enforced by the pipeline's post-call gate. */
   dailyTokenBudget: number;
+  /**
+   * Whether today's recorded tokens have reached `dailyTokenBudget`.
+   *
+   * True means the pipeline's post-call token gate stops starting new calls for
+   * the rest of the Dayflow day; the 04:00 day boundary is what resets it.
+   */
+  tokenBudgetExhausted: boolean;
   /** Epoch milliseconds of the most recent job activity today, when there is one. */
   lastJobAt?: number;
   /** The consent gate's blocked reason; absent when analysis is allowed. */
@@ -219,6 +228,7 @@ export async function buildAnalysisStatus(input: AnalysisStatusInput): Promise<A
     maxCallsPerDay: input.config.analysis.maxCallsPerDay,
     tokensToday: { input: 0, output: 0 },
     dailyTokenBudget: input.config.analysis.dailyTokenBudget,
+    tokenBudgetExhausted: false,
   };
   if (!decision.allowed) payload.reason = decision.reason;
 
@@ -240,6 +250,7 @@ export async function buildAnalysisStatus(input: AnalysisStatusInput): Promise<A
   payload.skipped = ledger.counts.skipped;
   payload.callsToday = ledger.calls;
   payload.tokensToday = ledger.tokens;
+  payload.tokenBudgetExhausted = ledger.tokens.input + ledger.tokens.output >= payload.dailyTokenBudget;
   if (ledger.lastJobAt !== undefined) payload.lastJobAt = ledger.lastJobAt;
   return payload;
 }

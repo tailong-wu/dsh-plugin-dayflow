@@ -418,3 +418,22 @@ test('the automation close line copy exists in both dictionaries', () => {
   assert.equal(enT('closeOff'), 'Scheduled close is off');
   assert.equal(zhT('closeOff'), '定时收盘未启用');
 });
+
+test('the analysis line names the spent daily token budget in both languages', () => {
+  // The spent-budget state is a static amber line, not a control: both
+  // dictionaries must carry it, with no placeholder to interpolate.
+  for (const key of ['analysisTokenBudget', 'analysisTokenBudgetHint']) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+    assert.doesNotMatch(EN[key] ?? '', /\{\w+\}/, `English copy for ${key} has no placeholder`);
+    assert.doesNotMatch(ZH[key] ?? '', /\{\w+\}/, `Chinese copy for ${key} has no placeholder`);
+  }
+  // The budget state is distinct from the normal idle tone it replaces.
+  assert.notEqual(EN['analysisTokenBudget'], EN['analysisIdle']);
+  assert.notEqual(ZH['analysisTokenBudget'], ZH['analysisIdle']);
+  // The hint names the config key the user can raise to continue today.
+  assert.match(EN['analysisTokenBudgetHint'] ?? '', /analysis\.dailyTokenBudget/);
+  assert.match(ZH['analysisTokenBudgetHint'] ?? '', /analysis\.dailyTokenBudget/);
+  assert.equal(enT('analysisTokenBudget'), 'Daily token budget reached');
+  assert.equal(zhT('analysisTokenBudget'), '今日 token 预算已用尽');
+});

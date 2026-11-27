@@ -17,7 +17,7 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.7.6` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
+> **状态：** `v0.8.0` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
 > ——请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
@@ -48,9 +48,10 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 - **原生采集（预览）**：Phase 1 把帧写入自有日志，默认关闭；0.7.1 补上 consent 门禁后的分析管线，
   0.7.2 让它跑在宿主的模型服务上，并在面板里显示状态行。0.7.4 加上纯文本自动化：日收盘在 04:00、
   周收盘在周一，失败重试、默认补收盘 2 天，并把 standup、当日反思、一条周 brief、回顾提案和任务 session
-  写入自有日志（存下的 week brief 就是压缩后的周记录，没有 weekly reflection）——随 analysis 栈挂载，
-  并受 `analysis.consent`、`analysis.provider`、`analysis.model` 门禁。
-  → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
+  写入自有日志（存下的 week brief 就是压缩后的周记录，没有 weekly reflection）。0.8.0 收掉 analysis
+  ledger 的三个缺口——token 预算变成调用后的硬门禁、配置原因导致的 skip 可在今天/昨天内重放、04:00 边界
+  补一次有界的 day-tail run。这些功能随 analysis 栈挂载，并受 `analysis.consent`、`analysis.provider`、
+  `analysis.model` 门禁。→ [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
 - **除 `dsh` 外零运行时依赖**：SQLite 来自 `node:sqlite`；Dayflow 编辑走应用的本地 Unix socket，自建日志则写自己的 SQLite 文件。
 
 深入文档（英文）：[工具](docs/TOOLS.md) · [面板](docs/PANEL.md) · [快速记录](docs/QUICK_CAPTURE.md) ·
@@ -66,13 +67,13 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
 | Node.js ≥ 22.5 | Node 22.5–22.12 与 23.0–23.3 需要 `--experimental-sqlite`；Node 22.13+ 与 23.4+（含 24）无需该参数。 |
 | `dsh` ≥ 0.2.0-rc.2 | 插件声明的 peer 范围是 harness 0.2 系列；只有 `dsh plugin add` 需要 `PATH` 里有 `pnpm`。 |
 
-0.7.x 线**没有**新增声明范围之外的 host peer：`@deepseek-ai/dsh-llm` 本来就是已声明的 peer，也是分析路径
-唯一调用的 host 服务；整条线保持 text-only，所以 `@deepseek-ai/dsh-attachment` **不是**依赖。需要该附件服务
-的图像 admit（image admission）属于 0.8.0。
+0.7.x 与 0.8.0 线**都没有**在声明范围之外新增 host peer：`@deepseek-ai/dsh-llm` 本来就是已声明的
+peer，也是分析路径唯一调用的 host 服务；整条线保持 text-only，所以 `@deepseek-ai/dsh-attachment`
+**不是**依赖。需要该附件服务的图像 admit（image admission）属于后续 0.8.x 的 owner-gated 补丁。
 
 ## 安装
 
-`0.7.x` 还没有发布到 registry（`v0.7.6` 已在本仓库打 tag）。在发布之前请从源码 checkout 安装——
+`0.8.x` 还没有发布到 registry（`v0.8.0` 已在本仓库打 tag）。在发布之前请从源码 checkout 安装——
 那装的正是本文描述的开发线；发布之后执行 `dsh plugin --profile web add dsh-plugin-dayflow` 即可。
 
 ### Desktop App
@@ -192,6 +193,20 @@ job；挂载后，收盘还需要 `cloud`/`local` consent 加上显式 provider 
 `automation_runs` 以记录 `lint` job，并给 `briefs` 加上存 digest 的 `payload_json` 列，不新增路由、
 命令或配置键。
 
+0.8.0 收掉 analysis ledger 的三个缺口，仍然是纯文本，也不新增 schema、路由、命令、工具、技能或配置键。
+**token 预算现在是硬门禁**：pipeline 在窗口开始前与每次调用完成后各读一次当天已记录的 input+output
+token，一旦达到 `analysis.dailyTokenBudget`，本次 run 剩余窗口全部跳过、原因记为 `budget-tokens`——
+越线的那次调用已经花掉、不回滚，同一天再跑会在调用前就拒绝新窗口。**调用数上限仍是调用前门禁**
+（原因 `budget`），两者在账本里始终可区分。**被跳过的窗口不再一律是终态**：每次非 blocked 的 run 之后，
+`src/analyse/skips.ts` 的有界重放会把今天与昨天因配置导致的 skip 重新排队——analysis 或 capture
+关闭、暂停、`consent: none`、缺 provider/model/analyser，或在 `consent: local` 下 provider 不在
+本地列表——attempts 不重置，旧原因写进 job 的 `payload_json` 留审计；`budget`、`budget-tokens`、
+`failed` 和未知原因永不重放。**04:00 day tail** 补上边界缺口：在这次重放之后，worker 对昨天再跑一次
+有界的 pipeline run（同一次 tick 内），每天只跑一次（checkpoint `analysis_tail_checked_on`），
+blocked 时不写 checkpoint 以便当天重试，tail 失败不改变今天的结果。analysis status payload 新增
+`tokenBudgetExhausted`，面板 analysis 行在其为真时转为琥珀状态并显示「今日 token 预算已用尽」——
+仍然没有新路由、没有按钮，默认 profile 依旧不发起任何模型调用。
+
 本地验证（不碰真实数据）：
 
 ```sh
@@ -242,7 +257,7 @@ capture/analysis/automation 配置块见 [docs/CONFIGURATION.md](docs/CONFIGURAT
 ```sh
 npm install
 npm run build                # TypeScript → lib/，以及 client bundle
-npm test                     # 构建、类型检查并运行 494 个测试
+npm test                     # 构建、类型检查并运行 521 个测试
 npm run typecheck            # 同时类型检查源码与测试
 npm run smoke                # 读取本机真实 Dayflow 数据库
 npm run native:smoke         # 只测采集 provider，不写入任何数据

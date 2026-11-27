@@ -11,13 +11,17 @@ the daily and weekly close, the insights pass, the host scheduler with
 `catchUpDays`, `/dayflow-run-close`, and the panel's close-state line and status
 route; **0.7.5 adds the scheduled weekly memory lint** — schema v10 (a `'lint'`
 job value for `automation_runs`), `automation/lint.ts`, and a memory-health
-digest in the weekly brief. **The whole 0.7.x line is text-only**: a window
-travels as app / window-title / frame-hash metadata, never as pixels. Image
-admission and the briefs reading view remain for later phases; image admission
-(pixels plus the `@deepseek-ai/dsh-attachment` host service) is **0.8.0
-material**. The `source: owned` default flip is likewise not on this line —
-0.7.6 only rehearses its checklist (`docs/CUTOVER_REHEARSAL.md`), and the flip
-belongs to 0.8.0.
+digest in the weekly brief. **0.8.0 lands the analysis-ledger follow-ups**:
+the token budget becomes a post-call gate, configuration-caused skips replay
+within today and yesterday, and the 04:00 boundary gets a one-shot day tail —
+with no schema, route, command, tool, skill, or configuration-key change and no
+change to a cap value; a default profile still makes no call. **The whole
+shipped line is text-only**: a window travels as app / window-title / frame-hash
+metadata, never as pixels. Image admission and the briefs reading view remain
+for later phases; image admission (pixels plus the `@deepseek-ai/dsh-attachment`
+host service) and the `source: owned` default flip are **owner-gated later in
+the 0.8.x line**, not 0.8.0 — 0.7.6 only rehearses the cutover checklist
+(`docs/CUTOVER_REHEARSAL.md`), and 0.8.0 does not flip it.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -69,8 +73,8 @@ Already reusable:
 Missing (the rest of the port):
 
 - Image preprocessing (downscale) and image admission for analysis; dedupe and
-  retention already run in the capture engine, and 0.7.x sends app / window
-  title / hash metadata rather than pixels.
+  retention already run in the capture engine, and the shipped line sends app /
+  window title / hash metadata rather than pixels.
 - The briefs surface: the daily/weekly briefs are written to the owned store,
   but the panel has no briefs view yet, and the failed/skipped close history is
   only visible through `automation_runs` and the status line.
@@ -96,7 +100,9 @@ Missing (the rest of the port):
 │    ├─ ctx.attachments.saveImage → ImageAttachmentRef                                 │
 │    ├─ ctx.llm.stream(prompt, image) → strict JSON card                               │
 │    ├─ validates, maps category, sessionises into activities                          │
-│    └─ writes activities + observations (source_id 'native')                          │
+│    ├─ post-call token gate: ledger ≥ dailyTokenBudget → skip budget-tokens           │
+│    ├─ writes activities + observations (source_id "native")                          │
+│    └─ 04:00 day tail: one bounded run for yesterday (checked once a day)             │
 │                                                                                    │
 │  DailyClose (04:00 boundary, catch-up on start)                                      │
 │    ├─ ensures the day is fully analysed                                             │
@@ -127,11 +133,12 @@ Design rules:
   enabled, cloud image analysis needs its own explicit consent setting.
 - **The UI keeps one harness entry.** Capture status lives inside the existing
   Journal insights view; no second button, tab, or settings surface.
-- **Text only on the 0.7.x line; pixels are 0.8.0.** The image steps in the
-  diagram (`saveImage`, an image argument to `ctx.llm.stream`) describe the
-  post-cutover target: the shipped line sends app / window-title / frame-hash
-  metadata, so the host `attachments` service is not a peer of this release and
-  image admission stays a 0.8.0 candidate.
+- **Text only on the shipped line; pixels are owner-gated.** The image steps in
+  the diagram (`saveImage`, an image argument to `ctx.llm.stream`) describe the
+  target if image admission is approved. 0.8.0 remains text-only: the plugin
+  sends app / window-title / frame-hash metadata, so the host `attachments`
+  service is still not a peer of the shipped line and image admission is an
+  owner-gated later patch in the 0.8.x line.
 
 ---
 
@@ -144,11 +151,12 @@ New host modules (children of `src/`):
 | `capture/engine.ts` | poll loop, idle gate, dedupe, frame write, `screenshots` rows, pause/resume, retention sweep |
 | `capture/provider.ts` | `CaptureProvider` interface; `screencapture` CLI provider; optional Swift helper provider (frontmost app, window title, idle seconds); fake provider for tests |
 | `capture/permission.ts` | TCC probe (Screen Recording, Accessibility if used), status text for the panel |
-| `analyse/jobs.ts` | `analysis_jobs` state machine: idempotent `job_key`, attempts cap, skipped reasons, per-day call/token totals |
+| `analyse/jobs.ts` | `analysis_jobs` state machine: idempotent `job_key`, attempts cap, skipped reasons, per-day call/token totals (the single ledger sum the status route and the token gate read) |
+| `analyse/skips.ts` | the pure replay policy (`TRANSIENT_SKIP_REASONS`, `isTransientSkipReason(reason)` — configuration-caused skips only, forward-compatible default `false`) plus `replaySkippedAnalysisWindows`, the bounded today/yesterday requeue pass (one day back by default) |
 | `analyse/consent.ts` | the pure decision checked **before** any provider call: enabled/capture/paused/consent/provider-model/local-provider gate |
 | `analyse/llm.ts` | thin wrapper around `ctx.llm.stream` (+ `agentDefaultModel` default, config override, retries, budget accounting) |
 | `analyse/prompt.ts` | system prompt, JSON schema, few-shot examples, category list injection |
-| `analyse/pipeline.ts` | window grouping, call execution, JSON validation, card sessionisation, activity/observation writes |
+| `analyse/pipeline.ts` | window grouping, call execution, JSON validation, card sessionisation, pre-call and post-call budget gates, activity/observation writes |
 | `briefs/daily.ts`, `briefs/weekly.ts` | standup/daily and weekly brief generation from activities |
 | `automation/store.ts` | the `automation_runs` ledger and the `briefs` store; no model, no scheduler |
 | `automation/consent.ts` | the pure text-analysis gate: enabled/consent/provider/model before any call |
@@ -349,12 +357,12 @@ This is the part that has to be right before anything captures pixels.
   Files live under `$DSH_HOME/dayflow/frames/` with 0700 directories and 0600
   files.
 - **Nothing leaves the machine except the model call the user configured.** No
-  uploads, no telemetry, no remote URLs. On the 0.7.x line an analysis request
+  uploads, no telemetry, no remote URLs. On the shipped line an analysis request
   carries the frontmost app, window title, and frame hash as text — never
   pixels — and the 0.7.4/0.7.5 close passes carry activity text only. Image
-  admission is 0.8.0 material; if it lands, the request would carry downscaled
-  JPEGs. The config records which provider saw the text, and only a `cloud`
-  consent lets it leave the Mac.
+  admission is owner-gated later in the 0.8.x line; if it lands, the request
+  would carry downscaled JPEGs. The config records which provider saw the text,
+  and only a `cloud` consent lets it leave the Mac.
 - **The prompt states that screen content is data, not instructions**, and the
   analyser rejects output that is not the expected JSON object, so a hostile
   screen cannot steer the pipeline.
@@ -369,15 +377,28 @@ This is the part that has to be right before anything captures pixels.
 - Capture cadence 45 s, skip idle > 2 min and duplicate frames (dHash distance
   below a threshold): roughly 300–600 stored frames for an 8-hour day.
 - Windows of 10 minutes with 3 representative frames: 40–60 analysis calls for a
-  full day. On the 0.7.x line each call sends the metadata of up to
+  full day. On the shipped line each call sends the metadata of up to
   `analysis.framesPerWindow` representative frames (app, window title, frame
   hash) plus the prompt; image admission — downscaled JPEGs at ≤1024 px, about
-  1.5–4k input tokens per call — is 0.8.0 material and would raise this
-  estimate.
+  1.5–4k input tokens per call — is owner-gated later in the 0.8.x line and
+  would raise this estimate.
+- The 0.8.0 day tail adds at most one extra bounded run per day boundary: it
+  re-reads yesterday's stored frames, spends only yesterday's remaining budgets,
+  and skips already-complete windows by job key.
 - Default caps: 120 calls/day and 200k tokens/day, read from `analysis_jobs`;
-  the call cap is enforced per day (the pipeline stops analysing and the status
-  line says why), while the token number is reported, not gated (a post-call
-  token gate is an 0.8.0 candidate).
+  0.8.0 makes both real gates and keeps them in this order. The call cap is
+  **pre-call**: when the day has started `analysis.maxCallsPerDay` calls, the
+  run's remaining windows are skipped with reason `budget` (`outcome: 'budget'`,
+  `budgetKind: 'calls'`). The token cap reads the ledger **twice**: before a
+  window starts (a run that begins with the day already at the cap starts no
+  call) and right after each completion (which is what discovers the crossing).
+  A post-completion day total at or above `analysis.dailyTokenBudget` skips the
+  run's remaining windows with reason `budget-tokens` (`outcome: 'budget'`,
+  `budgetKind: 'tokens'`). At most the one call that crosses the budget is paid;
+  no paid call is rolled back or recomputed, no budget skip is ever replayed, and
+  a later run for the same day refuses new windows before starting. That is the
+  money contract: spend nothing more after the cap is crossed, and let the status
+  line say so.
 - Text-only close jobs run only when the scheduler is mounted: up to two calls
   per closed day (the standup brief and the insights pass) and one per closed
   week (the weekly brief). They are not part of the `analysis_jobs` call/token
@@ -443,9 +464,10 @@ write in Phase 0 is the user's pause flag in `capture_state`.
 
 ### Phase 1 — Capture engine (about 1 week)
 
-**Status: landed scope (0.7.0); Phase 2 continues on the 0.7.x line.** Capture runs
-only when the profile sets `capture.enabled: true`; the engine itself analyses
-nothing — the Phase 2 foundation (0.7.1) reads the rows it writes.
+**Status: landed scope (0.7.0); Phase 2 shipped on the 0.7.x line (0.7.1–0.7.2),
+and its ledger follow-ups landed in 0.8.0.** Capture runs only when the profile
+sets `capture.enabled: true`; the engine itself analyses nothing — the Phase 2
+foundation (0.7.1) reads the rows it writes.
 
 **Scope.** Continuous capture into the owned store with pause, dedupe, retention,
 and status.
@@ -507,14 +529,17 @@ Fake provider tests cover all of it; the real-capture smoke runs locally.
 
 ### Phase 2 — Analysis pipeline into activity cards (1.5–2 weeks)
 
-**Status: the text-only slice is complete (0.7.2).** The 0.7.1 foundation turns
-stored frames into `activities` rows under the consent gate, and 0.7.2 runs it on
-its own: the worker ticks on `analysis.intervalMinutes`, the host's `llm` service
-backs the calls, the status route and the panel analysis line report the ledger,
-and `/dayflow-analyze` triggers one tick. A default profile still analyses
-nothing — `analysis.consent: 'none'` blocks every call — and images are still
-metadata (app, window title, hash), not pixels, on the whole 0.7.x line; image
-admission is 0.8.0 material.
+**Status: the text-only slice is complete (0.7.2), and its ledger follow-ups
+landed in 0.8.0.** The 0.7.1 foundation turns stored frames into `activities`
+rows under the consent gate, and 0.7.2 runs it on its own: the worker ticks on
+`analysis.intervalMinutes`, the host's `llm` service backs the calls, the status
+route and the panel analysis line report the ledger, and `/dayflow-analyze`
+triggers one tick. 0.8.0 turns the reported token budget into a post-call gate,
+replays configuration-caused skips within today and yesterday, and adds the
+04:00 day tail. A default profile still analyses nothing —
+`analysis.consent: 'none'` blocks every call — and images are still metadata
+(app, window title, hash), not pixels, on the whole shipped line; image
+admission remains owner-gated later in the 0.8.x line.
 
 **Scope.** Frames become `activities` rows through `ctx.llm.stream`.
 
@@ -589,21 +614,85 @@ admission is 0.8.0 material.
 - Tests stay zero-network: the host adapter and the worker run on fake streams
   and injected timers.
 
-**Also not in 0.7.2 (and not on the 0.7.x line).** The deferred analysis-ledger
-items stay 0.8.0 candidates by default: image admission and downscaling (the
-model sees app / window-title / hash metadata, not screen pixels), a catch-up
-replay for windows a blocked tick marked `skipped` (those rows are terminal, so
-turning consent on later does not re-queue them), the token cap as a post-call
-gate (the number is reported, not enforced), and the 04:00 day tail (one bounded
-extra tick for the day that just ended). The daily/weekly briefs plus the
-automation scheduler landed in 0.7.4's Phase 3 slice.
+**Landed scope (0.8.0):** the three analysis-ledger follow-ups, in one patch,
+with no schema, route, command, tool, skill, or configuration-key change and no
+changed default.
+
+- **Token budget as a post-call gate.** The pipeline wraps the existing day
+  ledger: `src/analyse/pipeline.ts` reads
+  `analysisTokenTotalsForDay` (the same single sum the status route reads)
+  before a window starts and again right after a completed window records its
+  tokens, and skips the run's remaining windows with reason `budget-tokens`,
+  setting `outcome: 'budget'` and `budgetKind: 'tokens'`. The call gate keeps
+  reason `budget` and `budgetKind: 'calls'`, and still runs first. The crossing
+  call stays complete and its usage stays on the row: nothing is rolled back or
+  recomputed, and a run that starts later the same day refuses new windows
+  before calling.
+- **Observable status.** `src/analyse/status.ts` adds the additive
+  `tokenBudgetExhausted` to its read-only payload (a missing journal still
+  answers `false` without creating the file), and the panel's analysis line turns
+  amber (`Daily token budget reached`) while it is true. The route set stays 18.
+- **Transient-skip catch-up.** New `src/analyse/skips.ts` holds the pure policy
+  (`TRANSIENT_SKIP_REASONS`, `isTransientSkipReason`):
+  `analysis-disabled`, `capture-disabled`, `paused`, `consent:none`,
+  `provider-unset`, `model-unset`, `consent:provider-not-local`, and
+  `analyser-unset` are configuration-caused and replayable; `budget`,
+  `budget-tokens`, `failed`, and unknown reasons are not, and the
+  forward-compatible default is "do not replay". After a non-blocked worker tick
+  (a still-closed gate would only re-skip the rows), the bounded pass
+  `replaySkippedAnalysisWindows` requeues the rows in **today
+  and yesterday** (one day back by default; the pass takes `daysBack` / `limit`
+  bounds, not a configuration key) with a conditional
+  `WHERE status = 'skipped'` update, leaves `attempts` untouched, and keeps the
+  old reason in `analysis_jobs.payload_json` as `replayed_from` /
+  `replayed_at`. A failed replay is logged (`analysis.catch_up`) and never
+  changes the day's result. No older day is swept, and a replayed window is
+  analysed by the normal pipeline under that day's own remaining budgets.
+- **04:00 day tail.** After the day's own run (and after that catch-up when it
+  ran), the worker runs one bounded pipeline run for **yesterday**, so the frames
+  captured between the last pre-boundary tick and 04:00 are analysed and
+  yesterday's just-requeued windows are picked up in the same pass. The checkpoint `analysis_tail_checked_on` in
+  `capture_state` (read/written through the generic
+  `readCaptureStateValue` / `writeCaptureStateValue` helpers) makes it once per
+  Dayflow day. It holds today's day key and is written only for a non-`blocked`
+  outcome, so a later consent/provider/model fix the same day still catches up;
+  the run happens before the checkpoint is written. The tail itself runs in its
+  own `try/catch`: a throw is recorded on the worker's `lastError` and logged
+  (`analysis.day_tail`), but it never changes today's `lastOutcome`, never
+  counts toward the backoff, and never stops the loop. `src/day.ts` gains a
+  DST-safe `previousDayKey`. The checkpoint shares `capture_state` with
+  `paused`, `last_frame_at`, and `last_sweep_at`; no migration.
+- **Verification.** The new tests cover the gate order (idempotency → call gate
+  → already-spent token check → call → post-call token gate), the crossing call
+  staying complete, NULL usage counting as zero, the whitelist and the
+  never-replayed reasons, attempts left alone, the audit payload, the replay
+  bounds and idempotency, the replay-before-tail ordering, the once-per-day tail
+  with its blocked retry and throw isolation, the inert default profile, and the
+  unchanged route/command/schema counts. The suite stays network-free on the
+  fake analyser seam. **Rollback:** no schema change, so the tag is revertible
+  and an older build still opens the journal; at the profile level
+  `analysis.consent: 'none'` (or capture off) stops every call the patch can
+  make.
+
+**Still deferred after 0.8.0.** The analysis-ledger debts are closed; what
+remains is owner-gated rather than scheduled by default: image admission and
+downscaling (the model sees app / window-title / hash metadata, not screen
+pixels) and the Phase 4 `source: owned` default flip are **owner-gated later in
+the 0.8.x line**, and a panel view for reading the stored briefs is planned
+later in the 0.8.x line. The daily/weekly briefs plus the automation scheduler
+landed in 0.7.4's Phase 3 slice, the weekly lint in 0.7.5, and the ledger
+follow-ups above in 0.8.0.
 
 **Acceptance.** A scripted replay (30 stored frames + scripted model adapter,
 no network) yields deterministic activities and a rendered day view; replaying
 the same frames is a no-op; a failing/timed-out call retries, then records a
 failure without corrupting the day; budget caps stop analysis and surface the
-reason. Real local smoke: 20 minutes of capture → at least one card that matches
-what was on screen.
+reason. The 0.8.0 cases in the landed scope above are part of this acceptance:
+the token gate never makes a second call after the budget is reached, a budget
+skip is never replayed, a repaired configuration analyses exactly the transient
+skips once, and the day tail runs once per boundary and cannot fail the tick.
+Real local smoke: 20 minutes of capture → at least one card that matches what
+was on screen.
 
 ### Phase 3 — Cards, briefs, and insights automation (about 1 week)
 
@@ -636,7 +725,7 @@ behind the same analysis consent/provider/model gate and without any image:
   review item instead). The weekly close writes one stored week brief
   (`briefs`, `kind = 'week'`) and adds **no** weekly reflection and **no**
   weekly review pass: the stored week brief is the compressed week record, and a
-  weekly reflection is not scheduled on the 0.7.x line. The weekly memory lint
+  weekly reflection is not scheduled on the shipped line. The weekly memory lint
   is the separate 0.7.5 pass below.
 - **Observable surface.** `/dayflow-run-close` (a manual trigger for testing and
   catch-up), the panel's compact close-state line, and
@@ -664,12 +753,13 @@ behind the same analysis consent/provider/model gate and without any image:
   NULL payload. Stored closes survive the rebuild, and both the old and the new
   job values are accepted afterwards; the migration asserts the row count before
   and after.
-- **Not on the 0.7.x line (0.8.0 candidates by default):** image admission and
-  downscaling (the model sees app / window-title / hash metadata, not screen
-  pixels), a catch-up replay for analysis windows a blocked tick marked
-  `skipped`, and a panel view for reading the stored briefs — the memory-health
-  digest lives with the brief, so the panel's close-state line still shows only
-  the schedule and the last close.
+- **Still deferred after 0.8.0:** image admission and downscaling (the model
+  sees app / window-title / hash metadata, not screen pixels), owner-gated later
+  in the 0.8.x line; a panel view for reading the stored briefs, planned later in
+  the 0.8.x line — the memory-health digest lives with the brief, so the panel's
+  close-state line still shows only the schedule and the last close. (0.8.0
+  closed this bullet's other item: configuration-caused analysis skips now
+  replay within today and yesterday.)
 
 **Acceptance.** Closing a synthetic day with a scripted model produces one
 standup entry, one brief, one reflection, ≤3 review items, and attaches
@@ -686,12 +776,13 @@ never calls a model.
 
 ### Phase 4 — Cutover and release (about 1 week)
 
-**Status: planned; the rehearsal is 0.7.6, the default flip is 0.8.0.** 0.7.6
-writes the cutover rehearsal checklist ([CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md)):
-a fixture-based dry run plus an optional real-capture day on a fresh profile,
-recorded pass/fail, with no default changed and no npm publish. Turning
-`source: owned` into the default for a fresh install remains **0.8.0** (native
-preview), with `1.0.0` after a real week of capture without data loss.
+**Status: planned; the rehearsal is 0.7.6 and 0.8.0 does not flip the default.**
+0.7.6 writes the cutover rehearsal checklist
+([CUTOVER_REHEARSAL.md](CUTOVER_REHEARSAL.md)): a fixture-based dry run plus an
+optional real-capture day on a fresh profile, recorded pass/fail, with no default
+changed and no npm publish; 0.8.0 is the ledger patch, not the cutover. Turning
+`source: owned` into the default for a fresh install remains **owner-gated later
+in the 0.8.x line**, with `1.0.0` after a real week of capture without data loss.
 
 **Scope.** Dayflow becomes optional, the native path is the default for new
 installs.
@@ -705,7 +796,7 @@ installs.
 - CI: fake-provider tests on the existing macOS runner; real capture only in
   `scripts/native-smoke.mjs` locally.
 - Release: fold into the unreleased development line if this lands soon,
-  otherwise `0.8.0` as the native-preview line and `1.0.0` once capture has run on
+  otherwise as the 0.8.x native-preview line and `1.0.0` once capture has run on
   a real week without data loss.
 
 **Acceptance.** On a fresh profile with Dayflow closed: install → grant
@@ -717,7 +808,9 @@ reflection, and review queue are populated without a single agent turn.
 ## 9. Testing and CI strategy
 
 - **Unit:** hash/dedupe, idle gate, window grouping, sessioniser, JSON validation,
-  retry/budget logic, retention, idempotency keys. All run on Linux/macOS CI.
+  retry/budget logic, the post-call token gate and the skip-replay policy,
+  retention, idempotency keys, and the day-tail checkpoint. All run on
+  Linux/macOS CI.
 - **Integration (fake adapters):** a `FakeCaptureProvider` writes deterministic
   frames; a scripted `llm` adapter returns canned JSON. This gives an end-to-end
   pipeline test without screen permission or network, and it is what CI runs.
@@ -739,9 +832,9 @@ reflection, and review queue are populated without a single agent turn.
 | macOS permission denied or revoked | status route + panel copy with the exact System Settings path; capture simply does not start; everything else keeps working |
 | Screenshots contain secrets | default ephemeral frames, pause rules, cloud consent separate, documented redaction limits, no uploads other than the analysis call |
 | Cloud model sees sensitive screens | `consent: 'local'` refuses cloud providers; default is `'none'` |
-| LLM cost runs away | per-day call and token caps, dedupe before analysis, 10-minute windows, day pause when capped, visible in status |
+| LLM cost runs away | per-day call cap (pre-call) and token cap (post-call, so at most one call crosses the budget), dedupe before analysis, 10-minute windows, day pause when capped, budget skips never replayed, visible in status |
 | Wrong attribution in tasks | sessions come from analysis plus explicit scan rules; review items are never accepted for the user; every write is inspectable and detachable |
-| Laptop sleep / app quit leaves gaps | capture loop resumes, analysis catch-up runs on start, missing windows are marked `skipped` not fabricated |
+| Laptop sleep / app quit leaves gaps | capture loop resumes, the worker's day tail catches yesterday's final window, transient skips replay once the gate opens, missing windows are marked `skipped` not fabricated |
 | Duplicate or overlapping cards | content-hash `source_key`, window job keys, sessioniser merges by app/category/gap, replay is a no-op |
 | Schema drift with the importer | native rows use `source_id 'native'`; migrations v7+ are forward-only; importer tests keep passing |
 | Prompt injection from screen content | JSON-only contract, rejection of non-object output, untrusted-content rule in both prompt and tool descriptions |
@@ -777,7 +870,10 @@ fake adapter, and 0.7.2 ran that pipeline on the host's model service and made
 its state visible in the panel. 0.7.4 added the text-only automation slice:
 briefs, the scheduler with catch-up, and the insights close, all with fake
 adapters in CI; 0.7.5 added the scheduled weekly memory lint and its digest in
-the weekly brief. Phase 4 is the cutover.
+the weekly brief; 0.8.0 closed the analysis-ledger follow-ups — the post-call
+token gate, transient-skip catch-up within today and yesterday, and the 04:00
+day tail — without adding a schema, route, command, tool, skill, or configuration
+key. Phase 4 is the cutover, owner-gated later in the 0.8.x line.
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three
 parallel workstreams, plus one real week of dogfooding before `1.0.0`.

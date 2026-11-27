@@ -116,6 +116,57 @@ function setStateValue(db: DatabaseSync, key: string, value: string): void {
 }
 
 /**
+ * Validate one `capture_state` key written by a caller.
+ *
+ * The table is a plain key/value store, so any trimmed non-empty key is
+ * accepted; an empty key would be unreadable and is a caller error.
+ */
+function requireStateKey(key: string): string {
+  const normalized = typeof key === 'string' ? key.trim() : '';
+  if (normalized === '') {
+    throw new DayflowError('A capture_state key must be a non-empty string.', 'invalid_input');
+  }
+  return normalized;
+}
+
+/**
+ * Read one raw `capture_state` value.
+ *
+ * This is the generic escape hatch beside {@link readCaptureState}: the named
+ * state fields are typed, but other bookkeeping (such as the analysis worker's
+ * day-tail checkpoint) is opaque to this module. A missing key is `undefined`,
+ * not an error, so a first run reads as "nothing recorded yet". The key is
+ * trimmed before the lookup, the same normalization {@link writeCaptureStateValue}
+ * applies.
+ * @param db - an open, migrated journal connection.
+ * @param key - the state key; trimmed, must be non-empty.
+ * @returns the stored text, or `undefined` when the key has no row.
+ */
+export function readCaptureStateValue(db: DatabaseSync, key: string): string | undefined {
+  const normalized = requireStateKey(key);
+  const row = db.prepare('SELECT value FROM capture_state WHERE key = ?').get(normalized) as Row | undefined;
+  return typeof row?.value === 'string' ? row.value : undefined;
+}
+
+/**
+ * Write one raw `capture_state` value, replacing any previous value.
+ *
+ * Only this key changes: the typed fields written by {@link writeCaptureState}
+ * are left untouched, so a checkpoint and the pause switch cannot clobber each
+ * other. Values are stored as text; the table has no type beyond that.
+ * @param db - an open, migrated journal connection.
+ * @param key - the state key; trimmed, must be non-empty.
+ * @param value - the text to store.
+ */
+export function writeCaptureStateValue(db: DatabaseSync, key: string, value: string): void {
+  const normalized = requireStateKey(key);
+  if (typeof value !== 'string') {
+    throw new DayflowError('A capture_state value must be a string.', 'invalid_input');
+  }
+  setStateValue(db, normalized, value);
+}
+
+/**
  * Read the capture loop's runtime state.
  *
  * A missing row (or an unparsable value) is not an error: capture starts

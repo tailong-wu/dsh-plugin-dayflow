@@ -16,15 +16,16 @@ import { after, test } from 'node:test';
 
 import { createHostAnalyser } from '../src/analyse/host.js';
 import type { HostLlmChunk, HostLlmLike } from '../src/analyse/host.js';
-import { listAnalysisJobs } from '../src/analyse/jobs.js';
+import { analysisJobKey, createAnalysisJob, listAnalysisJobs, skipAnalysisJob } from '../src/analyse/jobs.js';
 import type { AnalysisJob } from '../src/analyse/jobs.js';
 import { createFakeLlmAdapter } from '../src/analyse/llm.js';
 import type { AnalysisLlmRequest, AnalysisLlmStream } from '../src/analyse/llm.js';
-import { AnalysisWorker, MAX_BACKOFF_DOUBLINGS } from '../src/analyse/worker.js';
+import { ANALYSIS_TAIL_CHECKPOINT_KEY, AnalysisWorker, MAX_BACKOFF_DOUBLINGS } from '../src/analyse/worker.js';
 import type { AnalysisWorkerTimers } from '../src/analyse/worker.js';
-import { recordScreenshotRow } from '../src/capture/state.js';
+import { readCaptureStateValue, recordScreenshotRow } from '../src/capture/state.js';
 import { resolveConfig } from '../src/config.js';
 import type { AnalysisConfig, CaptureConfig, ResolvedConfig } from '../src/config.js';
+import { dayWindowForKey } from '../src/day.js';
 import { DayflowError } from '../src/errors.js';
 import { openJournal, withJournal, withJournalWrite } from '../src/journal.js';
 
@@ -33,6 +34,9 @@ after(() => rmSync(directory, { recursive: true, force: true }));
 
 /** The Dayflow day every case works on; the base instant is 09:00 local. */
 const DAY = '2026-11-20';
+
+/** The Dayflow day before {@link DAY}: the day the 04:00 tail analyses. */
+const TAIL_DAY = '2026-11-19';
 
 /** Noon on {@link DAY}: inside the day, so `runOnce()` with no argument reads its frames. */
 const NOON = new Date(2026, 10, 20, 12, 0, 0, 0);
@@ -53,8 +57,10 @@ const JSON_ANSWER = JSON.stringify({
 
 /** One frame to seed into the journal and the frames directory. */
 interface FrameSpec {
-  /** Seconds after 09:00 local on {@link DAY}. */
+  /** Seconds after 09:00 local on the frame's day. */
   offsetSeconds: number;
+  /** The Dayflow day the frame belongs to; defaults to {@link DAY}. */
+  day?: string;
 }
 
 /** One disposable journal + frames directory + the config that reads them. */
@@ -93,15 +99,19 @@ function createFixture(
 
 /** Seed one native screenshot row per spec and write its frame file. */
 function seedFrames(fixture: Fixture, specs: readonly FrameSpec[]): number[] {
-  const base = new Date(2026, 10, 20, 9, 0, 0, 0).getTime();
   return withJournalWrite(fixture.journalPath, (db) =>
     specs.map((spec, index) => {
-      const filePath = join(fixture.framesDirectory, `frame-${String(index)}.jpg`);
+      const day = spec.day ?? DAY;
+      const window = dayWindowForKey(day);
+      if (window === undefined) throw new Error(`${day} is not a real date`);
+      const base = new Date(window.start.getTime());
+      base.setHours(9, 0, 0, 0);
+      const filePath = join(fixture.framesDirectory, `frame-${day}-${String(index)}.jpg`);
       writeFileSync(filePath, 'jpeg');
       return recordScreenshotRow(db, {
-        sourceKey: `frame-${String(index)}`,
-        capturedAt: base + spec.offsetSeconds * 1000,
-        day: DAY,
+        sourceKey: `${day}/frame-${String(index)}`,
+        capturedAt: base.getTime() + spec.offsetSeconds * 1000,
+        day,
         filePath,
         fileSize: 4,
         payload: {
@@ -124,8 +134,39 @@ function activityCount(fixture: Fixture): number {
 }
 
 /** Read the day's analysis jobs, window order. */
+function jobsForDay(fixture: Fixture, day: string): AnalysisJob[] {
+  return withJournal(fixture.journalPath, (db) => listAnalysisJobs(db, { day, limit: 500 }));
+}
+
+/** Read the day's analysis jobs, window order. */
 function jobs(fixture: Fixture): AnalysisJob[] {
-  return withJournal(fixture.journalPath, (db) => listAnalysisJobs(db, { day: DAY, limit: 500 }));
+  return jobsForDay(fixture, DAY);
+}
+
+/** Read one raw `capture_state` value from the fixture journal. */
+function stateValue(fixture: Fixture, key: string): string | undefined {
+  return withJournal(fixture.journalPath, (db) => readCaptureStateValue(db, key));
+}
+
+/**
+ * Seed one skipped ledger job for the window a frame at 09:00 (+offset) falls
+ * into, as an earlier tick or a manual run left it.
+ */
+function seedSkippedWindowJob(fixture: Fixture, day: string, offsetSeconds: number, reason: string): void {
+  const window = dayWindowForKey(day);
+  if (window === undefined) throw new Error(`${day} is not a real date`);
+  const base = new Date(window.start.getTime());
+  base.setHours(9, 0, 0, 0);
+  const startTs = Math.floor((base.getTime() + offsetSeconds * 1000) / 1000);
+  withJournalWrite(fixture.journalPath, (db) => {
+    const job = createAnalysisJob(db, {
+      jobKey: analysisJobKey(day, startTs),
+      day,
+      windowStartTs: startTs,
+      windowEndTs: startTs + 600,
+    });
+    skipAnalysisJob(db, job.id, reason);
+  });
 }
 
 /** One timer the worker armed through the injected seam. */
@@ -192,7 +233,7 @@ function workerFor(
   fixture: Fixture,
   analyser: AnalysisLlmStream,
   timers: FakeTimers,
-  options: { now?: () => Date } = {},
+  options: { now?: () => Date; logger?: (event: string, detail?: Record<string, unknown>) => void } = {},
 ): AnalysisWorker {
   return new AnalysisWorker({
     journalPath: fixture.journalPath,
@@ -201,6 +242,7 @@ function workerFor(
     analyser,
     timers,
     now: options.now ?? (() => new Date(NOON_MS)),
+    ...(options.logger === undefined ? {} : { logger: options.logger }),
   });
 }
 
@@ -406,6 +448,236 @@ test('a consent-blocked tick is a normal outcome, not an error', async () => {
   assert.equal(blockedJobs.length, 1);
   assert.equal(blockedJobs[0]?.status, 'skipped');
   assert.equal(blockedJobs[0]?.error, 'consent:none');
+});
+
+// ---------------------------------------------------------------------------
+// Transient-skip catch-up
+// ---------------------------------------------------------------------------
+
+test('catch-up requeues a transient skipped window for the next tick', async () => {
+  const fixture = createFixture();
+  seedFrames(fixture, [{ offsetSeconds: 0 }]);
+  seedSkippedWindowJob(fixture, DAY, 0, 'consent:none');
+  const adapter = createFakeLlmAdapter([JSON_ANSWER]);
+  const timers = createFakeTimers();
+  const catchUpEvents: Record<string, unknown>[] = [];
+  const worker = workerFor(fixture, adapter, timers, {
+    logger: (event, detail) => {
+      if (event === 'analysis.catch_up') catchUpEvents.push(detail ?? {});
+    },
+  });
+
+  worker.start();
+  await settle();
+
+  assert.equal(adapter.calls.length, 0, 'the terminal skip is not analysed in the same tick');
+  assert.equal(jobsForDay(fixture, DAY)[0]?.status, 'queued', 'the repaired gate requeued the window');
+  assert.equal(catchUpEvents.length, 1);
+  assert.equal(catchUpEvents[0]?.replayed, 1);
+  assert.deepEqual(catchUpEvents[0]?.byReason, { 'consent:none': 1 });
+
+  await timers.fireNext();
+
+  assert.equal(adapter.calls.length, 1, 'the next tick analyses the requeued window');
+  assert.equal(jobsForDay(fixture, DAY)[0]?.status, 'complete');
+  assert.equal(activityCount(fixture), 1);
+  worker.stop();
+});
+
+test('a blocked gate does not run the catch-up replay', async () => {
+  const fixture = createFixture({ analysis: { consent: 'none' } });
+  seedFrames(fixture, [{ offsetSeconds: 0 }]);
+  seedSkippedWindowJob(fixture, DAY, 0, 'paused');
+  const adapter = createFakeLlmAdapter([JSON_ANSWER]);
+  const timers = createFakeTimers();
+  const catchUpEvents: Record<string, unknown>[] = [];
+  const worker = workerFor(fixture, adapter, timers, {
+    logger: (event, detail) => {
+      if (event === 'analysis.catch_up') catchUpEvents.push(detail ?? {});
+    },
+  });
+
+  worker.start();
+  await settle();
+  worker.stop();
+
+  assert.equal(worker.status().lastOutcome, 'blocked');
+  assert.equal(catchUpEvents.length, 0, 'a closed gate never churns the ledger');
+  const dayJobs = jobsForDay(fixture, DAY);
+  assert.equal(dayJobs.length, 1);
+  assert.equal(dayJobs[0]?.status, 'skipped', 'the transient skip stays skipped until the gate opens');
+  assert.equal(dayJobs[0]?.error, 'paused');
+  assert.equal(adapter.calls.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// The 04:00 day tail
+// ---------------------------------------------------------------------------
+
+test('the first tick of a day runs yesterday’s tail once and checkpoints today', async () => {
+  const fixture = createFixture();
+  seedFrames(fixture, [{ offsetSeconds: 0 }]);
+  seedFrames(fixture, [{ offsetSeconds: 0, day: TAIL_DAY }]);
+  const adapter = createFakeLlmAdapter([JSON_ANSWER, JSON_ANSWER]);
+  const timers = createFakeTimers();
+  const tailEvents: Record<string, unknown>[] = [];
+  const worker = workerFor(fixture, adapter, timers, {
+    logger: (event, detail) => {
+      if (event === 'analysis.day_tail') tailEvents.push(detail ?? {});
+    },
+  });
+
+  worker.start();
+  await settle();
+  worker.stop();
+
+  assert.equal(adapter.calls.length, 2, 'the day and its tail each analysed one window');
+  assert.match(adapter.calls[0]?.user ?? '', /Day: 2026-11-20/, 'the day runs before its tail');
+  assert.match(adapter.calls[1]?.user ?? '', /Day: 2026-11-19/, 'the tail analyses the previous day');
+  assert.equal(activityCount(fixture), 2, 'both days got a card');
+  assert.equal(stateValue(fixture, ANALYSIS_TAIL_CHECKPOINT_KEY), DAY, 'the checkpoint names today');
+  assert.equal(tailEvents.length, 1);
+  assert.equal(tailEvents[0]?.day, TAIL_DAY);
+  assert.equal(tailEvents[0]?.outcome, 'analysed');
+
+  const tailJobs = jobsForDay(fixture, TAIL_DAY);
+  assert.equal(tailJobs.length, 1);
+  assert.equal(tailJobs[0]?.status, 'complete');
+
+  const status = worker.status();
+  assert.equal(status.lastOutcome, 'analysed');
+  assert.equal(status.lastError, undefined, 'a tail run is not an error');
+});
+
+test('a second tick on the same day does not repeat the tail', async () => {
+  const fixture = createFixture();
+  seedFrames(fixture, [{ offsetSeconds: 0 }]);
+  seedFrames(fixture, [{ offsetSeconds: 0, day: TAIL_DAY }]);
+  const adapter = createFakeLlmAdapter([JSON_ANSWER, JSON_ANSWER]);
+  const timers = createFakeTimers();
+  const worker = workerFor(fixture, adapter, timers);
+
+  worker.start();
+  await settle();
+  assert.equal(adapter.calls.length, 2);
+
+  await timers.fireNext();
+
+  assert.equal(adapter.calls.length, 2, 'the second tick makes no model call at all');
+  assert.equal(activityCount(fixture), 2);
+  assert.equal(stateValue(fixture, ANALYSIS_TAIL_CHECKPOINT_KEY), DAY, 'the checkpoint is unchanged');
+  assert.deepEqual(
+    timers.pending().map((timer) => timer.milliseconds),
+    [intervalMs(fixture)],
+    'the loop still re-arms one timer',
+  );
+  worker.stop();
+});
+
+test('a blocked tail writes no checkpoint so the next tick tries again', async () => {
+  const fixture = createFixture({ analysis: { consent: 'none' } });
+  seedFrames(fixture, [{ offsetSeconds: 0 }]);
+  seedFrames(fixture, [{ offsetSeconds: 0, day: TAIL_DAY }]);
+  const adapter = createFakeLlmAdapter([JSON_ANSWER]);
+  const timers = createFakeTimers();
+  const tailEvents: Record<string, unknown>[] = [];
+  const worker = workerFor(fixture, adapter, timers, {
+    logger: (event, detail) => {
+      if (event === 'analysis.day_tail') tailEvents.push(detail ?? {});
+    },
+  });
+
+  worker.start();
+  await settle();
+
+  assert.equal(worker.status().lastOutcome, 'blocked', 'the gate blocks the day, not the worker');
+  assert.equal(adapter.calls.length, 0);
+  assert.equal(
+    stateValue(fixture, ANALYSIS_TAIL_CHECKPOINT_KEY),
+    undefined,
+    'a blocked tail must not claim the day was handled',
+  );
+  assert.equal(tailEvents.length, 1);
+  assert.equal(tailEvents[0]?.outcome, 'blocked');
+  assert.equal(tailEvents[0]?.blockedReason, 'consent:none');
+  assert.equal(jobsForDay(fixture, TAIL_DAY)[0]?.status, 'skipped');
+
+  await timers.fireNext();
+
+  assert.equal(tailEvents.length, 2, 'the next tick attempts the tail again');
+  assert.equal(adapter.calls.length, 0);
+  assert.equal(stateValue(fixture, ANALYSIS_TAIL_CHECKPOINT_KEY), undefined);
+  worker.stop();
+});
+
+test('a failed tail leaves the day’s outcome alone and is retried', async () => {
+  const fixture = createFixture();
+  seedFrames(fixture, [{ offsetSeconds: 0 }]);
+  seedFrames(fixture, [{ offsetSeconds: 0, day: TAIL_DAY }]);
+  const adapter = createFakeLlmAdapter([JSON_ANSWER, JSON_ANSWER]);
+  const timers = createFakeTimers();
+  // A successful tick reads the clock four times in order: the day's run, the
+  // catch-up replay, the tail, then the settle time. The tail's read is the one
+  // that fails, so the failure lands inside the tail and nowhere else.
+  let clockCalls = 0;
+  const now = (): Date => {
+    clockCalls += 1;
+    if (clockCalls === 3) throw new Error('the tail clock is unavailable');
+    return new Date(NOON_MS);
+  };
+  const failedTails: Record<string, unknown>[] = [];
+  const worker = workerFor(fixture, adapter, timers, {
+    now,
+    logger: (event, detail) => {
+      if (event === 'analysis.day_tail' && detail?.failed === true) failedTails.push(detail ?? {});
+    },
+  });
+
+  worker.start();
+  await settle();
+
+  assert.equal(worker.status().lastOutcome, 'analysed', "the day's outcome is untouched");
+  assert.equal(worker.status().lastError, 'the tail clock is unavailable', 'the tail failure is recorded');
+  assert.equal(adapter.calls.length, 1, 'only the day ran; the tail failed before its pipeline');
+  assert.equal(activityCount(fixture), 1);
+  assert.equal(stateValue(fixture, ANALYSIS_TAIL_CHECKPOINT_KEY), undefined, 'a failed tail writes no checkpoint');
+  assert.equal(failedTails.length, 1);
+
+  // The next tick replays the day (no call) and completes the tail.
+  await timers.fireNext();
+
+  assert.equal(adapter.calls.length, 2, 'the retried tail makes its one call');
+  assert.equal(activityCount(fixture), 2);
+  assert.equal(stateValue(fixture, ANALYSIS_TAIL_CHECKPOINT_KEY), DAY);
+  assert.equal(worker.status().lastError, undefined, 'the next successful tick clears the tail error');
+  worker.stop();
+});
+
+test('a same-day restart does not repeat the tail', async () => {
+  const fixture = createFixture();
+  seedFrames(fixture, [{ offsetSeconds: 0 }]);
+  seedFrames(fixture, [{ offsetSeconds: 0, day: TAIL_DAY }]);
+  const firstAdapter = createFakeLlmAdapter([JSON_ANSWER, JSON_ANSWER]);
+  const first = workerFor(fixture, firstAdapter, createFakeTimers());
+
+  first.start();
+  await settle();
+  first.stop();
+  assert.equal(firstAdapter.calls.length, 2);
+  assert.equal(stateValue(fixture, ANALYSIS_TAIL_CHECKPOINT_KEY), DAY);
+
+  // A new instance the same day sees the persisted checkpoint: the day's windows
+  // and its tail are both replays, so nothing is called again.
+  const restartAdapter = createFakeLlmAdapter([JSON_ANSWER]);
+  const restart = workerFor(fixture, restartAdapter, createFakeTimers());
+  restart.start();
+  await settle();
+  restart.stop();
+
+  assert.equal(restartAdapter.calls.length, 0, 'the restart repeats neither the day nor the tail');
+  assert.equal(activityCount(fixture), 2);
+  assert.equal(jobsForDay(fixture, TAIL_DAY).length, 1);
+  assert.equal(stateValue(fixture, ANALYSIS_TAIL_CHECKPOINT_KEY), DAY);
 });
 
 // ---------------------------------------------------------------------------

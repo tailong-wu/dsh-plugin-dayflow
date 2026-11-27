@@ -22,9 +22,11 @@ the owned journal. `0.7.1` added the analysis foundation and `0.7.2` makes it
 operable: an interval worker calls the pipeline, a status route and a panel line
 show what it is doing, and `/dayflow-analyze` runs one manual tick. `0.7.4`
 closes the day and week on a scheduler, and `0.7.5` adds the weekly memory lint.
-Every model call is text-only: the analysis call sends the frontmost app, window
-title, and frame hash, and the closes send activity text; no image is ever sent
-on the 0.7.x line. Everything below is off by default.
+`0.8.0` makes the ledger self-healing: the token budget is enforced after each
+call, transiently blocked windows are re-queued, and a 04:00 tail covers the day
+just ended. Every model call is text-only: the analysis call sends the frontmost
+app, window title, and frame hash, and the closes send activity text; no image is
+ever sent on the 0.7.x/0.8.0 line. Everything below is off by default.
 
 - **Capture is off by default.** Setting `capture.enabled: true` starts the
   engine with the plugin. The engine does not depend on the panel, so it runs
@@ -61,9 +63,11 @@ on the 0.7.x line. Everything below is off by default.
 - **Analysis is observable.** `GET /api/dayflow/analysis/status` reports the
   consent, worker state, job counts, and today's call/token ledger; the insights
   view shows it as one compact line under the capture line, and
-  `/dayflow-analyze` runs one manual tick. The per-day call cap is enforced by
-  the pipeline; the token budget is recorded and shown, not a gate on the 0.7.x
-  line (a post-call token gate stays a 0.8.0 candidate).
+  `/dayflow-analyze` runs one manual tick. The per-day call cap is enforced
+  before a call; the daily token budget is enforced after each call from the
+  recorded ledger (`0.8.0`), so a crossing call completes and the remaining
+  windows of that day are skipped as `budget-tokens` — no call is rolled back and
+  no budget skip is ever replayed.
 - **The day and week close themselves (0.7.4, lint 0.7.5).** With the analysis
   stack mounted, a host scheduler closes the day at `automation.dailyAt` and the
   Monday-anchored week at `automation.weeklyOn`, writing a standup entry
@@ -76,6 +80,13 @@ on the 0.7.x line. Everything below is off by default.
   no weekly reflection and no briefs-reading view on the 0.7.x line. Keys and
   gates are in [CONFIGURATION.md](CONFIGURATION.md); the route is in
   [PANEL.md](PANEL.md).
+- **The ledger heals itself (0.8.0).** On a tick whose gate is open, windows a
+  previous tick skipped for a transient reason (consent, provider/model, paused,
+  capture/analysis disabled) are re-queued once for today and yesterday;
+  permanent skips and failures are never replayed. After the day's run, a 04:00
+  tail runs the previous Dayflow day once (checkpointed under
+  `capture_state.analysis_tail_checked_on`, skipped when the gate is blocked, and
+  isolated from the current day's result).
 - **Status and pause are wired.** `GET /api/dayflow/capture/status` reports the
   capture and analysis switches, the macOS Screen Recording permission, today's
   native frame count, and the persisted pause flag; `POST
@@ -83,14 +94,13 @@ on the 0.7.x line. Everything below is off by default.
   insights view shows it as one compact capture line —
   off, on, paused, or permission needed — with a Pause/Resume button when
   capture is configured on.
-- **Not on the 0.7.x line (0.8.0 candidates by default):** image admission and
-  downscaling (the model receives app / window-title / hash metadata, never
-  pixels), a catch-up replay for analysis windows a blocked tick marked
-  `skipped` (those rows are terminal), the token cap as a post-call gate, the
-  04:00 day tail, the `source: owned` default flip, and a panel view for the
-  stored briefs. Native cards live only in the owned backend's timeline, not in
-  the Dayflow backend's; the plan is in [NATIVE_PORT.md](NATIVE_PORT.md) and
-  [PATCH_PLAN.md](PATCH_PLAN.md).
+- **Not yet (owner-gated or later in the 0.8.x line):** image admission and
+  downscaling (pixels need a host attachment peer and image decisions, so the
+  model keeps receiving app / window-title / hash metadata), the `source: owned`
+  default flip (Phase 4, owner-gated), and a panel view for the stored briefs.
+  Native cards live only in the owned backend's timeline, not in the Dayflow
+  backend's; the plan is in [NATIVE_PORT.md](NATIVE_PORT.md) and
+  [PATCH_PLAN_0.8.md](PATCH_PLAN_0.8.md).
 - **Nothing is written by a status read.** With no journal, the status route
   answers zeros and does not create the file; only the pause write and the
   engine open it.

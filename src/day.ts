@@ -8,6 +8,8 @@
  * @module dsh-plugin-dayflow/day
  */
 
+import { DayflowError } from './errors.js';
+
 /** One Dayflow day: its `YYYY-MM-DD` label and the 4 AM window it covers. */
 export interface DayWindow {
   /** Label used by the app and its database, e.g. `2026-10-19`. */
@@ -80,6 +82,39 @@ export function dayWindowForKey(key: string): DayWindow | undefined {
     return undefined;
   }
   return { dayKey: `${yearText}-${monthText}-${dayText}`, start, end: addDays(start, 1) };
+}
+
+/**
+ * The label of the calendar day before `dayKey`.
+ *
+ * A day key is a local calendar label, not an instant, so the shift is done on
+ * the label in UTC: subtracting 24 hours from a local `Date` would land on the
+ * wrong date across a daylight-saving change even though only the label moves.
+ *
+ * @param dayKey - a `YYYY-MM-DD` day key, as the app writes it.
+ * @returns the previous day's label, for example `2026-03-10` for `2026-03-11`.
+ * @throws `invalid_input` when `dayKey` is not a real date.
+ */
+export function previousDayKey(dayKey: string): string {
+  // Reuse the day-window validation: it is the one place that knows which
+  // labels are real dates (2026-02-30 is not) and it normalizes padding.
+  const window = typeof dayKey === 'string' ? dayWindowForKey(dayKey) : undefined;
+  if (window === undefined) {
+    throw new DayflowError(
+      `"${typeof dayKey === 'string' ? dayKey : String(dayKey)}" is not a day. ` +
+        'Use YYYY-MM-DD, for example 2026-03-11.',
+      'invalid_input',
+    );
+  }
+  const [yearText, monthText, dayText] = window.dayKey.split('-');
+  const label = new Date(Date.UTC(Number(yearText), Number(monthText) - 1, Number(dayText)));
+  label.setUTCDate(label.getUTCDate() - 1);
+  // `dayWindowForKey` already refuses years below 0100 (Date treats 0–99 as
+  // 1900+), so the year is a real calendar year; keep all four digits.
+  return (
+    `${String(label.getUTCFullYear()).padStart(4, '0')}-` +
+    `${pad(label.getUTCMonth() + 1)}-${pad(label.getUTCDate())}`
+  );
 }
 
 /**

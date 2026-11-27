@@ -83,7 +83,15 @@ card placed at its time and tinted with its category colour.
   never the image — and a `cloud` consent adds that this metadata leaves the
   Mac while no image is sent. It has **no button** — analysis is enabled and
   consented in the profile — so the panel keeps its single entry point and adds
-  no second control surface.
+  no second control surface. When the status payload's additive
+  `tokenBudgetExhausted` is true, the line turns **amber** and reads
+  **Daily token budget reached**, with the hint that analysis resumes tomorrow
+  or immediately if `analysis.dailyTokenBudget` is raised — the call that
+  crossed the budget was already paid, and a token-budget skip is never
+  replayed. That state is drawn before the stopped-worker and running/idle
+  tones — the stop is about the day's spend, not the worker — and it is
+  still status, not a control — no button, no settings surface, and no new
+  route: the panel stays at its 18 host Fetch routes.
 - The third line is the **close-state line**: one compact row under the
   analysis line that reads `Day closes 04:00`, the last stored day close and
   its status (`last close Nov 26 complete`), `Week close Mon`, and

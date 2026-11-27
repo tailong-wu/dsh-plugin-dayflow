@@ -5,12 +5,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { DayflowError } from '../src/errors.js';
 import {
   dayWindowContaining,
   dayWindowForKey,
   formatClock,
   formatDuration,
   formatIso,
+  previousDayKey,
   resolveDayWindow,
   weekWindowContaining,
 } from '../src/day.js';
@@ -48,6 +50,27 @@ test('an instant before 4 AM belongs to the previous day', () => {
 
   const evening = dayWindowContaining(new Date(2026, 9, 19, 23, 59));
   assert.equal(evening.dayKey, '2026-10-19');
+});
+
+test('a day key steps back exactly one calendar day', () => {
+  assert.equal(previousDayKey('2026-10-19'), '2026-10-18');
+  // Month boundaries, leap years, and year boundaries are calendar arithmetic,
+  // not a fixed 24-hour subtraction.
+  assert.equal(previousDayKey('2026-03-01'), '2026-02-28');
+  assert.equal(previousDayKey('2024-03-01'), '2024-02-29');
+  assert.equal(previousDayKey('2026-01-01'), '2025-12-31');
+  // Labels are normalized through the same day-window validation as the rest.
+  assert.equal(previousDayKey(' 2026-10-19 '), '2026-10-18');
+});
+
+test('previousDayKey refuses labels that are not days', () => {
+  for (const bad of ['2026-02-30', '2026-13-01', '2026-2-3', '', 'tomorrow', '19-10-2026']) {
+    assert.throws(
+      () => previousDayKey(bad),
+      (error: unknown) => error instanceof DayflowError && error.code === 'invalid_input',
+      `${bad} is refused`,
+    );
+  }
 });
 
 test('a week runs Monday 04:00 to the next Monday 04:00', () => {

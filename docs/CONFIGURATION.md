@@ -82,6 +82,40 @@ and `automation.weeklyOn` with the automation scheduler, so a profile with
 automation off or not mounted (capture and analysis off, or no host model
 service) runs no lint either.
 
+0.8.0 closes the three analysis-ledger gaps without adding a key. The **token
+budget is now enforced on the recorded ledger**, not just reported: a completed
+window records its provider-reported input/output tokens on its
+`analysis_jobs` row, and once the day's recorded total reaches
+`analysis.dailyTokenBudget` every remaining window in that run is skipped with
+reason `budget-tokens` — the run's outcome is `budget` with
+`budgetKind: 'tokens'`. The gate reads before a window starts too, so a run that
+begins with the day already at the cap starts no call; the call that crossed the
+cap is paid and stays complete (nothing is rolled back), and the budget resets
+only because the 04:00 boundary changes the day key. The call cap
+(`analysis.maxCallsPerDay`) stays a **pre-call** gate (reason `budget`,
+`budgetKind: 'calls'`), so the two limits cannot be confused in the ledger. The
+status payload adds `tokenBudgetExhausted`, and the panel's analysis line turns
+amber to say the daily token budget is reached (analysis resumes tomorrow, or
+immediately if the budget is raised). A skipped window is no longer terminal
+when its reason was configuration: after a non-blocked worker tick, skips from
+**today and yesterday** whose reason is one of `analysis-disabled`,
+`capture-disabled`, `paused`, `consent:none`, `provider-unset`, `model-unset`,
+`consent:provider-not-local`, or `analyser-unset` are requeued through
+`src/analyse/skips.ts` (`replaySkippedAnalysisWindows`, bounded to one earlier
+day by default). Attempts are not reset, the previous reason is kept in the
+job's `payload_json` (`replayed_from` / `replayed_at`) as an audit record, and
+`budget`, `budget-tokens`, `failed`, and unknown reasons are never replayed.
+Then the first worker tick after 04:00 runs one bounded pipeline run for
+**yesterday** after the day's own run (and after that replay), so the frames
+captured between the last pre-boundary tick and 04:00 are analysed and any
+window the replay just requeued is picked up; the checkpoint
+`analysis_tail_checked_on` in `capture_state` makes it once per boundary (any
+non-blocked outcome writes it), a blocked run leaves the checkpoint unwritten
+(so a consent/provider/model fix later the same day still catches up), and a
+tail failure is logged and isolated from today's outcome. None of this adds a
+schema, route, command, or configuration key, and a default profile still calls
+nothing.
+
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `analysis.enabled` | `true` | Run the frame analyser (also needs capture enabled). |
@@ -92,8 +126,8 @@ service) runs no lint either.
 | `analysis.intervalMinutes` | `5` | Minutes between worker ticks (1–60). |
 | `analysis.windowMinutes` | `10` | Minutes of frames grouped into one analysis window (1–60). |
 | `analysis.framesPerWindow` | `3` | Representative frames sent per window (1–5). |
-| `analysis.maxCallsPerDay` | `120` | Hard cap on analysis calls for one day (1–1000). |
-| `analysis.dailyTokenBudget` | `200000` | Daily token budget reported in the status/panel ledger (1000–2000000). The number is recorded and shown; it is not a gate on the 0.7.x line (the per-day call cap is). A post-call token gate stays a 0.8.0 candidate. |
+| `analysis.maxCallsPerDay` | `120` | Hard cap on analysis calls for one day (1–1000). Checked **before** a window starts: when the day has started this many calls, the run's remaining windows are skipped with reason `budget` (the run outcome is `budget` with `budgetKind: 'calls'`). |
+| `analysis.dailyTokenBudget` | `200000` | Daily token budget for one Dayflow day (1000–2000000). Enforced since 0.8.0 on the day's recorded ledger: checked before a window starts and again right after each completed call, so once the recorded input+output tokens reach it the run's remaining windows are skipped with reason `budget-tokens` and the status reports `tokenBudgetExhausted`. The crossing call stays complete and nothing is rolled back; the budget resets at the 04:00 day boundary. |
 
 | Key | Default | Meaning |
 | --- | --- | --- |

@@ -20,12 +20,15 @@
  * 4. an unset analyser behaves like a gate: every window is skipped with
  *    `analyser-unset`;
  * 5. each window's job is checked for idempotency, then the daily call budget,
- *    then started and called;
+ *    then the daily token budget already on the ledger, then started and called;
  * 6. the answer is validated before anything is written, and a malformed answer
  *    fails the job without touching the day;
  * 7. a successful window's card, its observations, its job completion, and (at
  *    `keepFramesDays: 0`) its frame-path release are one journal transaction;
- *    the files themselves are deleted after that transaction commits.
+ *    the files themselves are deleted after that transaction commits;
+ * 8. the day's recorded token spend is read again after the completion, and when
+ *    it has reached `dailyTokenBudget` the rest of the run is skipped with
+ *    `budget-tokens`; the call that crossed the cap stays paid and complete.
  *
  * **Windows.** Adjacent frames belong to the same window while the gap between
  * them is at most `analysis.windowMinutes`; a longer gap starts a new window. A
@@ -49,6 +52,15 @@
  * stale (recovering it is the worker's job in 0.7.2, not this module's). Cards
  * and observations are additionally protected by their own unique
  * `(source_id, source_key)` keys, so a double write cannot duplicate a row.
+ *
+ * **Budgets.** Two day-wide budgets bound the spend. The call cap
+ * (`maxCallsPerDay`) is a hard pre-call gate: once the day has started that many
+ * calls, the remaining windows are skipped with `budget`. The token cap
+ * (`dailyTokenBudget`) is a post-call gate: the completing call's usage is
+ * already on the ledger when the gate reads it, so the call that crosses the cap
+ * is paid and stays complete, and only the windows after it are skipped — with
+ * `budget-tokens`. A window that enters a later run sees the same spent ledger,
+ * so it is refused before it starts and never makes a second crossing call.
  *
  * Every failure that belongs to one window — a bad model answer, a call error,
  * a write error, an unreadable frame file — is recorded on that window's job
@@ -78,6 +90,7 @@ import {
   ANALYSIS_MAX_LIST_LIMIT,
   analysisBudgetExhausted,
   analysisJobKey,
+  analysisTokenTotalsForDay,
   completeAnalysisJob,
   createAnalysisJob,
   failAnalysisJob,
@@ -121,7 +134,7 @@ export type AnalysisRunOutcome =
   | 'analysed'
   /** The consent gate or an unset analyser refused every window; see `blockedReason`. */
   | 'blocked'
-  /** The daily call budget ran out mid-run; the remaining windows are skipped. */
+  /** The daily call or token budget ran out mid-run; the remaining windows are skipped. */
   | 'budget'
   /** There were no frames for the day, so no window and no job existed. */
   | 'empty';
@@ -144,10 +157,19 @@ export interface AnalysisRunResult {
   activitiesWritten: number;
   /** Why the run was blocked, when `outcome` is `blocked`. */
   blockedReason?: string;
+  /**
+   * Which budget ended the run, when `outcome` is `budget`: `calls` for the
+   * pre-call call cap (`maxCallsPerDay`), `tokens` for the post-call token cap
+   * (`dailyTokenBudget`). Absent for every other outcome.
+   */
+  budgetKind?: 'calls' | 'tokens';
 }
 
 /** Default merge threshold, matching the plan's 120 seconds. */
 const DEFAULT_MERGE_GAP_SECONDS = 120;
+
+/** The skip reason recorded when the day's token budget has already been spent. */
+const TOKEN_BUDGET_SKIP_REASON = 'budget-tokens';
 
 /** One strict JSON answer, after validation. */
 interface ValidatedAnalysis {
@@ -720,7 +742,30 @@ export class AnalysisPipeline {
       }
       if (budgetExhausted) {
         result.outcome = 'budget';
-        this.skipRemainingForBudget(windows, index, limit, jobs, dayKey);
+        result.budgetKind = 'calls';
+        this.skipRemainingForBudget(windows, index, limit, jobs, dayKey, 'budget');
+        result.skipped += limit - index;
+        pending = undefined;
+        break;
+      }
+
+      // Gate 4: the day's token budget, already spent. The ledger is day-wide, so
+      // a window that enters a later run after an earlier run crossed the cap is
+      // refused here without a call; the post-call gate below is what discovers
+      // the crossing in the first place.
+      let tokensExhausted: boolean;
+      try {
+        tokensExhausted = this.tokenBudgetReached(dayKey);
+      } catch (error) {
+        this.failWindow(existing, window, dayKey, error);
+        result.failed += 1;
+        pending = undefined;
+        continue;
+      }
+      if (tokensExhausted) {
+        result.outcome = 'budget';
+        result.budgetKind = 'tokens';
+        this.skipRemainingForBudget(windows, index, limit, jobs, dayKey, TOKEN_BUDGET_SKIP_REASON);
         result.skipped += limit - index;
         pending = undefined;
         break;
@@ -807,6 +852,30 @@ export class AnalysisPipeline {
           endTs: window.endTs,
         };
         if (keepFrames) await this.deleteFrameFiles(window.frames);
+
+        // Gate 5: the token budget, checked after the completion recorded this
+        // call's usage. The crossing call is paid and stays complete, so only the
+        // windows left in this run are skipped. A crossing on the last window of
+        // the run stops nothing, and the run keeps its `analysed` outcome; the
+        // next run refuses any new window on the pre-call gate above.
+        if (index + 1 < limit) {
+          let tokensReached = false;
+          try {
+            tokensReached = this.tokenBudgetReached(dayKey);
+          } catch {
+            // The window is already complete and its spend is recorded: a failed
+            // re-read must not turn a paid window into a failure. The next run
+            // re-checks the ledger before it starts anything.
+          }
+          if (tokensReached) {
+            result.outcome = 'budget';
+            result.budgetKind = 'tokens';
+            this.skipRemainingForBudget(windows, index + 1, limit, jobs, dayKey, TOKEN_BUDGET_SKIP_REASON);
+            result.skipped += limit - (index + 1);
+            pending = undefined;
+            break;
+          }
+        }
       } catch (error) {
         this.failJob(job.id, error);
         result.failed += 1;
@@ -972,13 +1041,26 @@ export class AnalysisPipeline {
     }
   }
 
-  /** Skip the windows this run can no longer afford, one job each. */
+  /**
+   * Whether the day's recorded token spend has reached `dailyTokenBudget`.
+   *
+   * The ledger is the day's completed usage, not an estimate or a pre-charge,
+   * so the answer is a fact about what has already been paid for. It stays true
+   * for the rest of the Dayflow day once one call crosses the cap.
+   */
+  private tokenBudgetReached(dayKey: string): boolean {
+    const totals = withJournal(this.journalPath, (db) => analysisTokenTotalsForDay(db, dayKey));
+    return totals.input + totals.output >= this.config.analysis.dailyTokenBudget;
+  }
+
+  /** Skip the windows this run can no longer afford, one job each, with the gate's reason. */
   private skipRemainingForBudget(
     windows: readonly FrameWindow[],
     from: number,
     limit: number,
     jobs: Map<string, AnalysisJob>,
     dayKey: string,
+    reason: string,
   ): void {
     for (let index = from; index < limit; index += 1) {
       const window = windows[index] as FrameWindow;
@@ -1002,7 +1084,7 @@ export class AnalysisPipeline {
                   windowEndTs: window.endTs,
                 })
               : existing;
-          skipAnalysisJob(db, job.id, 'budget');
+          skipAnalysisJob(db, job.id, reason);
           jobs.set(window.jobKey, job);
         });
       } catch {

@@ -996,6 +996,7 @@ test('the analysis status route reports zeros without creating the journal', asy
       maxCallsPerDay: 120,
       tokensToday: { input: 0, output: 0 },
       dailyTokenBudget: 200_000,
+      tokenBudgetExhausted: false,
       reason: 'capture-disabled',
     },
   });
@@ -1065,6 +1066,7 @@ test('the analysis status route reports the paused gate, the ledger, and the inj
     maxCallsPerDay: 120,
     tokensToday: { input: 1_234, output: 234 },
     dailyTokenBudget: 200_000,
+    tokenBudgetExhausted: false,
     reason: 'paused',
   });
 
@@ -1097,6 +1099,7 @@ test('the analysis status route serves an injected builder without touching the 
       maxCallsPerDay: 60,
       tokensToday: { input: 100, output: 20 },
       dailyTokenBudget: 50_000,
+      tokenBudgetExhausted: false,
       lastJobAt: 1_800_000_000_000,
     },
   };

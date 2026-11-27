@@ -193,6 +193,22 @@ function jsonAnswer(overrides: Record<string, unknown> = {}): string {
 /** The categories every success case offers. */
 const WORK_CATEGORIES = ['Work', 'Communication', 'Distraction'] as const;
 
+/**
+ * A valid answer padded with an ignored key, so one recorded call crosses a
+ * small token budget on its own.
+ *
+ * The fake adapter estimates output tokens from the answer's length and
+ * `resolveConfig` refuses a `dailyTokenBudget` below 1000, so a normally sized
+ * answer can never reach the cap. The padding key is unknown to the response
+ * contract and therefore ignored by validation; it only exists in this test.
+ */
+function budgetCrossingAnswer(): string {
+  return JSON.stringify({
+    ...(JSON.parse(jsonAnswer()) as Record<string, unknown>),
+    padding: 'x'.repeat(8_000),
+  });
+}
+
 /** One `activities` row as these tests read it. */
 interface ActivityRow {
   id: number;
@@ -662,6 +678,7 @@ test('maxCallsPerDay stops the day after the last affordable call', async () => 
   }).run();
 
   assert.equal(result.outcome, 'budget');
+  assert.equal(result.budgetKind, 'calls', 'the pre-call call cap ended the run');
   assert.equal(result.windows, 2);
   assert.equal(result.analysed, 1);
   assert.equal(result.skipped, 1);
@@ -675,6 +692,107 @@ test('maxCallsPerDay stops the day after the last affordable call', async () => 
   assert.equal(jobRows[1]?.status, 'skipped');
   assert.equal(jobRows[1]?.error, 'budget');
   assert.equal(jobRows[1]?.attempts, 0, 'a budget skip is not a call');
+});
+
+test('the token budget is a post-call gate that skips the rest of the run', async () => {
+  // One recorded call already crosses the resolved-config minimum of 1000
+  // tokens, so the second window must never be called.
+  const fixture = createFixture({ analysis: { dailyTokenBudget: 1_000 } });
+  seedFrames(fixture, [
+    { offsetSeconds: 0, app: CODE_APP },
+    { offsetSeconds: 60, app: CODE_APP },
+    { offsetSeconds: 700, app: TERMINAL_APP },
+    { offsetSeconds: 760, app: TERMINAL_APP },
+  ]);
+  const analyser = createFakeLlmAdapter([budgetCrossingAnswer()]);
+  const pipeline = pipelineFor(fixture, { analyser, categories: WORK_CATEGORIES });
+
+  const first = await pipeline.run();
+  assert.equal(first.outcome, 'budget');
+  assert.equal(first.budgetKind, 'tokens', 'the post-call token gate ended the run');
+  assert.equal(first.windows, 2);
+  assert.equal(first.analysed, 1, 'the crossing window is paid and complete');
+  assert.equal(first.skipped, 1);
+  assert.equal(first.failed, 0);
+  assert.equal(first.activitiesWritten, 1);
+  assert.equal(analyser.calls.length, 1, 'no second call after the token cap is crossed');
+
+  const jobRows = jobs(fixture);
+  assert.equal(jobRows.length, 2);
+  const crossing = jobRows[0] as AnalysisJob;
+  assert.equal(crossing.status, 'complete', 'the crossing call is not clawed back');
+  assert.ok(
+    (crossing.input_tokens ?? 0) + (crossing.output_tokens ?? 0) >= 1_000,
+    'the completed row keeps the usage that crossed the cap',
+  );
+  assert.equal(jobRows[1]?.status, 'skipped');
+  assert.equal(jobRows[1]?.error, 'budget-tokens');
+  assert.equal(jobRows[1]?.attempts, 0, 'a budget skip is not a call');
+  assert.equal(activities(fixture).length, 1);
+
+  // Replay is idempotent: neither the paid window nor the budget skip calls again.
+  const replay = createFakeLlmAdapter([]);
+  const second = await pipelineFor(fixture, { analyser: replay, categories: WORK_CATEGORIES }).run();
+  assert.equal(second.outcome, 'analysed');
+  assert.equal(second.analysed, 0);
+  assert.equal(second.skipped, 2);
+  assert.equal(second.failed, 0);
+  assert.equal(second.budgetKind, undefined);
+  assert.equal(replay.calls.length, 0, 'a terminal job is never called again');
+  assert.equal(jobs(fixture)[1]?.error, 'budget-tokens', 'the skip reason survives a replay');
+  assert.equal(activities(fixture).length, 1);
+});
+
+test('a token crossing on the last window of the run stops nothing', async () => {
+  const fixture = createFixture({ analysis: { dailyTokenBudget: 1_000 } });
+  seedFrames(fixture, [
+    { offsetSeconds: 0, app: CODE_APP },
+    { offsetSeconds: 60, app: CODE_APP },
+    { offsetSeconds: 700, app: TERMINAL_APP },
+    { offsetSeconds: 760, app: TERMINAL_APP },
+  ]);
+  const analyser = createFakeLlmAdapter([budgetCrossingAnswer()]);
+
+  // `maxWindows: 1` makes the crossing window the last one this run can stop.
+  const first = await pipelineFor(fixture, { analyser, categories: WORK_CATEGORIES }).run({ maxWindows: 1 });
+  assert.equal(first.outcome, 'analysed', 'nothing was stopped, so the run keeps its outcome');
+  assert.equal(first.budgetKind, undefined);
+  assert.equal(first.analysed, 1);
+  assert.equal(first.skipped, 0);
+  assert.equal(analyser.calls.length, 1);
+
+  // The spend is on the day's ledger, so a window that enters a later run is
+  // refused before it starts: the cap costs at most the one crossing call.
+  const late = createFakeLlmAdapter([jsonAnswer()]);
+  const second = await pipelineFor(fixture, { analyser: late, categories: WORK_CATEGORIES }).run();
+  assert.equal(second.outcome, 'budget');
+  assert.equal(second.budgetKind, 'tokens');
+  assert.equal(second.analysed, 0);
+  assert.equal(second.skipped, 2, 'the paid window and the refused window are both left alone');
+  assert.equal(late.calls.length, 0, 'the spent token ledger refuses the call before it starts');
+  assert.equal(jobs(fixture)[1]?.error, 'budget-tokens');
+  assert.equal(activities(fixture).length, 1);
+});
+
+test('a token spend below the budget analyses every window', async () => {
+  const fixture = createFixture();
+  seedFrames(fixture, [
+    { offsetSeconds: 0, app: CODE_APP },
+    { offsetSeconds: 60, app: CODE_APP },
+    { offsetSeconds: 700, app: TERMINAL_APP },
+    { offsetSeconds: 760, app: TERMINAL_APP },
+  ]);
+  const analyser = createFakeLlmAdapter([jsonAnswer(), jsonAnswer()]);
+  const result = await pipelineFor(fixture, { analyser, categories: WORK_CATEGORIES }).run();
+
+  assert.equal(result.outcome, 'analysed');
+  assert.equal(result.budgetKind, undefined, 'no budget ended an affordable run');
+  assert.equal(result.windows, 2);
+  assert.equal(result.analysed, 2);
+  assert.equal(result.skipped, 0);
+  assert.equal(result.failed, 0);
+  assert.equal(analyser.calls.length, 2);
+  for (const job of jobs(fixture)) assert.equal(job.status, 'complete');
 });
 
 test('keepFramesDays 0 deletes an analysed window and keeps a failed one', async () => {

@@ -50,6 +50,7 @@ interface StatusConfigOptions {
   consent?: 'none' | 'cloud' | 'local';
   intervalMinutes?: number;
   maxCallsPerDay?: number;
+  dailyTokenBudget?: number;
 }
 
 /**
@@ -72,6 +73,7 @@ function statusConfig(journalPath: string, options: StatusConfigOptions = {}): R
       model: 'test-model',
       ...(options.intervalMinutes === undefined ? {} : { intervalMinutes: options.intervalMinutes }),
       ...(options.maxCallsPerDay === undefined ? {} : { maxCallsPerDay: options.maxCallsPerDay }),
+      ...(options.dailyTokenBudget === undefined ? {} : { dailyTokenBudget: options.dailyTokenBudget }),
     },
   };
 }
@@ -101,6 +103,7 @@ test('a missing journal reports zero usage without creating the file', async () 
     maxCallsPerDay: 120,
     tokensToday: { input: 0, output: 0 },
     dailyTokenBudget: 200_000,
+    tokenBudgetExhausted: false,
   });
   assert.equal(existsSync(journalPath), false, 'a status read must not create the journal');
   assert.equal(existsSync(`${journalPath}-journal`), false, 'a status read must not leave a rollback journal');
@@ -254,10 +257,90 @@ test('the ledger supplies the day counts, calls, tokens, and the last job time',
   assert.equal(payload.maxCallsPerDay, 2, 'the exhausted budget is visible as used > cap');
   assert.deepEqual(payload.tokensToday, { input: 1_234, output: 234 });
   assert.equal(payload.dailyTokenBudget, 200_000);
+  assert.equal(payload.tokenBudgetExhausted, false, '1468 recorded tokens are below the 200k cap');
   // The newest window belongs to the skipped job at offset 4_000 (end +600).
   assert.equal(payload.lastJobAt, (base + 4_600) * 1_000);
   assert.equal('reason' in payload, false);
   assert.equal(fileHash(journalPath), before, 'building the status must not rewrite the journal');
+});
+
+test('tokenBudgetExhausted turns true only once the day\u2019s tokens reach the budget', async () => {
+  const journalPath = journalFile('token-budget');
+  const fixedNow = new Date('2026-05-06T12:00:00');
+  const day = dayWindowContaining(fixedNow).dayKey;
+  const base = Math.floor(fixedNow.getTime() / 1_000) - 3_600;
+  const db = openJournal(journalPath);
+  try {
+    const job = createAnalysisJob(db, {
+      jobKey: analysisJobKey(day, base),
+      day,
+      windowStartTs: base,
+      windowEndTs: base + 600,
+    });
+    startAnalysisJob(db, job.id);
+    completeAnalysisJob(db, job.id, { model: 'test-model', inputTokens: 700, outputTokens: 300 });
+  } finally {
+    db.close();
+  }
+
+  const atBudget = await buildAnalysisStatus({
+    journalPath,
+    config: statusConfig(journalPath, { dailyTokenBudget: 1_000 }),
+    paused: false,
+    now: () => fixedNow,
+  });
+  assert.deepEqual(atBudget.tokensToday, { input: 700, output: 300 });
+  assert.equal(atBudget.dailyTokenBudget, 1_000);
+  assert.equal(atBudget.tokenBudgetExhausted, true, '700 + 300 reaches the 1000-token cap');
+
+  const oneTokenLeft = await buildAnalysisStatus({
+    journalPath,
+    config: statusConfig(journalPath, { dailyTokenBudget: 1_001 }),
+    paused: false,
+    now: () => fixedNow,
+  });
+  assert.equal(oneTokenLeft.dailyTokenBudget, 1_001);
+  assert.equal(oneTokenLeft.tokenBudgetExhausted, false, 'the cap is reached, not exceeded');
+
+  // The shipped 200k budget answers false for the same 1000-token ledger.
+  const shippedBudget = await buildAnalysisStatus({
+    journalPath,
+    config: statusConfig(journalPath),
+    paused: false,
+    now: () => fixedNow,
+  });
+  assert.equal(shippedBudget.dailyTokenBudget, 200_000);
+  assert.equal(shippedBudget.tokenBudgetExhausted, false);
+});
+
+test('absent usage counts as zero and cannot trip the token budget', async () => {
+  const journalPath = journalFile('token-null');
+  const fixedNow = new Date('2026-05-06T12:00:00');
+  const day = dayWindowContaining(fixedNow).dayKey;
+  const base = Math.floor(fixedNow.getTime() / 1_000) - 3_600;
+  const db = openJournal(journalPath);
+  try {
+    const job = createAnalysisJob(db, {
+      jobKey: analysisJobKey(day, base),
+      day,
+      windowStartTs: base,
+      windowEndTs: base + 600,
+    });
+    startAnalysisJob(db, job.id);
+    completeAnalysisJob(db, job.id);
+  } finally {
+    db.close();
+  }
+
+  const payload = await buildAnalysisStatus({
+    journalPath,
+    config: statusConfig(journalPath, { dailyTokenBudget: 1_000 }),
+    paused: false,
+    now: () => fixedNow,
+  });
+  assert.deepEqual(payload.tokensToday, { input: 0, output: 0 });
+  assert.equal(payload.dailyTokenBudget, 1_000);
+  assert.equal(payload.tokenBudgetExhausted, false, 'a row without usage counts as zero');
 });
 
 test('an unreadable journal answers zeros instead of failing the status line', async () => {
@@ -271,6 +354,7 @@ test('an unreadable journal answers zeros instead of failing the status line', a
   assert.equal(payload.queued, 0);
   assert.equal(payload.callsToday, 0);
   assert.deepEqual(payload.tokensToday, { input: 0, output: 0 });
+  assert.equal(payload.tokenBudgetExhausted, false);
   assert.equal('lastJobAt' in payload, false);
   assert.equal(fileHash(journalPath), before, 'a failed read must not rewrite the file');
 });

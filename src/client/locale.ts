@@ -145,6 +145,8 @@ export const ZH: Record<string, string> = {
   analysisPausedHint: '恢复采集后 worker 才会继续。',
   analysisRunning: '正在分析',
   analysisIdle: '空闲',
+  analysisTokenBudget: '今日 token 预算已用尽',
+  analysisTokenBudgetHint: '明天才会继续；调高 analysis.dailyTokenBudget 可以马上继续。',
   analysisWorkerStopped: 'worker 未运行',
   analysisWorkerStoppedHint: '采集与分析都开启、且宿主模型服务可用时随宿主启动。',
   analysisFailed: '{count} 个失败',
@@ -301,6 +303,8 @@ export const EN: Record<string, string> = {
   analysisPausedHint: 'Resume capture to let the worker run.',
   analysisRunning: 'Analysing',
   analysisIdle: 'Idle',
+  analysisTokenBudget: 'Daily token budget reached',
+  analysisTokenBudgetHint: 'Analysis resumes tomorrow — raise analysis.dailyTokenBudget to continue today.',
   analysisWorkerStopped: 'Worker stopped',
   analysisWorkerStoppedHint:
     'It starts with the host when capture and analysis are both on and the model service is available.',
