@@ -332,6 +332,39 @@ export interface PanelAnalysisStatus {
   analysis: AnalysisStatusPayload;
 }
 
+/**
+ * The scheduled day/week close's status, as the Insights view shows it.
+ *
+ * The automation switches live in the profile, so the line is read-only: it
+ * reports when the day and the week close, whether a close is running now, the
+ * last stored close of each, and how many missed days a catch-up may close. The
+ * scheduler owns the live state, so the composition injects the builder; without
+ * one the route derives the scheduled part from `automation` and reports idle.
+ */
+export interface PanelAutomationStatus {
+  /** The profile's `automation.enabled` master switch. */
+  enabled: boolean;
+  /** Whether a day or week close is running right now. */
+  running: boolean;
+  /** The local time the day closes, as `HH:MM` (`automation.dailyAt`). */
+  dailyAt: string;
+  /** The weekday the week closes (`automation.weeklyOn`), lowercase English. */
+  weeklyOn: string;
+  /** How many missed days a catch-up may close (`automation.catchUpDays`). */
+  catchUpDays: number;
+  /** The most recent stored day close; absent when none has run yet. */
+  lastDayClose?: { day: string; status: string; at: number };
+  /** The most recent stored week close; absent when none has run yet. */
+  lastWeekClose?: { monday: string; status: string; at: number };
+  /** Epoch milliseconds of the next scheduled day close; absent when unknown. */
+  nextDayCloseAt?: number;
+}
+
+/** Answer to an automation status read. */
+export interface PanelAutomationStatusResponse {
+  automation: PanelAutomationStatus;
+}
+
 /** Whether the panel's entry points are exposed. */
 export interface PanelConfig {
   enabled: boolean;
@@ -365,6 +398,9 @@ export const PANEL_CAPTURE_PAUSE_PATH = '/api/dayflow/capture/pause';
 
 /** Exact Fetch route for the analysis worker's status and the day's budget ledger. */
 export const PANEL_ANALYSIS_STATUS_PATH = '/api/dayflow/analysis/status';
+
+/** Exact Fetch route for the scheduled day/week close's status. */
+export const PANEL_AUTOMATION_STATUS_PATH = '/api/dayflow/automation/status';
 
 /** Exact Fetch route for the journal insights (tasks, review, memory, reflections). */
 export const PANEL_INSIGHTS_PATH = '/api/dayflow/insights';

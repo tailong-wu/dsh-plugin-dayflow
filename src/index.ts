@@ -12,15 +12,19 @@
  * most recent non-superseded memory claims, so the model starts each session
  * knowing what is in flight. Empty data injects nothing.
  *
- * On hosts that expose the command registry, four optional slash commands give
+ * On hosts that expose the command registry, five optional slash commands give
  * the user quick capture that writes the owned journal directly, without a model
- * turn (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`), plus one
- * manual analysis trigger (`/dayflow-analyze`).
+ * turn (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`), plus two
+ * manual background triggers (`/dayflow-analyze`, `/dayflow-run-close`).
  *
  * When capture and analysis are both enabled, one {@link AnalysisWorker} runs
- * the analysis pipeline on its own timer. It lives behind a dynamic `llm`
- * injection: a composition without the model service still loads everything
- * else, and a worker without an analyser never starts.
+ * the analysis pipeline on its own timer and one {@link AutomationScheduler}
+ * closes the day at `automation.dailyAt` (04:00 by default) and the week on
+ * `automation.weeklyOn`: a daily brief, the day's insight pass, and the weekly
+ * rollup, each recorded in the automation ledger so a restart resumes instead of
+ * duplicating. Both live behind a dynamic `llm` injection: a composition without
+ * the model service still loads everything else, and neither loop starts without
+ * an analyser.
  *
  * The timeline covers screen activity only. It has no location, calendar, or
  * presence data, so a quiet stretch means nothing was captured rather than
@@ -35,17 +39,22 @@ import { fileURLToPath } from 'node:url';
 import type { Context } from '@deepseek-ai/cordis';
 
 import { Config, resolveConfig } from './config.js';
-import type { DayflowConfig } from './config.js';
+import type { DayflowConfig, ResolvedConfig } from './config.js';
 import { createHostAnalyser } from './analyse/host.js';
 import type { HostLlmLike } from './analyse/host.js';
 import type { AnalysisRunResult } from './analyse/pipeline.js';
 import { AnalysisWorker } from './analyse/worker.js';
+import { runDayInsights } from './automation/insights.js';
+import { AutomationScheduler } from './automation/scheduler.js';
+import type { AutomationCloseOutcome } from './automation/scheduler.js';
+import { writeDailyBrief } from './briefs/daily.js';
+import { writeWeeklyBrief } from './briefs/weekly.js';
 import { readPreferences } from './categories.js';
 import { registerCommands } from './commands.js';
 import type { CommandRegistration } from './commands.js';
 import { registerMemoryContext } from './context.js';
 import { registerPanelRoutes } from './panel.js';
-import type { PanelCapturePermission } from './panel-contract.js';
+import type { PanelAutomationStatus, PanelCapturePermission } from './panel-contract.js';
 import { CaptureEngine } from './capture/engine.js';
 import { createNativeCaptureProvider } from './capture/provider.js';
 import type { NativeCaptureProvider } from './capture/provider.js';
@@ -105,6 +114,92 @@ function describeAnalysisRun(result: AnalysisRunResult): string {
 /** The text the analysis command shows when no worker is mounted. */
 const ANALYSIS_UNAVAILABLE_TEXT = 'analysis is not enabled or the model service is unavailable';
 
+/** The text the close command shows when no scheduler is mounted. */
+const AUTOMATION_UNAVAILABLE_TEXT = 'automation is not enabled or the model service is unavailable';
+
+/**
+ * The gate reasons a brief or insight pass reports instead of doing its work.
+ *
+ * The automation passes share the profile's consent and provider settings with
+ * frame analysis, so a blocked pass is a configuration outcome, not a failure:
+ * the run is recorded as skipped with the reason the panel and the status show.
+ */
+const AUTOMATION_BLOCKED_REASONS: ReadonlySet<string> = new Set([
+  'analysis-disabled',
+  'consent:none',
+  'provider-unset',
+  'model-unset',
+]);
+
+/** The part of a brief-writing result the close mapping reads. */
+interface BriefOutcomeView {
+  status: string;
+  reason?: string;
+}
+
+/** The part of an insight-pass result the close mapping reads. */
+interface InsightsOutcomeView {
+  status: string;
+  reasons: readonly string[];
+}
+
+/**
+ * Map a daily brief plus a day's insight pass onto one close outcome.
+ *
+ * Both passes share the same gates, so when both are skipped the reason says
+ * whether the close was blocked (consent, provider, or model) — recorded as
+ * skipped — or whether it simply had nothing new to write, which is a completed,
+ * idempotent close. A thrown failure never reaches this mapping: the close
+ * callback records it as failed, which is how a broken model call reaches the
+ * scheduler's bounded retry.
+ * @param brief - what the daily brief pass reported.
+ * @param insights - what the day's insight pass reported.
+ * @returns the close outcome the scheduler records.
+ */
+function describeDayClose(brief: BriefOutcomeView, insights: InsightsOutcomeView): AutomationCloseOutcome {
+  if (brief.status === 'skipped' && insights.status === 'skipped') {
+    const blocked = [brief.reason, insights.reasons[0]].find(
+      (reason) => reason !== undefined && AUTOMATION_BLOCKED_REASONS.has(reason),
+    );
+    return blocked === undefined ? { status: 'complete' } : { status: 'skipped', error: blocked };
+  }
+  return { status: 'complete' };
+}
+
+/**
+ * Map a weekly-brief result onto one close outcome.
+ *
+ * A skipped week means either a gate blocked it (recorded as skipped) or the
+ * brief already existed (a completed, idempotent no-op).
+ * @param weekly - what the weekly brief pass reported.
+ * @returns the close outcome the scheduler records.
+ */
+function describeWeekClose(weekly: BriefOutcomeView): AutomationCloseOutcome {
+  if (weekly.status !== 'skipped') return { status: 'complete' };
+  const reason = weekly.reason;
+  return reason !== undefined && AUTOMATION_BLOCKED_REASONS.has(reason)
+    ? { status: 'skipped', error: reason }
+    : { status: 'complete' };
+}
+
+/**
+ * The automation status the panel shows when the scheduler is not mounted.
+ *
+ * The profile still says when a close would run and how far a catch-up reaches;
+ * only the live state (a running pass, the last closes) is missing.
+ * @param resolved - the resolved plugin configuration.
+ * @returns the scheduled status with no run history.
+ */
+function scheduledAutomationStatus(resolved: ResolvedConfig): PanelAutomationStatus {
+  return {
+    enabled: resolved.automation.enabled,
+    running: false,
+    dailyAt: resolved.automation.dailyAt,
+    weeklyOn: resolved.automation.weeklyOn,
+    catchUpDays: resolved.automation.catchUpDays,
+  };
+}
+
 /**
  * Mount the Dayflow plugin.
  * @param ctx - the harness context.
@@ -118,10 +213,13 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
     presence: () => detectDayflow(resolved.databasePath),
   };
 
-  // The worker is created only when the host exposes `llm`; the command seam is
-  // read lazily because the command registry is injected before the worker.
+  // The worker and the close scheduler are created only when the host exposes
+  // `llm`; the command seam is read lazily because the command registry is
+  // injected before either loop exists.
   let analysisWorker: AnalysisWorker | undefined;
   let analysisRunner: (() => Promise<{ ok: boolean; text: string }>) | undefined;
+  let automationScheduler: AutomationScheduler | undefined;
+  let closeRunner: (() => Promise<{ ok: boolean; text: string }>) | undefined;
 
   for (const tool of readTools(runtime)) ctx.tools.register(tool);
   for (const tool of journalImportTools(runtime)) ctx.tools.register(tool);
@@ -164,6 +262,9 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
       // The status line reads the worker's state through this hook; it answers
       // "stopped" until the analysis worker has been mounted.
       analysisWorker: () => analysisWorker?.status() ?? { running: false },
+      // The close line reads the scheduler's live state through this hook; it
+      // answers with the profile's schedule until the scheduler has been mounted.
+      automationStatus: () => automationScheduler?.status() ?? scheduledAutomationStatus(resolved),
     });
   }
 
@@ -199,6 +300,12 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
         analysisRunner === undefined
           ? Promise.resolve({ ok: false, text: ANALYSIS_UNAVAILABLE_TEXT })
           : analysisRunner(),
+      // The close command runs the scheduler's own pass, so the timer and the
+      // manual trigger share the ledger, the catch-up window, and the gates.
+      runClose: () =>
+        closeRunner === undefined
+          ? Promise.resolve({ ok: false, text: AUTOMATION_UNAVAILABLE_TEXT })
+          : closeRunner(),
     });
   });
 
@@ -209,11 +316,12 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
     // pipeline whose missing analyser would write skipped terminal jobs.
     ctx.inject(['llm'], (scoped) => {
       const llm = (scoped as unknown as { llm: HostLlmLike }).llm;
+      const analyser = createHostAnalyser(llm);
       const worker = new AnalysisWorker({
         journalPath: runtime.config.journalPath,
         framesDirectory: join(dirname(runtime.config.journalPath), 'frames'),
         config: resolved,
-        analyser: createHostAnalyser(llm),
+        analyser,
       });
       analysisWorker = worker;
       analysisRunner = () =>
@@ -225,6 +333,77 @@ export function apply(ctx: Context, config: DayflowConfig = {}): void {
         worker.start();
         return () => worker.stop();
       }, 'dayflow analysis: worker');
+
+      if (resolved.automation.enabled) {
+        // The close work itself lives above this module: a day close writes the
+        // standup brief and then the day's insight pass, a week close writes the
+        // weekly rollup. The scheduler owns the clock and the ledger, and maps
+        // each pass's result onto the one outcome it records.
+        const closeDay = async (day: string): Promise<AutomationCloseOutcome> => {
+          try {
+            const brief = await writeDailyBrief({
+              journalPath: runtime.config.journalPath,
+              config: resolved,
+              analyser,
+              day,
+            });
+            const insights = await runDayInsights({
+              journalPath: runtime.config.journalPath,
+              config: resolved,
+              analyser,
+              day,
+            });
+            return describeDayClose(brief, insights);
+          } catch (error) {
+            return { status: 'failed', error: error instanceof Error ? error.message : String(error) };
+          }
+        };
+        const closeWeek = async (monday: string): Promise<AutomationCloseOutcome> => {
+          try {
+            const weekly = await writeWeeklyBrief({
+              journalPath: runtime.config.journalPath,
+              config: resolved,
+              analyser,
+              monday,
+            });
+            return describeWeekClose(weekly);
+          } catch (error) {
+            return { status: 'failed', error: error instanceof Error ? error.message : String(error) };
+          }
+        };
+        const scheduler = new AutomationScheduler({
+          journalPath: runtime.config.journalPath,
+          config: resolved,
+          runDayClose: closeDay,
+          runWeekClose: closeWeek,
+        });
+        automationScheduler = scheduler;
+        closeRunner = async () => {
+          const due = await scheduler.runDue();
+          const status = scheduler.status();
+          const parts: string[] = [];
+          let ok = true;
+          if (due.day !== undefined) {
+            const last = status.lastDayClose;
+            const word = last !== undefined && last.day === due.day ? last.status : 'complete';
+            if (word === 'failed') ok = false;
+            parts.push(`Day close ${due.day}: ${word}`);
+          }
+          if (due.week !== undefined) {
+            const last = status.lastWeekClose;
+            const word = last !== undefined && last.monday === due.week ? last.status : 'complete';
+            if (word === 'failed') ok = false;
+            parts.push(`Week close ${due.week}: ${word}`);
+          }
+          return parts.length === 0
+            ? { ok: true, text: 'No automation close is due.' }
+            : { ok, text: parts.join(' · ') };
+        };
+        scoped.effect(() => {
+          scheduler.start();
+          return () => scheduler.stop();
+        }, 'dayflow automation: scheduler');
+      }
     });
   }
 }

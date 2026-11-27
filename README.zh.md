@@ -17,7 +17,7 @@
 
 ![dsh Web GUI 中的 Dayflow 面板：月历圆环、带悬停卡片的周泳道，以及展开的一天](docs/demo.zh.gif)
 
-> **状态：** `v0.7.3` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
+> **状态：** `v0.7.4` 已在仓库打 tag，但尚未发布到 npm registry；`main` 是本文描述的 `0.7.x` patch 线
 > ——请从源码 checkout 安装；详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 它是什么
@@ -37,14 +37,16 @@ Dayflow 只看屏幕：前台是哪个应用或网站、上面有什么、持续
   `journal_memory`、`journal_reflection` 和 6 个编辑工具。全表 → [docs/TOOLS.md](docs/TOOLS.md)。
 - **8 个技能**：`dayflow`、`onboarding`、`standup`、`weekly-review`、`review-queue`、`long-task`、`memory`、`reflection`。
 - **可选 Web 面板**：月历分段圆环、周泳道、日视图，以及 **Journal insights（洞察）** 视图；只有一个头部按钮、
-  一个标签页和 17 条 host Fetch 路由。回顾队列可在面板里直接决定，任务 session 可直接关联或解绑，
+  一个标签页和 18 条 host Fetch 路由。回顾队列可在面板里直接决定，任务 session 可直接关联或解绑，
   无需 agent turn。细节 → [docs/PANEL.md](docs/PANEL.md)。
 - **快速记录**：三条斜杠命令（`/dayflow-task`、`/dayflow-remember`、`/dayflow-reflect`），洞察视图里的内联添加行，
   以及新建任务后的历史扫描与关联。→ [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md)。
 - **预算化记忆上下文**：active 长任务与最近的带日期记忆 claim 会注入，硬上限 1000 字节、60 秒缓存；
   没有值得说的内容时完全不注入。
 - **原生采集（预览）**：Phase 1 把帧写入自有日志，默认关闭；0.7.1 补上 consent 门禁后的分析管线，
-  0.7.2 让它跑在宿主的模型服务上，并在面板里显示状态行——默认 profile 仍然不会分析。
+  0.7.2 让它跑在宿主的模型服务上，并在面板里显示状态行。0.7.4 加上纯文本自动化：日收盘在 04:00、
+  周收盘在周一，失败重试、默认补收盘 2 天，并把 standup、brief、反思、回顾提案和任务 session 写入
+  自有日志——随 analysis 栈挂载，并受 `analysis.consent`、`analysis.provider`、`analysis.model` 门禁。
   → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md)。
 - **除 `dsh` 外零运行时依赖**：SQLite 来自 `node:sqlite`；Dayflow 编辑走应用的本地 Unix socket，自建日志则写自己的 SQLite 文件。
 
@@ -117,14 +119,14 @@ profile 也可以把入口整个关掉。
 ![dsh 右侧栏中的 Dayflow 月历](docs/panel.zh.png)
 
 - 从对话头部的 **Dayflow** 按钮打开，头部空间不够时收成图标；所有内容都是同一个面板标签页里的视图。
-- **17 条 host Fetch 路由**支撑这些视图：月、周、日、洞察、启用探测和图标，加上三条内联添加、
-  历史扫描与关联、回顾决定与任务 session 的 attach/detach、采集状态与暂停，以及 analysis 状态行。
-  面板自己从不直接访问数据库。
+- **18 条 host Fetch 路由**支撑这些视图：月、周、日、洞察、启用探测和图标，加上三条内联添加、
+  历史扫描与关联、回顾决定与任务 session 的 attach/detach、采集状态与暂停，以及 analysis 与
+  automation 状态行。面板自己从不直接访问数据库。
 - **不会把缺失数据画成零活动**：没有录屏的日期画淡点线，有录屏但无活动的日期画浅色轨道，
   分析排队中的日期显示琥珀色脉冲，有记录的日期才画彩色弧段。
 - **Journal insights（洞察）** 是第三个视图：进行中的长任务（含进度与停滞标记）、待决回顾队列、
-  最近的带日期记忆 claim、已保存的反思，以及一条紧凑的采集状态行。任务、记忆和反思块都支持内联添加，
-  回顾队列与任务 session 则可在面板内就地决定/解绑，不需要 agent turn。
+  最近的带日期记忆 claim、已保存的反思，以及三条紧凑状态行（采集、analysis 和定时收盘）。任务、记忆和
+  反思块都支持内联添加，回顾队列与任务 session 则可在面板内就地决定/解绑，不需要 agent turn。
 
 ![面板中展开的一天](docs/day.zh.png)
 
@@ -164,6 +166,18 @@ tick，对近似帧去重并执行保留清理。0.7.1 补上分析管线：cons
 没有按钮，分析仍在 profile 里开启，面板保持单入口。默认 profile 依旧不分析：`analysis.consent: 'none'`
 拦下所有调用，`cloud`/`local` 授权必须显式配置 provider 与 model，且进入模型的只是 app / 窗口标题 / hash
 元数据而不是图像字节。采集本身仍然默认关闭。
+
+0.7.4 补上**纯文本自动化**：schema v9（`automation_runs` 与 `briefs`）、在 `automation.dailyAt`
+（默认 04:00）收盘 Dayflow 的一天、在 `automation.weeklyOn`（默认周一）收盘一周的调度器，以及收盘后的洞察
+pass：写入当天的 **standup 条目**、周 **brief**、日/周 **反思**、最多三条**回顾提案**、仅在证据持久时写入
+**kept 记忆 claim**，以及匹配的**任务 session**。它随 analysis 栈挂载——与 worker 相同的
+`capture.enabled` + `analysis.enabled` + 宿主模型服务门禁——所以默认 profile（采集关闭）不会跑收盘
+job；挂载后，收盘还需要 `cloud`/`local` consent 加上显式 provider 与 model，否则记为 `skipped`、
+不调用模型。失败的收盘按两次尝试上限重试，`automation.catchUpDays`（默认 2，范围 1–30）限制下次启动
+最多补收盘多少天，更早的记为 `skipped` 而不重放；同一天重复收盘通过 `automation_runs` 保持幂等。
+`/dayflow-run-close` 手动触发一次收盘；Journal insights 在 analysis 行下方新增紧凑的 **close-state 行**
+（`日收盘 04:00 · 上次收盘 … · 周收盘 周一 · 补收盘 2 天`）；`GET /api/dayflow/automation/status` 返回同一份
+日程与最近收盘数据。schema 变更纯属新增：既有表与面板 payload 都不变。
 
 本地验证（不碰真实数据）：
 

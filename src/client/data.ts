@@ -8,6 +8,7 @@
 
 import {
   PANEL_ANALYSIS_STATUS_PATH,
+  PANEL_AUTOMATION_STATUS_PATH,
   PANEL_CAPTURE_PAUSE_PATH,
   PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
@@ -26,6 +27,7 @@ import {
 } from '../panel-contract.js';
 import type {
   PanelAnalysisStatus,
+  PanelAutomationStatusResponse,
   PanelCaptureStatusResponse,
   PanelConfig,
   PanelDay,
@@ -209,6 +211,25 @@ export async function fetchAnalysisStatus(signal?: AbortSignal): Promise<Analysi
   });
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as AnalysisStatusResponse;
+}
+
+/**
+ * Read the scheduled day/week close's status line's data.
+ *
+ * The schedule, the catch-up window, whether a close is running now, and the
+ * last stored close of each all come back in one answer, so the line renders
+ * from one read instead of several.
+ * @param signal - caller cancellation.
+ * @returns the automation status.
+ */
+export async function fetchAutomationStatus(signal?: AbortSignal): Promise<PanelAutomationStatusResponse> {
+  const response = await fetch(PANEL_AUTOMATION_STATUS_PATH, {
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+    ...(signal === undefined ? {} : { signal }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as PanelAutomationStatusResponse;
 }
 
 /**

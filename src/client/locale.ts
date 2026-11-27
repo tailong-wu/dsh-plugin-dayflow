@@ -152,6 +152,13 @@ export const ZH: Record<string, string> = {
   analysisLastJob: '上次任务 {time}',
   analysisPrivacy: '分析只拿到前台 app、窗口标题和帧 hash——不含图像。',
   analysisPrivacyCloud: 'cloud 授权下这份元数据会离开这台 Mac；不会发送图像。',
+  closeOff: '定时收盘未启用',
+  closeLine: '日收盘 {time}',
+  closeLast: '上次收盘 {day} {status}',
+  closeFailed: '失败',
+  closeWeekly: '周收盘 {day}',
+  closeCatchUp: '补收盘 {days} 天',
+  closeRunning: '正在收盘',
 };
 
 /** English copy. */
@@ -302,4 +309,11 @@ export const EN: Record<string, string> = {
   analysisLastJob: 'Last job {time}',
   analysisPrivacy: 'Analysis gets only the frontmost app, window title, and frame hash — no image.',
   analysisPrivacyCloud: 'Cloud consent sends that metadata off this Mac; no image is sent.',
+  closeOff: 'Scheduled close is off',
+  closeLine: 'Day closes {time}',
+  closeLast: 'last close {day} {status}',
+  closeFailed: 'failed',
+  closeWeekly: 'Week close {day}',
+  closeCatchUp: 'catch-up {days} days',
+  closeRunning: 'closing now',
 };

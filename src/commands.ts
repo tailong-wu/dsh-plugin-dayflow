@@ -1,6 +1,6 @@
 /**
  * Optional human slash commands: quick capture that writes the owned journal
- * directly, without a model turn, plus one manual analysis trigger.
+ * directly, without a model turn, plus two manual background triggers.
  *
  * The host `commands` service is injected dynamically, like the panel's
  * `connection`, so a headless composition (or an older host without a command
@@ -11,10 +11,11 @@
  * - `/dayflow-remember <claim>` appends a dated preference claim;
  * - `/dayflow-reflect <text>` appends a line to today's day reflection.
  *
- * `/dayflow-analyze` is different: it runs one analysis tick through the
- * callback the composition injects, because the worker and its host `llm`
- * binding live above this module. It takes no input, and it still goes through
- * the same consent gate as the scheduled worker.
+ * `/dayflow-analyze` and `/dayflow-run-close` are different: they run one
+ * background pass through the callbacks the composition injects, because the
+ * worker, the automation scheduler, and their host `llm` binding live above
+ * this module. Both take no input and still go through the same gates as the
+ * scheduled run.
  *
  * A handler opens the journal only while it writes, and every failure becomes
  * an `{ kind: 'error' }` result: a slash command must never throw into the host.
@@ -31,15 +32,24 @@ import { createLongTask } from './tasks.js';
 import type { ToolRuntime } from './tools/shared.js';
 
 /** The host-facing names of the quick-capture commands, without a leading slash. */
-export const DAYFLOW_COMMAND_NAMES = ['dayflow-task', 'dayflow-remember', 'dayflow-reflect', 'dayflow-analyze'] as const;
+export const DAYFLOW_COMMAND_NAMES = [
+  'dayflow-task',
+  'dayflow-remember',
+  'dayflow-reflect',
+  'dayflow-analyze',
+  'dayflow-run-close',
+] as const;
 
-/** The result of the injected manual-analysis callback. */
+/** The result of an injected background-run callback. */
 export interface AnalysisRunOutcome {
-  /** Whether the run completed without failing a window and without a gate. */
+  /** Whether the run completed without failing and without a gate. */
   ok: boolean;
   /** The user-facing summary; shown as an error result when `ok` is false. */
   text: string;
 }
+
+/** The result of the injected automation-close callback. */
+export type CloseRunOutcome = AnalysisRunOutcome;
 
 /** Optional callbacks a composition injects; a headless one passes none. */
 export interface CommandOptions {
@@ -49,6 +59,12 @@ export interface CommandOptions {
    * error result instead of failing.
    */
   runAnalysis?: () => Promise<AnalysisRunOutcome>;
+  /**
+   * Run any due automation close (day or week) now. The composition supplies
+   * this once its scheduler exists; without it `/dayflow-run-close` answers
+   * with an error result instead of failing.
+   */
+  runClose?: () => Promise<CloseRunOutcome>;
 }
 
 /**
@@ -56,6 +72,12 @@ export interface CommandOptions {
  * switches are off, or the host exposes no `llm` service to run against.
  */
 const ANALYSIS_UNAVAILABLE_TEXT = 'analysis is not enabled or the model service is unavailable';
+
+/**
+ * The text `/dayflow-run-close` shows when no close runner is available: the
+ * automation switch is off, or the host exposes no `llm` service to close with.
+ */
+const CLOSE_UNAVAILABLE_TEXT = 'automation is not enabled or the model service is unavailable';
 
 /** Evidence strength stamped on a claim captured with `/dayflow-remember`. */
 const QUICK_CLAIM_CONFIDENCE = 0.7;
@@ -204,6 +226,29 @@ async function runAnalysisCommand(options: CommandOptions, signal: AbortSignal):
   }
 }
 
+/**
+ * `/dayflow-run-close` — run any due automation close through the injected callback.
+ *
+ * The handler never throws: a missing callback, a rejected run, and a run that
+ * reports failure all become error results. The callback is the scheduler's own
+ * `runDue`, so the manual trigger uses the same ledger, gates, and catch-up
+ * window as the timer.
+ * @param options - the composition's automation-close runner, when it has one.
+ * @param signal - the host's cancellation signal for this invocation.
+ * @returns the user-facing result.
+ */
+async function runCloseCommand(options: CommandOptions, signal: AbortSignal): Promise<CommandOutcome> {
+  const runClose = options.runClose;
+  if (runClose === undefined) return { kind: 'error', text: CLOSE_UNAVAILABLE_TEXT };
+  try {
+    if (signal.aborted) return { kind: 'error', text: 'the close command was cancelled' };
+    const result = await runClose();
+    return { kind: result.ok ? 'success' : 'error', text: result.text };
+  } catch (error) {
+    return { kind: 'error', text: messageOf(error) };
+  }
+}
+
 /** One command's registration data, with its name typed against the exported list. */
 interface CommandDefinition {
   name: (typeof DAYFLOW_COMMAND_NAMES)[number];
@@ -241,13 +286,18 @@ const COMMANDS: readonly CommandDefinition[] = [
     description: 'Run one manual analysis tick for the current Dayflow day (same consent gates as the worker).',
     run: runAnalysisCommand,
   },
+  {
+    name: 'dayflow-run-close',
+    description: 'Run any due automation close (day or week) now; same gates as the scheduler.',
+    run: runCloseCommand,
+  },
 ];
 
 /**
- * Register the four human commands on the host's command registry.
+ * Register the five human commands on the host's command registry.
  *
  * Every handler is self-contained: a capture writes inside its own
- * {@link withJournalWrite} call and an analysis run is delegated to the
+ * {@link withJournalWrite} call and a background pass is delegated to the
  * composition's callback, and any failure becomes an error result, so a bad
  * invocation never breaks the host's command loop.
  * @param ctx - the scoped context carrying the host `commands` service.

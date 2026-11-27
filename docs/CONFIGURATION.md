@@ -39,8 +39,26 @@ works with an explicit `provider` **and** `model` — there is no implicit agent
 default route and no implicit image upload. The panel's analysis line and
 `GET /api/dayflow/analysis/status` report the worker's state and the day's
 call/token ledger; `/dayflow-analyze` runs one manual tick through the same
-consent gate. `automation` is still unused, so its keys change nothing.
-Defaults are shown.
+consent gate.
+
+On the 0.7.4 line `automation` is used: a scheduler closes a Dayflow day at
+`automation.dailyAt` and a Monday-anchored week on `automation.weeklyOn`. Both
+closes are **text-only LLM passes** — no images — and go through the analysis
+consent gate. The scheduler mounts with the analysis stack — `capture.enabled`
+and `analysis.enabled` on and the host's model service available, the same gate
+as the analysis worker — so a profile without native capture runs no closes;
+once mounted, a close needs `analysis.consent` set to `cloud` or `local`, an
+explicit `analysis.provider`, and an `analysis.model`, and is recorded
+`skipped` without a model call until then. A close writes the day's
+standup entry (`daily_standup_entries`), the weekly close adds a weekly brief
+(`briefs`), and both write day or week reflections, at most a few review
+proposals, and matching long-task sessions; memory claims are written only
+through a **kept** promotion, never silently made active. A failed close retries
+up to the run's two-attempt cap, and a missed close older than the
+`automation.catchUpDays` window is recorded as `skipped` rather than replayed.
+`/dayflow-run-close` runs one close by hand through the same idempotent store,
+and the panel's close-state line plus `GET /api/dayflow/automation/status`
+report the schedule and the last stored closes. Defaults are shown.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -57,10 +75,11 @@ Defaults are shown.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `automation.enabled` | `true` | Run the scheduled day and week closes. |
+| `automation.enabled` | `true` | Run the scheduled day and week closes (still gated by the analysis consent/provider/model). |
 | `automation.dailyAt` | `04:00` | Local time the day closes, as `HH:MM` (00:00–23:59). |
-| `automation.weeklyOn` | `monday` | Weekday of the weekly close. |
+| `automation.weeklyOn` | `monday` | Weekday of the weekly close, `monday`–`sunday` (lowercase). |
 | `automation.catchUpOnStart` | `true` | Run missed closes after the host starts. |
+| `automation.catchUpDays` | `2` | Size of the bounded catch-up window in days, including the due day (1–30); a missing day older than the window is recorded as `skipped`. |
 
 ## Native capture configuration
 

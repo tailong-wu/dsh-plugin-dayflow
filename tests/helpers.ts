@@ -88,6 +88,7 @@ export function makeRuntime(
       dailyAt: '04:00',
       weeklyOn: 'monday',
       catchUpOnStart: true,
+      catchUpDays: 2,
     },
     ...configOverrides,
   };

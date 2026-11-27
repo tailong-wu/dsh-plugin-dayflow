@@ -18,6 +18,12 @@
  * It is deliberately not a control surface — analysis is switched on in the
  * profile, and the panel keeps its one entry point and no new buttons.
  *
+ * A third, slimmer line under it reports the scheduled day/week close: the day
+ * boundary time, the last stored day close and its status, the weekday the week
+ * closes, and how many missed days a catch-up may close. Like the analysis line
+ * it is read-only and carries no control; a failed or missing status degrades to
+ * the quiet off tone instead of adding an error to a loaded journal.
+ *
  * Tasks, memory claims, and today's reflection can also be added from the view
  * itself: a ToDo-style row at the bottom of each of those three sections writes
  * the owned journal directly and refreshes the page on success. Adding a task
@@ -39,6 +45,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
 import type {
+  PanelAutomationStatus,
   PanelCaptureStatus,
   PanelInsights,
   PanelReviewItem,
@@ -51,6 +58,7 @@ import {
   addReflection,
   addTask,
   fetchAnalysisStatus,
+  fetchAutomationStatus,
   fetchCaptureStatus,
   linkTaskHistory,
   postReviewDecision,
@@ -58,7 +66,7 @@ import {
   scanTaskHistory,
   setCapturePaused,
 } from './data.js';
-import { formatClock, formatDuration, formatShare, panelLanguage, shortDate } from './format.js';
+import { formatClock, formatDuration, formatShare, panelLanguage, shortDate, weekdayLabels } from './format.js';
 import type { Translate } from './format.js';
 import type { Phase } from './types.js';
 
@@ -111,6 +119,21 @@ const OFF_ANALYSIS_STATUS: AnalysisStatusSummary = {
   maxCallsPerDay: 120,
   tokensToday: { input: 0, output: 0 },
   dailyTokenBudget: 200_000,
+};
+
+/**
+ * What the close line shows when the host does not answer: automation off.
+ *
+ * A host without the route, or a failed read, still renders the same quiet grey
+ * line the rest of the view uses, with no error text; the schedule fields are
+ * the shipped defaults so the copy stays coherent.
+ */
+const OFF_AUTOMATION_STATUS: PanelAutomationStatus = {
+  enabled: false,
+  running: false,
+  dailyAt: '04:00',
+  weeklyOn: 'monday',
+  catchUpDays: 2,
 };
 
 /** Where the optional history scan of a just-added task stands. */
@@ -675,6 +698,100 @@ function AnalysisLine(props: { status: AnalysisStatusSummary; t: Translate }): R
   );
 }
 
+/** The weekday names the scheduler writes, Monday first to match `weekdayLabels`. */
+const CLOSE_WEEKDAYS: readonly string[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+/**
+ * Name the configured weekly close in the panel's language.
+ *
+ * The host stores `automation.weeklyOn` as a lowercase English weekday; the
+ * calendar's own short labels are Monday-first, so the index maps straight
+ * across. An unknown value is shown as stored rather than guessed.
+ * @param status - the automation status.
+ * @param t - the bound translator.
+ * @returns the localised weekday label.
+ */
+function closeWeekday(status: PanelAutomationStatus, t: Translate): string {
+  const index = CLOSE_WEEKDAYS.indexOf(status.weeklyOn.toLowerCase());
+  if (index < 0) return status.weeklyOn;
+  return weekdayLabels(t)[index] ?? status.weeklyOn;
+}
+
+/**
+ * Translate a stored close status for the line.
+ *
+ * The one status the line must make legible is a failure; any other stored word
+ * (`complete`, `skipped`, …) is already readable and passes through unchanged.
+ * @param status - the stored close status.
+ * @param t - the bound translator.
+ * @returns the status word the line shows.
+ */
+function closeStatusWord(status: string, t: Translate): string {
+  return status === 'failed' ? t('closeFailed') : status;
+}
+
+/**
+ * The slim read-only line for the scheduled day/week close.
+ *
+ * It reports the day boundary time, the last stored day close and its status,
+ * the weekday the week closes, and the catch-up window; a failed last close
+ * turns the dot amber and a disabled automation turns it grey. It deliberately
+ * carries no control and no new entry point: the automation block lives in the
+ * profile, and the panel keeps its single button and its three views.
+ * @param props - the automation status and the translator.
+ * @returns the line in its current tone.
+ */
+function CloseLine(props: { status: PanelAutomationStatus; t: Translate }): ReactNode {
+  const { status, t } = props;
+  const failed = status.lastDayClose?.status === 'failed';
+  const tone = !status.enabled ? 'is-off' : failed ? 'is-warn' : 'is-on';
+  const lastClose = status.lastDayClose;
+
+  return (
+    <div className={`dfp-close-line ${tone}`} role="status">
+      <span className="dfp-close-dot" aria-hidden="true" />
+      <span className="dfp-close-copy">
+        {status.enabled ? (
+          <>
+            <span className="dfp-close-state">{t('closeLine', { time: status.dailyAt })}</span>
+            {lastClose !== undefined && (
+              <>
+                <Sep />
+                <span className="dfp-close-last">
+                  {t('closeLast', {
+                    day: shortDate(lastClose.day, t),
+                    status: closeStatusWord(lastClose.status, t),
+                  })}
+                </span>
+              </>
+            )}
+            <Sep />
+            <span className="dfp-close-weekly">{t('closeWeekly', { day: closeWeekday(status, t) })}</span>
+            <Sep />
+            <span className="dfp-close-catchup">{t('closeCatchUp', { days: status.catchUpDays })}</span>
+            {status.running && (
+              <>
+                <Sep />
+                <span className="dfp-close-running">{t('closeRunning')}</span>
+              </>
+            )}
+          </>
+        ) : (
+          <span className="dfp-close-state">{t('closeOff')}</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
 /**
  * The capture card under a task add: offer to scan the recent history, preview
  * the days whose activity matches the task, and link the confirmed ones.
@@ -807,6 +924,7 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
   const [captureBusy, setCaptureBusy] = useState(false);
   const [captureError, setCaptureError] = useState('');
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatusSummary | undefined>(undefined);
+  const [automationStatus, setAutomationStatus] = useState<PanelAutomationStatus | undefined>(undefined);
   // One review decision at a time, and one session unlink at a time: the item
   // row disables its own buttons while its write is in flight.
   const [unlinking, setUnlinking] = useState<string | undefined>(undefined);
@@ -872,6 +990,27 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
       () => {
         if (controller.signal.aborted) return;
         setAnalysisStatus(OFF_ANALYSIS_STATUS);
+      },
+    );
+    return () => {
+      controller.abort();
+    };
+  }, [nonce]);
+
+  // The close line rides the same refresh as the two lines above: one more read
+  // beside the insights read. A host without the route (or a failed read)
+  // degrades to the quiet off line, because a missing schedule is not a load
+  // error and must not add noise to a journal that already loaded.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAutomationStatus(controller.signal).then(
+      (answer) => {
+        if (controller.signal.aborted) return;
+        setAutomationStatus(answer.automation);
+      },
+      () => {
+        if (controller.signal.aborted) return;
+        setAutomationStatus(OFF_AUTOMATION_STATUS);
       },
     );
     return () => {
@@ -1016,6 +1155,8 @@ export function InsightsPanel({ loadInsights, t }: InsightsPanelProps): ReactNod
       )}
 
       {analysisStatus !== undefined && <AnalysisLine status={analysisStatus} t={t} />}
+
+      {automationStatus !== undefined && <CloseLine status={automationStatus} t={t} />}
 
       {phase === 'loading' && data === undefined && <div className="dfp-state">{t('insightsLoading')}</div>}
 

@@ -40,6 +40,7 @@ import { dayWindowContaining, dayWindowForKey, formatDayKey, timeZoneName, weekW
 import { DayflowError, isDayflowError } from './errors.js';
 import {
   PANEL_ANALYSIS_STATUS_PATH,
+  PANEL_AUTOMATION_STATUS_PATH,
   PANEL_CAPTURE_PAUSE_PATH,
   PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
@@ -62,6 +63,8 @@ import {
 } from './panel-contract.js';
 import type {
   PanelAnalysisStatus,
+  PanelAutomationStatus,
+  PanelAutomationStatusResponse,
   PanelCapturePermission,
   PanelCaptureStatus,
   PanelCaptureStatusResponse,
@@ -756,6 +759,13 @@ export interface PanelRouteOptions {
    * which uses it when no `analysisStatus` builder is injected.
    */
   analysisWorker?: () => { running: boolean };
+  /**
+   * Builds the automation status the status route answers with. The
+   * composition injects this when it owns the scheduler; without it the route
+   * builds the scheduled part from the profile's `automation` block and reports
+   * an idle, never-run state.
+   */
+  automationStatus?: () => PanelAutomationStatus | Promise<PanelAutomationStatus>;
 }
 
 /** The permission the status line reports when no probe is injected. */
@@ -857,6 +867,46 @@ async function buildPanelAnalysisStatus(
       ...(worker === undefined ? {} : { worker }),
     }),
   };
+}
+
+/**
+ * Build the automation status the Insights view shows when nothing is injected.
+ *
+ * The live state belongs to the scheduler, so this fallback reports only what
+ * the profile itself says: the switches, the day/week time, and the catch-up
+ * window. A run in progress and the last closes are left off because only the
+ * scheduler knows them; the line still renders from this answer.
+ * @param runtime - the plugin runtime.
+ * @returns the scheduled status with no run history.
+ */
+function buildPanelAutomationStatus(runtime: ToolRuntime): PanelAutomationStatus {
+  const automation = runtime.config.automation;
+  return {
+    enabled: automation.enabled,
+    running: false,
+    dailyAt: automation.dailyAt,
+    weeklyOn: automation.weeklyOn,
+    catchUpDays: automation.catchUpDays,
+  };
+}
+
+/**
+ * Build the automation status the Insights view shows.
+ *
+ * The composition may inject a ready-made builder because it is the only layer
+ * that knows the scheduler's run state; when it does not, the route answers the
+ * scheduled state from the profile. Either way this is a read: it never opens or
+ * creates the journal.
+ * @param runtime - the plugin runtime.
+ * @param options - the route options holding the injected builder.
+ * @returns the status response body.
+ */
+async function buildPanelAutomation(runtime: ToolRuntime, options: PanelRouteOptions): Promise<PanelAutomationStatusResponse> {
+  const automation =
+    options.automationStatus === undefined
+      ? buildPanelAutomationStatus(runtime)
+      : await options.automationStatus();
+  return { automation };
 }
 
 /**
@@ -997,6 +1047,22 @@ export function registerPanelRoutes(ctx: Context, runtime: ToolRuntime, options:
       fetch: async () => {
         try {
           return jsonResponse((await buildPanelAnalysisStatus(runtime, options)) satisfies PanelAnalysisStatus);
+        } catch (error) {
+          return failureResponse(error);
+        }
+      },
+    });
+    // The automation status line: when the scheduled day and week close run, the
+    // last stored close of each, and the catch-up window. The scheduler owns the
+    // live state and injects its builder; the fallback reports the profile's
+    // schedule only. It is a read, so a missing journal is never created.
+    connection.fetch.register({
+      path: PANEL_AUTOMATION_STATUS_PATH,
+      methods: ['GET'],
+      requestBody: 'buffered',
+      fetch: async () => {
+        try {
+          return jsonResponse((await buildPanelAutomation(runtime, options)) satisfies PanelAutomationStatusResponse);
         } catch (error) {
           return failureResponse(error);
         }

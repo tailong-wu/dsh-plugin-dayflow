@@ -377,3 +377,44 @@ test('the analysis status copy exists in both dictionaries', () => {
   assert.equal(enT('analysisLastJob', { time: '9:12 AM' }), 'Last job 9:12 AM');
   assert.equal(zhT('analysisLastJob', { time: '09:12' }), '上次任务 09:12');
 });
+
+test('the automation close line copy exists in both dictionaries', () => {
+  // Every label the close line under the analysis line renders; the two
+  // dictionaries share the key set, so a missing language fails here.
+  const keys = [
+    'closeOff',
+    'closeLine',
+    'closeLast',
+    'closeFailed',
+    'closeWeekly',
+    'closeCatchUp',
+    'closeRunning',
+  ];
+  for (const key of keys) {
+    assert.ok((EN[key] ?? '').length > 0, `English copy for ${key} is not empty`);
+    assert.ok((ZH[key] ?? '').length > 0, `Chinese copy for ${key} is not empty`);
+  }
+  // The placeholders are the line's only data carries; both languages must
+  // interpolate the same ones so no language leaks a raw `{…}`.
+  for (const dictionary of [EN, ZH]) {
+    assert.match(dictionary['closeLine'] ?? '', /\{time\}/);
+    assert.match(dictionary['closeLast'] ?? '', /\{day\}/);
+    assert.match(dictionary['closeLast'] ?? '', /\{status\}/);
+    assert.match(dictionary['closeWeekly'] ?? '', /\{day\}/);
+    assert.match(dictionary['closeCatchUp'] ?? '', /\{days\}/);
+  }
+  for (const key of ['closeOff', 'closeFailed', 'closeRunning']) {
+    assert.doesNotMatch(EN[key] ?? '', /\{\w+\}/, `English copy for ${key} has no placeholder`);
+    assert.doesNotMatch(ZH[key] ?? '', /\{\w+\}/, `Chinese copy for ${key} has no placeholder`);
+  }
+  assert.equal(enT('closeLine', { time: '04:00' }), 'Day closes 04:00');
+  assert.equal(zhT('closeLine', { time: '04:00' }), '日收盘 04:00');
+  assert.equal(enT('closeWeekly', { day: 'Mon' }), 'Week close Mon');
+  assert.equal(zhT('closeWeekly', { day: '周一' }), '周收盘 周一');
+  assert.equal(enT('closeLast', { day: 'Nov 26', status: 'failed' }), 'last close Nov 26 failed');
+  assert.equal(zhT('closeLast', { day: '11月26日', status: '失败' }), '上次收盘 11月26日 失败');
+  assert.equal(enT('closeCatchUp', { days: 2 }), 'catch-up 2 days');
+  assert.equal(zhT('closeCatchUp', { days: 2 }), '补收盘 2 天');
+  assert.equal(enT('closeOff'), 'Scheduled close is off');
+  assert.equal(zhT('closeOff'), '定时收盘未启用');
+});

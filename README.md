@@ -16,7 +16,7 @@ journal imported from it once, and nothing leaves the Mac.
 
 ![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-> **Status:** `v0.7.3` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
+> **Status:** `v0.7.4` is tagged here but not yet on the npm registry; `main` is the `0.7.x` patch line this
 > README describes — install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it is
@@ -41,7 +41,7 @@ stayed. That is the whole dataset.
 - **8 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`,
   and `reflection`.
 - **An optional Web panel**: month segmented rings, week swim lanes, a day view, and a **Journal insights**
-  view — one header button, one tab, and 17 host Fetch routes. Review items are decided and task sessions
+  view — one header button, one tab, and 18 host Fetch routes. Review items are decided and task sessions
   linked or unlinked in the panel, with no agent turn. Details → [docs/PANEL.md](docs/PANEL.md).
 - **Quick capture**: three slash commands (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`), inline
   add rows in the insights view, and a post-add history scan → [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
@@ -49,7 +49,10 @@ stayed. That is the whole dataset.
   1000-byte cap with a 60-second cache; nothing is injected when there is nothing worth saying.
 - **Native capture (preview)**: Phase 1 records frames into the owned journal, off by default; 0.7.1 added the
   analysis pipeline behind a consent gate, and 0.7.2 runs it on the host's model service with a status line in
-  the panel — still inert on a default profile → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
+  the panel. 0.7.4 adds the text-only automation: the day closes at 04:00 and the week on Monday, with
+  retries, a two-day catch-up window, and a standup, brief, reflection, review proposals, and task sessions
+  written into the owned journal — mounted with the analysis stack, and gated by `analysis.consent`,
+  `analysis.provider`, and `analysis.model` → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
 - **Zero runtime dependencies** beyond `dsh`: SQLite comes from `node:sqlite`; Dayflow edits use the
   app's local Unix socket, while the owned journal has its own SQLite file.
 
@@ -129,17 +132,18 @@ entry point off entirely.
 
 - Open it from the **Dayflow** button in the conversation header; it collapses to an icon
   when the header runs out of room. Everything is views inside one panel tab.
-- **17 host Fetch routes** back the views: month, week, day, insights, the enablement
+- **18 host Fetch routes** back the views: month, week, day, insights, the enablement
   probe, and icons, plus the three inline adds, the history scan and link, the review
-  decision and task-session attach/detach, capture status and pause, and the analysis
-  status line. The panel never touches the database itself.
+  decision and task-session attach/detach, capture status and pause, and the analysis and
+  automation status lines. The panel never touches the database itself.
 - **A day's state is never faked.** A day with no captures draws a faint dotted track, a
   captured day with nothing to show draws a plain track, queued analysis pulses amber, and
   a recorded day draws its arcs; missing data is not zero activity.
 - **Journal insights** is the third view: active long tasks with progress and stalled
-  marks, the open review queue, recent dated memory claims, stored reflections, and one
-  compact capture line. The tasks, memory, and reflections blocks take a line of your own,
-  and review items are decided in place while task sessions can be unlinked — no agent turn.
+  marks, the open review queue, recent dated memory claims, stored reflections, and three
+  compact status lines (capture, analysis, and the scheduled close). The tasks, memory,
+  and reflections blocks take a line of your own, and review items are decided in place
+  while task sessions can be unlinked — no agent turn.
 
 ![One day open in the panel](docs/day.en.png)
 
@@ -187,6 +191,22 @@ runs one manual tick through the same gate; there is no button in the panel, so 
 profile and the panel keeps its one entry. It is still inert on a default profile: `analysis.consent: 'none'`
 blocks every call, a `cloud` or `local` consent needs an explicit provider and model, and frames reach the
 model as app / window title / hash metadata rather than image bytes. Capture itself remains off by default.
+
+0.7.4 adds the **text-only automation slice**: schema v9 (`automation_runs` and `briefs`), a scheduler that
+closes the Dayflow day at `automation.dailyAt` (04:00 by default) and the Monday-anchored week at
+`automation.weeklyOn`, and an insights pass that writes the day's **standup entry**, the weekly **brief**,
+day/week **reflections**, at most three **review proposals**, kept **memory claims** only when the evidence is
+durable, and the matching **task sessions**. It mounts with the analysis stack — the same
+`capture.enabled` + `analysis.enabled` + host model service gate as the worker — so a default profile (capture
+off) runs no close jobs; once mounted, a close needs a `cloud`/`local` consent plus an explicit provider and
+model, and is recorded `skipped` with no model call otherwise. A failed close retries up to the two-attempt
+cap, `automation.catchUpDays` (default 2, 1–30) bounds how many missed days the next start catches up, and
+anything older is recorded
+`skipped` instead of replayed. Re-running a day is a no-op through `automation_runs`. `/dayflow-run-close`
+triggers one close by hand, the Journal insights view gains a compact **close-state line** under the analysis
+line (`Day closes 04:00 · last close … · Week close Mon · catch-up 2 days`), and
+`GET /api/dayflow/automation/status` answers the same schedule and last-close data. The schema change is
+purely additive: existing tables and panel payloads are unchanged.
 
 Verify it locally without touching real data:
 

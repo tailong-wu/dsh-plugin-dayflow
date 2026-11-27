@@ -20,7 +20,7 @@ import type { ResolvedConfig } from './config.js';
 import { defaultJournalPath } from './paths.js';
 
 /** Current owned-store schema version. Migrations are forward-only. */
-export const JOURNAL_SCHEMA_VERSION = 8;
+export const JOURNAL_SCHEMA_VERSION = 9;
 /** Default source id used by an import from a Dayflow database. */
 export const DAYFLOW_SOURCE_ID = 'dayflow';
 
@@ -490,6 +490,46 @@ const MIGRATION_8 = `
   );
   CREATE INDEX IF NOT EXISTS analysis_jobs_day_idx ON analysis_jobs (day, window_start_ts);
   CREATE INDEX IF NOT EXISTS analysis_jobs_status_idx ON analysis_jobs (status);
+`;
+
+/**
+ * Migration 9 adds the automation ledger and the brief store.
+ *
+ * `automation_runs` is one row per scheduled closing job: `(job, day)` is
+ * unique so the same job for the same day runs at most once, `status` is the
+ * lifecycle state machine the scheduler walks, and `attempts` caps retries.
+ * `briefs` is the generated summary of one day or one week:
+ * `(kind, period_key)` is unique, so regenerating a period rewrites its row
+ * instead of piling up copies. Both tables start empty: automation is opt-in.
+ */
+const MIGRATION_9 = `
+  CREATE TABLE IF NOT EXISTS automation_runs (
+    id INTEGER PRIMARY KEY,
+    job TEXT NOT NULL CHECK (job IN ('day_close','week_close')),
+    day TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending','running','complete','failed','skipped')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    payload_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (job, day)
+  );
+  CREATE INDEX IF NOT EXISTS automation_runs_day_idx ON automation_runs (day);
+  CREATE TABLE IF NOT EXISTS briefs (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('day','week')),
+    period_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    model TEXT,
+    source_id TEXT NOT NULL DEFAULT 'native',
+    source_key TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (kind, period_key)
+  );
 `;
 
 /**
@@ -1028,6 +1068,11 @@ export function migrateJournal(db: DatabaseSync): number {
       db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(8);
       version = 8;
     }
+    if (version < 9) {
+      db.exec(MIGRATION_9);
+      db.prepare('UPDATE schema_version SET version = ?, applied_at = CURRENT_TIMESTAMP').run(9);
+      version = 9;
+    }
     db.exec('COMMIT');
     return version;
   } catch (cause) {
@@ -1064,7 +1109,7 @@ function journalReady(path: string): boolean {
       .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'view' AND name = 'timeline_cards'")
       .get() as Row | undefined;
     if (view?.present !== 1) return false;
-    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims', 'reflections', 'capture_state', 'analysis_jobs']) {
+    for (const table of ['review_items', 'long_tasks', 'long_task_sessions', 'memory_claims', 'reflections', 'capture_state', 'analysis_jobs', 'automation_runs', 'briefs']) {
       const present = db
         .prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?")
         .get(table) as Row | undefined;

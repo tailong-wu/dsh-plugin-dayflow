@@ -13,6 +13,7 @@ import { openJournal } from '../src/journal.js';
 import { addMemoryClaim, supersedeMemoryClaim } from '../src/memory.js';
 import {
   PANEL_ANALYSIS_STATUS_PATH,
+  PANEL_AUTOMATION_STATUS_PATH,
   PANEL_CAPTURE_PAUSE_PATH,
   PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
@@ -262,6 +263,7 @@ test('the day route answers JSON and rejects an impossible date', async () => {
       PANEL_TASK_LINK_PATH,
       PANEL_CAPTURE_PAUSE_PATH,
       PANEL_ANALYSIS_STATUS_PATH,
+      PANEL_AUTOMATION_STATUS_PATH,
       PANEL_REVIEW_DECIDE_PATH,
       PANEL_TASK_ATTACH_PATH,
       PANEL_TASK_DETACH_PATH,

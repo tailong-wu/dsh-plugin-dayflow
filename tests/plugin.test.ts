@@ -106,19 +106,26 @@ function fakeContext(): { ctx: Context; capture: Capture } {
   return { ctx, capture };
 }
 
-test('apply registers the four human slash commands', () => {
+test('apply registers the five human slash commands', () => {
   const { ctx, capture } = fakeContext();
   apply(ctx, { databasePath: fixture.path });
 
   assert.deepEqual(
     capture.commands.map((command) => command.name),
-    ['dayflow-task', 'dayflow-remember', 'dayflow-reflect', 'dayflow-analyze'],
+    [
+      'dayflow-task',
+      'dayflow-remember',
+      'dayflow-reflect',
+      'dayflow-analyze',
+      'dayflow-run-close',
+    ],
   );
   for (const command of capture.commands) {
     assert.ok(command.description.length > 0, `${command.name} has a description`);
-    if (command.name === 'dayflow-analyze') {
-      // The manual analysis tick takes no argument: it analyses the current day.
-      assert.equal(command.input, undefined, 'the analysis tick declares no input hint');
+    if (command.name === 'dayflow-analyze' || command.name === 'dayflow-run-close') {
+      // Both run a background tick and take no argument: one analyses the
+      // current day, the other runs whatever close is due now.
+      assert.equal(command.input, undefined, `${command.name} declares no input hint`);
       continue;
     }
     assert.ok(command.input !== undefined, `${command.name} declares an input hint`);
@@ -132,8 +139,14 @@ test('the slash commands do not depend on the panel being enabled', () => {
 
   assert.deepEqual(
     capture.commands.map((command) => command.name),
-    ['dayflow-task', 'dayflow-remember', 'dayflow-reflect', 'dayflow-analyze'],
-    'a headless panel still gets human quick capture',
+    [
+      'dayflow-task',
+      'dayflow-remember',
+      'dayflow-reflect',
+      'dayflow-analyze',
+      'dayflow-run-close',
+    ],
+    'a headless panel still gets human quick capture and the background tick commands',
   );
   assert.deepEqual(capture.routes, [], 'panel: false registers no Fetch routes');
 });
@@ -171,6 +184,7 @@ test('apply registers twenty-three tools, eight skills, and one prompt section',
   );
   assert.deepEqual([...capture.routes].sort(), [
     '/api/dayflow/analysis/status',
+    '/api/dayflow/automation/status',
     '/api/dayflow/capture/pause',
     '/api/dayflow/capture/status',
     '/api/dayflow/day',

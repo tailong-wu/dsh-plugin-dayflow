@@ -1,6 +1,7 @@
 /**
- * Schema v7 capture state, native screenshot rows, and the
- * capture/analysis/automation configuration contract.
+ * Schema migrations (through v9: capture state, the analysis ledger, and the
+ * automation tables), native screenshot rows, and the capture/analysis/automation
+ * configuration contract.
  *
  * The journal tests use a disposable directory per file: every case opens its
  * own SQLite file, so a migration case cannot leak state into a state case.
@@ -96,27 +97,28 @@ function isSchemaValidationError(error: unknown): boolean {
 // Migrations
 // ---------------------------------------------------------------------------
 
-test('a new journal migrates to schema v8 and creates capture_state', () => {
-  assert.equal(JOURNAL_SCHEMA_VERSION, 8);
+test('a new journal migrates to schema v9 and creates the automation tables', () => {
+  assert.equal(JOURNAL_SCHEMA_VERSION, 9);
   const path = journalPath();
 
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 8);
-    assert.equal(tableExists(db, 'capture_state'), true);
-    assert.equal(tableExists(db, 'analysis_jobs'), true);
-    // The rest of v7 is still there: v8 is additive.
+    assert.equal(schemaVersion(db), 9);
+    for (const table of ['capture_state', 'analysis_jobs', 'automation_runs', 'briefs']) {
+      assert.equal(tableExists(db, table), true, `${table} is created by v9`);
+    }
+    // The rest of v8 is still there: v9 is additive.
     for (const table of ['activities', 'screenshots', 'long_tasks', 'memory_claims', 'reflections']) {
-      assert.equal(tableExists(db, table), true, `${table} survives v8`);
+      assert.equal(tableExists(db, table), true, `${table} survives v9`);
     }
   });
 
   // Reopening an already-current journal is a no-op rather than another migration.
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 8);
+    assert.equal(schemaVersion(db), 9);
   });
 });
 
-test('a v7 journal upgrades to v8 and keeps its tasks and memory claims', () => {
+test('a v8 journal upgrades to v9 and keeps its tasks and memory claims', () => {
   const path = journalPath();
 
   withJournalDb(path, (db) => {
@@ -127,16 +129,18 @@ test('a v7 journal upgrades to v8 and keeps its tasks and memory claims', () => 
     db.prepare(
       "INSERT INTO memory_claims (kind, subject, body, observed_on) VALUES ('preference', 'capture switch', 'on 2026-10-19, capture was off by default', '2026-10-19')",
     ).run();
-    // Rewind to a real v7 journal: the table v8 adds is absent, the version says 7.
-    db.exec('DROP TABLE analysis_jobs');
-    db.prepare('UPDATE schema_version SET version = 7 WHERE version = 8').run();
-    assert.equal(schemaVersion(db), 7);
+    // Rewind to a real v8 journal: the tables v9 adds are absent, the version says 8.
+    db.exec('DROP TABLE automation_runs');
+    db.exec('DROP TABLE briefs');
+    db.prepare('UPDATE schema_version SET version = 8 WHERE version = 9').run();
+    assert.equal(schemaVersion(db), 8);
   });
 
   withJournalDb(path, (db) => {
-    assert.equal(schemaVersion(db), 8);
-    assert.equal(tableExists(db, 'capture_state'), true);
-    assert.equal(tableExists(db, 'analysis_jobs'), true);
+    assert.equal(schemaVersion(db), 9);
+    for (const table of ['capture_state', 'analysis_jobs', 'automation_runs', 'briefs']) {
+      assert.equal(tableExists(db, table), true, `${table} exists after the upgrade`);
+    }
     const taskRows = db.prepare('SELECT title FROM long_tasks ORDER BY id').all() as { title?: unknown }[];
     assert.deepEqual(
       taskRows.map((row) => row.title),
@@ -147,8 +151,12 @@ test('a v7 journal upgrades to v8 and keeps its tasks and memory claims', () => 
       memoryRows.map((row) => row.body),
       ['on 2026-10-19, capture was off by default'],
     );
-    // The new table starts empty, which reads as "not paused".
-    assert.deepEqual(readCaptureState(db), { paused: false });
+    // The new tables start empty, so a fresh v9 journal has nothing scheduled.
+    assert.equal(readCaptureState(db).paused, false);
+    const automationRows = db.prepare('SELECT count(*) AS rows FROM automation_runs').all() as { rows?: unknown }[];
+    const briefRows = db.prepare('SELECT count(*) AS rows FROM briefs').all() as { rows?: unknown }[];
+    assert.equal(Number(automationRows[0]?.rows), 0);
+    assert.equal(Number(briefRows[0]?.rows), 0);
   });
 });
 
@@ -400,6 +408,7 @@ test('capture, analysis, and automation default to safe values', () => {
     dailyAt: '04:00',
     weeklyOn: 'monday',
     catchUpOnStart: true,
+    catchUpDays: 2,
   });
 
   // The loader schema applies the same defaults before resolveConfig sees them.
@@ -413,7 +422,7 @@ test('nested blocks can be overridden without disturbing the others', () => {
   const resolved = resolveConfig({
     capture: { enabled: true, intervalSeconds: 10, displays: 'all' },
     analysis: { consent: 'cloud', provider: ' deepseek ', model: ' deepseek-flash ' },
-    automation: { dailyAt: '23:59', weeklyOn: 'sunday', catchUpOnStart: false },
+    automation: { dailyAt: '23:59', weeklyOn: 'sunday', catchUpOnStart: false, catchUpDays: 7 },
   });
 
   assert.equal(resolved.capture.enabled, true);
@@ -427,7 +436,9 @@ test('nested blocks can be overridden without disturbing the others', () => {
   assert.equal(resolved.automation.dailyAt, '23:59');
   assert.equal(resolved.automation.weeklyOn, 'sunday');
   assert.equal(resolved.automation.catchUpOnStart, false);
+  assert.equal(resolved.automation.catchUpDays, 7, 'the catch-up window is overridable');
   assert.equal(resolved.automation.enabled, true);
+  assert.equal(resolveConfig({}).automation.catchUpDays, 2, 'the default window is two days');
 
   // The existing keys and the source/dayflow alias are unchanged.
   const owned = resolveConfig({ dayflow: false, searchLimit: 10 });
@@ -461,6 +472,8 @@ test('explicit invalid capture, analysis, and automation values are rejected', (
     { label: 'automation.dailyAt hour', value: { automation: { dailyAt: '25:00' } } },
     { label: 'automation.dailyAt padding', value: { automation: { dailyAt: '4:00' } } },
     { label: 'automation.weeklyOn', value: { automation: { weeklyOn: 'someday' } } },
+    { label: 'automation.catchUpDays too small', value: { automation: { catchUpDays: 0 } } },
+    { label: 'automation.catchUpDays too large', value: { automation: { catchUpDays: 31 } } },
   ];
 
   for (const { label, value } of rejected) {

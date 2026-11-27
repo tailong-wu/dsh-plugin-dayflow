@@ -72,7 +72,7 @@ card placed at its time and tinted with its category colour.
   (see [Quick capture](QUICK_CAPTURE.md)); the review queue has no add row — its
   items are the agent's proposals — but each one can be decided in place, and a
   task session can be unlinked (see below).
-- Above those sections sit two quiet status lines. The first is the native
+- Above those sections sit three quiet status lines. The first is the native
   capture strip (permission, today's frame count, Pause/Resume). The second
   reports the **analysis worker** as read-only: off, waiting for consent, a
   missing provider or model, paused with capture, running, idle, or a stopped
@@ -84,6 +84,15 @@ card placed at its time and tinted with its category colour.
   Mac while no image is sent. It has **no button** — analysis is enabled and
   consented in the profile — so the panel keeps its single entry point and adds
   no second control surface.
+- The third line is the **close-state line**: one compact row under the
+  analysis line that reads `Day closes 04:00`, the last stored day close and
+  its status (`last close Nov 26 complete`), `Week close Mon`, and
+  `catch-up 2 days` (the `automation.catchUpDays` window). Its dot is green
+  for an enabled schedule (or a close running now), amber when the last day
+  close failed, and grey when automation is off; a failed or missing read
+  degrades to the quiet grey line instead of an error. Like the analysis line
+  it is status, not a control: no button, no new view, no header entry, and
+  the copy is in both languages.
 
 ### Decisions in the panel
 
@@ -117,6 +126,27 @@ card placed at its time and tinted with its category colour.
 - **Nothing else moved.** Deciding is still the same **Journal insights** view:
   no schema change, no model call, no second tab, and no new header button.
 
+### Automation status
+
+- The close-state line above reads `GET /api/dayflow/automation/status`, which
+  answers `{automation: {...}}`:
+  - `enabled`, `running` — the profile's `automation.enabled` switch and
+    whether a day or week close is running now;
+  - `dailyAt`, `weeklyOn`, `catchUpDays` — the schedule and the catch-up
+    window (default `04:00`, `monday`, `2`, bounded 1–30);
+  - `lastDayClose` / `lastWeekClose` — the last stored close of each as
+    `{day, status, at}` and `{monday, status, at}`, absent until one has run;
+  - `nextDayCloseAt` — epoch milliseconds of the next scheduled close, absent
+    when unknown.
+- The scheduler owns the live fields, so the host composition injects the
+  builder; without one the route derives the schedule from the `automation`
+  block and reports idle. The route is a read: it never opens or creates the
+  owned journal, so a fresh profile answers the schedule without a file.
+- The line adds no control. Enabling automation, choosing the time or the
+  weekday, and setting the catch-up window stay profile edits
+  ([CONFIGURATION.md](CONFIGURATION.md)); the panel's single entry point and
+  three views are unchanged.
+
 ## Panel routes and icons
 
 - The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`,
@@ -130,10 +160,11 @@ card placed at its time and tinted with its category colour.
   (a review decision) and `POST /api/dayflow/tasks/attach` /
   `POST /api/dayflow/tasks/detach` (one day of a task's sessions). The
   native capture line adds `GET /api/dayflow/capture/status` and
-  `POST /api/dayflow/capture/pause`, and the analysis line adds
-  `GET /api/dayflow/analysis/status` (see
+  `POST /api/dayflow/capture/pause`, the analysis line adds
+  `GET /api/dayflow/analysis/status`, and the close-state line adds
+  `GET /api/dayflow/automation/status` (see
   [Native capture](NATIVE_CAPTURE.md)). Together with the icon route
-  below, those are the panel's host Fetch routes — seventeen in all, eight `GET`
+  below, those are the panel's host Fetch routes — eighteen in all, nine `GET`
   and nine `POST`. It never touches the database itself.
 - The three new writes require `confirm: true` in the body — the same guard the
   `journal_review` tool uses — and answer with the store's own payload:

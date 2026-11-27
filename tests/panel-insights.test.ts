@@ -1,7 +1,8 @@
 /**
  * Insights host end-to-end: the payload builder reads the owned journal, and the
  * exact Fetch routes `/api/dayflow/insights`, `/api/dayflow/analysis/status`,
- * and the write routes behind the view serve and grow that journal.
+ * `/api/dayflow/automation/status`, and the write routes behind the view serve
+ * and grow that journal.
  *
  * The builder must be read-only in the strongest sense: a fresh install (no
  * journal file) yields four empty lists without creating the file, and repeated
@@ -19,6 +20,7 @@ import { join } from 'node:path';
 
 import {
   PANEL_ANALYSIS_STATUS_PATH,
+  PANEL_AUTOMATION_STATUS_PATH,
   PANEL_CAPTURE_PAUSE_PATH,
   PANEL_CAPTURE_STATUS_PATH,
   PANEL_CONFIG_PATH,
@@ -39,8 +41,11 @@ import {
 } from '../src/panel-contract.js';
 import type {
   PanelAnalysisStatus,
+  PanelAutomationStatus,
+  PanelAutomationStatusResponse,
   PanelCapturePermission,
   PanelCaptureStatusResponse,
+  PanelError,
   PanelInsights,
   PanelMemoryAddResponse,
   PanelReflectionAddResponse,
@@ -63,6 +68,7 @@ import {
 import type { ResolvedConfig } from '../src/config.js';
 import { readCaptureState, recordScreenshotRow, writeCaptureState } from '../src/capture/state.js';
 import { dayWindowContaining } from '../src/day.js';
+import { DayflowError } from '../src/errors.js';
 import { openJournal } from '../src/journal.js';
 import { addMemoryClaim, listMemoryClaims, supersedeMemoryClaim } from '../src/memory.js';
 import { decideReviewItem, listReviewItems, proposeReviewItem } from '../src/review.js';
@@ -90,11 +96,12 @@ interface RegisteredRoute {
   fetch: (request: Request) => Promise<Response>;
 }
 
-/** The options the capture and analysis status routes accept from the host composition. */
+/** The options the capture, analysis, and automation status routes accept from the host composition. */
 interface PanelRouteOptions {
   capturePermission?: () => Promise<PanelCapturePermission>;
   analysisStatus?: () => PanelAnalysisStatus['analysis'] | Promise<PanelAnalysisStatus['analysis']>;
   analysisWorker?: () => { running: boolean };
+  automationStatus?: () => PanelAutomationStatus | Promise<PanelAutomationStatus>;
 }
 
 /** A cordis-shaped host whose only connection member is the Fetch registry. */
@@ -146,6 +153,13 @@ async function fetchAnalysisStatus(routes: Map<string, RegisteredRoute>): Promis
   const route = routes.get(PANEL_ANALYSIS_STATUS_PATH);
   assert.ok(route, `route ${PANEL_ANALYSIS_STATUS_PATH} is not registered`);
   return route.fetch(new Request(`http://127.0.0.1${PANEL_ANALYSIS_STATUS_PATH}`));
+}
+
+/** GET the automation status route the way the browser would. */
+async function fetchAutomationStatus(routes: Map<string, RegisteredRoute>): Promise<Response> {
+  const route = routes.get(PANEL_AUTOMATION_STATUS_PATH);
+  assert.ok(route, `route ${PANEL_AUTOMATION_STATUS_PATH} is not registered`);
+  return route.fetch(new Request(`http://127.0.0.1${PANEL_AUTOMATION_STATUS_PATH}`));
 }
 
 /**
@@ -444,8 +458,8 @@ test('the insights route coexists with the other panel routes and answers JSON',
   const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
   const routes = fakeHost(runtime);
 
-  // The seventeen exact Fetch routes share the registry without replacing each
-  // other: eight reads plus the nine writes that back the inline add rows, the
+  // The eighteen exact Fetch routes share the registry without replacing each
+  // other: nine reads plus the nine writes that back the inline add rows, the
   // post-add history scan/link pair, the native capture pause flag, and the
   // three interactive-insights writes (review decision, attach, detach).
   const readPaths = [
@@ -457,6 +471,7 @@ test('the insights route coexists with the other panel routes and answers JSON',
     PANEL_INSIGHTS_PATH,
     PANEL_CAPTURE_STATUS_PATH,
     PANEL_ANALYSIS_STATUS_PATH,
+    PANEL_AUTOMATION_STATUS_PATH,
   ];
   const writePaths = [
     PANEL_TASK_ADD_PATH,
@@ -1091,6 +1106,97 @@ test('the analysis status route serves an injected builder without touching the 
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json()) as PanelAnalysisStatus, payload);
   assert.equal(existsSync(journalPath), false, 'an injected builder still must not create the journal');
+});
+
+// ---------------------------------------------------------------------------
+// 0.7.4 automation status: the scheduled close line's read-only route
+// ---------------------------------------------------------------------------
+
+test('the automation status route derives the schedule from the profile without creating the journal', async () => {
+  const journalPath = journalFile('automation-default');
+  assert.equal(existsSync(journalPath), false);
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const routes = fakeHost(runtime);
+
+  const response = await fetchAutomationStatus(routes);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  // Without an injected scheduler the route reports the profile's schedule and
+  // no run: enabled from `automation.enabled`, the 04:00/Monday defaults, and
+  // the shipped two-day catch-up window.
+  assert.deepEqual((await response.json()) as PanelAutomationStatusResponse, {
+    automation: {
+      enabled: true,
+      running: false,
+      dailyAt: '04:00',
+      weeklyOn: 'monday',
+      catchUpDays: 2,
+    },
+  });
+  assert.equal(existsSync(journalPath), false, 'a status read must not create the journal');
+});
+
+test('a disabled automation block answers the same schedule with enabled false', async () => {
+  const journalPath = journalFile('automation-disabled');
+  // Spread the runtime's own block so the test only varies the fields it means
+  // to vary and keeps compiling as `automation` grows keys (e.g. `catchUpDays`).
+  const base = makeRuntime('/nonexistent/dayflow/chunks.sqlite');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', {
+    journalPath,
+    automation: { ...base.config.automation, enabled: false, dailyAt: '05:30', weeklyOn: 'friday' },
+  });
+  const payload = (await (await fetchAutomationStatus(fakeHost(runtime))).json()) as PanelAutomationStatusResponse;
+  const { automation } = payload;
+  assert.equal(automation.enabled, false);
+  assert.equal(automation.running, false);
+  assert.equal(automation.dailyAt, '05:30');
+  assert.equal(automation.weeklyOn, 'friday');
+  // The catch-up window is read from the block (the shipped default is two
+  // days); only its presence and sanity matter here, not the exact default.
+  assert.ok(Number.isSafeInteger(automation.catchUpDays));
+  assert.ok(automation.catchUpDays >= 1);
+  assert.equal(automation.lastDayClose, undefined);
+  assert.equal(automation.nextDayCloseAt, undefined);
+});
+
+test('the automation status route serves an injected scheduler status', async () => {
+  const journalPath = journalFile('automation-injected');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const payload: PanelAutomationStatusResponse = {
+    automation: {
+      enabled: true,
+      running: true,
+      dailyAt: '04:00',
+      weeklyOn: 'monday',
+      catchUpDays: 3,
+      lastDayClose: { day: '2026-11-26', status: 'failed', at: 1_800_000_000_000 },
+      lastWeekClose: { monday: '2026-11-23', status: 'ok', at: 1_800_000_100_000 },
+      nextDayCloseAt: 1_800_100_000_000,
+    },
+  };
+  const routes = fakeHost(runtime, { automationStatus: () => payload.automation });
+
+  const response = await fetchAutomationStatus(routes);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()) as PanelAutomationStatusResponse, payload);
+  assert.equal(existsSync(journalPath), false, 'an injected builder still must not create the journal');
+});
+
+test('a failing automation status builder answers a JSON error', async () => {
+  const journalPath = journalFile('automation-error');
+  const runtime = makeRuntime('/nonexistent/dayflow/chunks.sqlite', { journalPath });
+  const routes = fakeHost(runtime, {
+    automationStatus: () => {
+      throw new DayflowError('The scheduler is not available.', 'database_error');
+    },
+  });
+
+  const response = await fetchAutomationStatus(routes);
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.deepEqual((await response.json()) as PanelError, { error: 'The scheduler is not available.' });
+  assert.equal(existsSync(journalPath), false, 'a failed read must not create the journal');
 });
 
 // ---------------------------------------------------------------------------

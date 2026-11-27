@@ -90,7 +90,7 @@ function harness(journalPath: string, options: CommandOptions = {}): Harness {
   };
 }
 
-test('registerCommands registers the four human commands', () => {
+test('registerCommands registers the five human commands', () => {
   const commands = harness(journalFile('register'));
   assert.deepEqual(
     commands.commands.map((command) => command.name),
@@ -100,7 +100,7 @@ test('registerCommands registers the four human commands', () => {
     assert.ok(command.description.length > 0, `${command.name} has a description`);
     assert.equal(typeof command.handler, 'function', `${command.name} has a handler`);
   }
-  // The three capture commands take input; the analysis trigger takes none.
+  // The three capture commands take input; the two background triggers take none.
   for (const name of ['dayflow-task', 'dayflow-remember', 'dayflow-reflect']) {
     const command = commands.commands.find((entry) => entry.name === name);
     assert.ok(command, `${name} is registered`);
@@ -114,7 +114,11 @@ test('registerCommands registers the four human commands', () => {
     analyse.description,
     'Run one manual analysis tick for the current Dayflow day (same consent gates as the worker).',
   );
-  assert.equal(commands.disposers.length, 4, 'each registration returns a disposer');
+  const runClose = commands.commands.find((command) => command.name === 'dayflow-run-close');
+  assert.ok(runClose, 'dayflow-run-close is registered');
+  assert.equal(runClose.input, undefined, 'the close trigger has no input hint');
+  assert.equal(runClose.description, 'Run any due automation close (day or week) now; same gates as the scheduler.');
+  assert.equal(commands.disposers.length, 5, 'each registration returns a disposer');
   for (const dispose of commands.disposers) {
     assert.equal(typeof dispose, 'function');
     assert.doesNotThrow(dispose);
@@ -124,6 +128,7 @@ test('registerCommands registers the four human commands', () => {
     'dayflow-remember',
     'dayflow-reflect',
     'dayflow-analyze',
+    'dayflow-run-close',
   ]);
 });
 
@@ -151,6 +156,46 @@ test('dayflow-analyze maps the injected runner and never throws without one', as
     },
   }).runAsync('dayflow-analyze', '');
   assert.deepEqual(rejected, { kind: 'error', text: 'the analysis journal is unreadable' });
+});
+
+test('dayflow-run-close maps the injected close runner and never throws without one', async () => {
+  const unavailable = await harness(journalFile('close-unavailable')).runAsync('dayflow-run-close', '');
+  assert.equal(unavailable.kind, 'error');
+  assert.equal(unavailable.text, 'automation is not enabled or the model service is unavailable');
+
+  const succeeded = await harness(journalFile('close-ok'), {
+    runClose: async () => ({ ok: true, text: 'Day close 2026-11-26: complete' }),
+  }).runAsync('dayflow-run-close', '');
+  assert.deepEqual(succeeded, { kind: 'success', text: 'Day close 2026-11-26: complete' });
+
+  const idle = await harness(journalFile('close-idle'), {
+    runClose: async () => ({ ok: true, text: 'No automation close is due.' }),
+  }).runAsync('dayflow-run-close', '');
+  assert.deepEqual(idle, { kind: 'success', text: 'No automation close is due.' });
+
+  const failed = await harness(journalFile('close-failed'), {
+    runClose: async () => ({ ok: false, text: 'Day close 2026-11-26: failed' }),
+  }).runAsync('dayflow-run-close', '');
+  assert.deepEqual(failed, { kind: 'error', text: 'Day close 2026-11-26: failed' });
+
+  const rejected = await harness(journalFile('close-rejected'), {
+    runClose: async () => {
+      throw new Error('the automation journal is unreadable');
+    },
+  }).runAsync('dayflow-run-close', '');
+  assert.deepEqual(rejected, { kind: 'error', text: 'the automation journal is unreadable' });
+});
+
+test('dayflow-run-close reports a cancelled invocation as an error result', async () => {
+  const cancelled = new AbortController();
+  cancelled.abort();
+  const commands = harness(journalFile('close-cancelled'), {
+    runClose: async () => ({ ok: true, text: 'should not run' }),
+  });
+  const command = commands.commands.find((entry) => entry.name === 'dayflow-run-close');
+  assert.ok(command, 'dayflow-run-close is registered');
+  const outcome = await command.handler({ rawInput: '', signal: cancelled.signal });
+  assert.deepEqual(outcome, { kind: 'error', text: 'the close command was cancelled' });
 });
 
 test('dayflow-task rejects blank input without opening the journal and stores a user task', () => {

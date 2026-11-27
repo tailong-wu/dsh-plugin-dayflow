@@ -5,8 +5,11 @@ feasibility spike) and Phase 1 (the capture engine) landed in the 0.7.0
 development line, Phase 2's foundation (analysis modules, schema v8, consent
 gate, fake-adapter pipeline) landed in 0.7.1, and Phase 2's runtime (the worker,
 the host-LLM adapter, the status route, and the panel analysis line) landed in
-0.7.2; all of it stays behind default-off configuration. The briefs and the
-automation scheduler (Phase 3) are not implemented yet.
+0.7.2; all of it stays behind default-off configuration. Phase 3's **text-only
+automation slice landed in 0.7.4**: schema v9 (`automation_runs` and `briefs`),
+the daily and weekly close, the insights pass, the host scheduler with
+`catchUpDays`, `/dayflow-run-close`, and the panel's close-state line and status
+route. Image admission and the briefs reading view remain for later phases.
 **Decision:** port Dayflow's own pipeline into `dsh-plugin-dayflow` so the plugin
 records the screen, analyses it, builds activity cards, writes daily/weekly
 briefs and refreshes the insight journal by itself. After this line the Dayflow
@@ -55,16 +58,16 @@ Already reusable:
   registered per provider), `attachments` (`saveImage` → `ImageAttachmentRef`),
   `systemPrompt`, `tools`, `skills`, `timer`, `connection`, `agentDefaultModel`.
 
-Missing (the whole port):
+Missing (the rest of the port):
 
 - Image preprocessing (downscale) and image admission for analysis; dedupe and
   retention already run in the capture engine, and 0.7.x sends app / window
   title / hash metadata rather than pixels.
-- Daily standup / weekly brief generation written back into the store.
-- A scheduler that runs the day/week close jobs inside the host process, with
-  catch-up after sleep or restart.
-- The Phase 3 automation that consumes the analysis ledger: reflections, review
-  proposals, memory claims, and task session matching after a day closes.
+- The briefs surface: the daily/weekly briefs are written to the owned store,
+  but the panel has no briefs view yet, and the failed/skipped close history is
+  only visible through `automation_runs` and the status line.
+- The owned store as the default source for a fresh install, and the first-run
+  walkthrough (Phase 4).
 
 ---
 
@@ -107,9 +110,10 @@ Design rules:
 
 - **The plugin does not shell out to Dayflow.** Dayflow's SQLite is read in
   `source: dayflow` mode only (existing), and the importer remains.
-- **Every write is idempotent.** `source_key` is a content hash, `analysis_runs`
-  and `automation_runs` carry a `(job, day)` uniqueness constraint, and a
-  restarted process resumes rather than duplicating.
+- **Every write is idempotent.** `source_key` is a content hash, `analysis_jobs`
+  carries a unique `job_key`, `automation_runs` carries a unique `(job, day)`,
+  and `briefs` a unique `(kind, period_key)`, so a restarted process resumes
+  rather than duplicating.
 - **Nothing user-visible runs without consent.** Capture is off by default; when
   enabled, cloud image analysis needs its own explicit consent setting.
 - **The UI keeps one harness entry.** Capture status lives inside the existing
@@ -132,8 +136,10 @@ New host modules (children of `src/`):
 | `analyse/prompt.ts` | system prompt, JSON schema, few-shot examples, category list injection |
 | `analyse/pipeline.ts` | window grouping, call execution, JSON validation, card sessionisation, activity/observation writes |
 | `briefs/daily.ts`, `briefs/weekly.ts` | standup/daily and weekly brief generation from activities |
+| `automation/store.ts` | the `automation_runs` ledger and the `briefs` store; no model, no scheduler |
+| `automation/consent.ts` | the pure text-analysis gate: enabled/consent/provider/model before any call |
 | `automation/scheduler.ts` | host timers, day-boundary jobs, catch-up, `automation_runs`, failure backoff |
-| `automation/insights.ts` | daily reflection + review proposals + memory claims + task session matching |
+| `automation/insights.ts` | daily reflection + review proposals + kept-claim promotion + task session matching |
 | `client/` additions | capture status/pause line inside the insights view; localised copy |
 
 Existing modules touched: `journal.ts` (migrations v7+), `config.ts` (new keys),
@@ -179,24 +185,30 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
 -- v9: automation bookkeeping, one row per (job, day) (0.7.4)
 CREATE TABLE IF NOT EXISTS automation_runs (
   id INTEGER PRIMARY KEY,
-  job TEXT NOT NULL CHECK (job IN ('analyse','daily-close','weekly-close')),
+  job TEXT NOT NULL CHECK (job IN ('day_close','week_close')),
   day TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending','running','complete','failed')),
+    CHECK (status IN ('pending','running','complete','failed','skipped')),
   attempts INTEGER NOT NULL DEFAULT 0,
   error TEXT,
-  started_at TEXT,
-  finished_at TEXT,
+  payload_json TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (job, day)
 );
+CREATE INDEX IF NOT EXISTS automation_runs_day_idx ON automation_runs (day);
 
--- v9: weekly briefs (daily briefs use daily_standup_entries, already present) (0.7.4)
+-- v9: the brief store; 0.7.4 writes only kind = 'week' because the daily
+-- standup keeps its existing daily_standup_entries home (kind = 'day' reserved).
 CREATE TABLE IF NOT EXISTS briefs (
   id INTEGER PRIMARY KEY,
-  kind TEXT NOT NULL CHECK (kind IN ('week')),
-  period_key TEXT NOT NULL,       -- Monday day key
+  kind TEXT NOT NULL CHECK (kind IN ('day','week')),
+  period_key TEXT NOT NULL,       -- Monday day key for a weekly brief
+  title TEXT NOT NULL,
   body TEXT NOT NULL,
-  payload_json TEXT,
+  model TEXT,
+  source_id TEXT NOT NULL DEFAULT 'native',
+  source_key TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (kind, period_key)
@@ -411,9 +423,9 @@ and status.
 **Still not implemented when Phase 1 shipped:** the analyse worker and its
 prompt/JSON pipeline, activity-card persistence, daily/weekly briefs, and the
 automation scheduler. The pipeline landed in 0.7.1 and the worker, status route,
-and panel analysis line in 0.7.2; the briefs and automation remain Phase 3.
-The pause/resume route and the insights capture line already landed in Phase 0
-and are unchanged.
+and panel analysis line in 0.7.2; the briefs, scheduler, and insights close
+landed in 0.7.4 (Phase 3). The pause/resume route and the insights capture line
+already landed in Phase 0 and are unchanged.
 
 **Acceptance.** With `capture.enabled: true`, a 30-minute session writes frames
 and `screenshots` rows, dedupes near-identical frames, pauses instantly, deletes
@@ -507,7 +519,8 @@ metadata (app, window title, hash), not pixels.
 window-title / hash metadata, not screen pixels), and a catch-up replay for
 windows a blocked tick marked `skipped`. Those rows are terminal, so turning
 consent on later does not re-queue them; replaying a day is a later patch, and
-daily/weekly briefs plus the automation scheduler are Phase 3.
+the daily/weekly briefs plus the automation scheduler landed in 0.7.4's Phase 3
+slice.
 
 **Acceptance.** A scripted replay (30 stored frames + scripted model adapter,
 no network) yields deterministic activities and a rendered day view; replaying
@@ -518,25 +531,52 @@ what was on screen.
 
 ### Phase 3 — Cards, briefs, and insights automation (about 1 week)
 
-**Scope.** The day and week close themselves.
+**Status: the text-only automation slice is complete (0.7.4).** The day and week
+close themselves now, behind the same analysis consent/provider/model gate and
+without any image:
 
-- `briefs/daily.ts`: standup/daily brief from the day's activities, written to
-  `daily_standup_entries` (compatible with the existing standup skill).
-- `briefs/weekly.ts`: seven-day rollup into `briefs`.
-- `automation/scheduler.ts`: host timers, 04:00 boundary handling, catch-up on
-  start and after sleep, `automation_runs` idempotency, bounded retries, status
-  in the panel.
-- `automation/insights.ts`: after the day closes — one day reflection, at most
-  three review proposals (distillation/loop/improvement, confidence ≥ 0.6),
-  memory claims only when evidence is durable, and task session matching using
-  the existing `scanTaskHistory` logic followed by `attachTaskSession` (or a
-  review item when confidence is low).
-- Weekly close: weekly reflection, weekly review pass, memory lint summary.
-- `/dayflow-run-close` slash command (manual trigger for testing/catch-up).
+- **Schema v9.** Two additive tables — `automation_runs` (one row per attempted
+  day/week close: period, status, attempts, error, timestamps, so a re-run is a
+  no-op) and `briefs` for the stored weekly brief bodies (the daily standup
+  keeps its `daily_standup_entries` home; `kind = 'day'` is reserved). Existing
+  tables and payloads are unchanged, so an imported 0.7.3 journal migrates
+  forward without a compatibility break.
+- **Briefs (`src/briefs/`).** `daily.ts` writes the day's standup into
+  `daily_standup_entries` (compatible with the existing standup skill);
+  `weekly.ts` rolls seven days into `briefs`.
+- **Scheduler (`src/automation/scheduler.ts`).** Host timers close the Dayflow
+  day at `automation.dailyAt` (04:00) and the Monday-anchored week at
+  `automation.weeklyOn`, with catch-up on start (and on each scheduled tick)
+  when `automation.catchUpOnStart` is true, bounded by the new
+  `automation.catchUpDays` window (1–30, default 2); a missed close older than
+  that window is recorded as `skipped` instead of replayed. A failed close
+  retries up to the run's two-attempt cap. `automation_runs` keeps the close
+  idempotent.
+- **Insights pass (`src/automation/insights.ts`).** After a day closes: one day
+  reflection, at most three review proposals (distillation/loop/improvement,
+  confidence ≥ 0.6), memory claims only as a **kept** promotion (never silently
+  active), and task session matching through the existing `scanTaskHistory`
+  logic followed by `attachTaskSession` (a low-confidence match becomes a
+  review item instead). The weekly close adds the weekly reflection, the weekly
+  review pass, and the memory lint summary.
+- **Observable surface.** `/dayflow-run-close` (a manual trigger for testing and
+  catch-up), the panel's compact close-state line, and
+  `GET /api/dayflow/automation/status` (enabled/running, `dailyAt`, `weeklyOn`,
+  `catchUpDays`, the last day/week close, and the next close time).
+- **Still not in 0.7.4:** image admission and downscaling (the model sees app /
+  window-title / hash metadata, not screen pixels), a catch-up replay for
+  analysis windows a blocked tick marked `skipped`, and a panel view for reading
+  the stored briefs.
 
 **Acceptance.** Closing a synthetic day with a scripted model produces one
-standup entry, one reflection, ≤3 review items, and attaches matching task days;
-re-running the same day is a no-op. A skipped day catches up on next start.
+standup entry, one brief, one reflection, ≤3 review items, and attaches
+matching task days; re-running the same day is a no-op. A skipped day catches
+up on next start inside `catchUpDays` and is recorded `skipped` outside it.
+Defaults stay inert: the scheduler mounts only with the analysis stack
+(`capture.enabled` and `analysis.enabled` plus the host model service), so a
+capture-off profile runs no close at all; once mounted, `analysis.consent:
+'none'`, no provider, or no model records a skipped close and never calls a
+model.
 
 ### Phase 4 — Cutover and release (about 1 week)
 
@@ -621,8 +661,9 @@ app?) without touching the analysis pipeline. Phase 1 then added the capture
 engine behind the same default-off switch, writing frames and `screenshots`
 rows but still no analysis; 0.7.1 then added the analysis foundation behind a
 fake adapter, and 0.7.2 ran that pipeline on the host's model service and made
-its state visible in the panel. Phase 3 adds briefs/automation with fake
-adapters in CI; Phase 4 is the cutover.
+its state visible in the panel. 0.7.4 added the text-only automation slice:
+briefs, the scheduler with catch-up, and the insights close, all with fake
+adapters in CI. Phase 4 is the cutover.
 
 Estimated wall clock: **6–7 weeks** single-threaded, **3–4 weeks** with three
 parallel workstreams, plus one real week of dogfooding before `1.0.0`.

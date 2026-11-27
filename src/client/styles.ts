@@ -2094,6 +2094,80 @@ export const PANEL_CSS = `
   white-space: nowrap;
 }
 
+/* The scheduled close strip is the third and slimmest status line: the day
+ * boundary, the last stored close, the weekly close, and the catch-up window in
+ * one quiet row with no control of its own. Grey is disabled automation, amber
+ * is a failed last close, green is a live schedule; wrapping on a narrow sidebar
+ * is the normal case, so the copy keeps its own flex-wrap. Only host tokens are
+ * used, so both light and dark themes adapt on their own. */
+
+.dfp-close-line {
+  --dfp-close-tone: var(--dsw-alias-label-tertiary);
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 11px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dfp-close-tone) 3%, transparent);
+}
+
+.dfp-close-line.is-on {
+  --dfp-close-tone: var(--dsw-static-green-500);
+}
+
+.dfp-close-line.is-warn {
+  --dfp-close-tone: var(--dsw-static-amber-500);
+}
+
+.dfp-close-line.is-off {
+  --dfp-close-tone: var(--dsw-alias-label-tertiary);
+}
+
+.dfp-close-dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--dfp-close-tone);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dfp-close-tone) 12%, transparent);
+}
+
+.dfp-close-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.dfp-close-state {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dfp-close-last,
+.dfp-close-weekly,
+.dfp-close-catchup {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.dfp-close-running {
+  color: var(--dfp-close-tone);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 `;
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Owned journal schema v8 (`analysis_jobs`) and the analysis-job ledger.
+ * Owned journal schema v9 (`analysis_jobs`, `automation_runs`, `briefs`) and the analysis-job ledger.
  *
  * The ledger is what makes frame analysis resumable and bounded: a unique
  * `job_key` makes replay idempotent, `status` is a five-state machine, and
@@ -80,12 +80,12 @@ function jobInput(startTs: number, endTs = startTs + 600): {
   return { jobKey: analysisJobKey('2026-03-11', startTs), day: '2026-03-11', windowStartTs: startTs, windowEndTs: endTs };
 }
 
-test('a fresh journal is schema v8 and carries the job ledger with indexes', () => {
+test('a fresh journal is schema v9 and carries the job ledger with indexes', () => {
   const path = journalFile('fresh');
   const db = openJournal(path);
   try {
-    assert.equal(JOURNAL_SCHEMA_VERSION, 8);
-    assert.equal(Number(db.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 8);
+    assert.equal(JOURNAL_SCHEMA_VERSION, 9);
+    assert.equal(Number(db.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 9);
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'analysis_jobs'")
       .all() as Row[];
@@ -103,7 +103,7 @@ test('a fresh journal is schema v8 and carries the job ledger with indexes', () 
   } finally {
     db.close();
   }
-  // Reopening a v8 journal is a no-op that keeps its rows.
+  // Reopening a v9 journal is a no-op that keeps its rows.
   const reopened = openJournal(path);
   try {
     assert.equal(getAnalysisJob(reopened, analysisJobKey('2026-03-11', 1_772_000_000))?.id, 1);
@@ -115,7 +115,7 @@ test('a fresh journal is schema v8 and carries the job ledger with indexes', () 
   assert.equal(job?.window_end_ts, 1_772_000_600);
 });
 
-test('a v7 journal migrates to v8 in one step and keeps its data', () => {
+test('a v7 journal migrates to v9 in one step and keeps its data', () => {
   const path = journalFile('v7-upgrade');
   const legacy = openJournal(path);
   try {
@@ -127,6 +127,8 @@ test('a v7 journal migrates to v8 in one step and keeps its data', () => {
     // Rewind to exactly what an installed 0.7.0 journal looks like: v7 and no
     // analysis_jobs table (migration 7 only added capture_state).
     legacy.exec('DROP TABLE analysis_jobs');
+    legacy.exec('DROP TABLE automation_runs');
+    legacy.exec('DROP TABLE briefs');
     legacy.prepare('UPDATE schema_version SET version = 7').run();
   } finally {
     legacy.close();
@@ -135,11 +137,17 @@ test('a v7 journal migrates to v8 in one step and keeps its data', () => {
 
   const upgraded = openJournal(path);
   try {
-    assert.equal(Number(upgraded.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 8);
+    assert.equal(Number(upgraded.prepare('SELECT version FROM schema_version ORDER BY version LIMIT 1').get()?.version), 9);
     const tables = upgraded
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'analysis_jobs'")
       .all() as Row[];
     assert.equal(tables.length, 1);
+    for (const table of ['automation_runs', 'briefs']) {
+      const rows = upgraded
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .all(table) as Row[];
+      assert.equal(rows.length, 1, `${table} is created by migration 9`);
+    }
     assert.equal(Number(upgraded.prepare('SELECT COUNT(*) AS count FROM activities').get()?.count), 1);
     assert.equal(upgraded.prepare("SELECT value FROM capture_state WHERE key = 'paused'").get()?.value, '1');
     // The new ledger works against the upgraded file.

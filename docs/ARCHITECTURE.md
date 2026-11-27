@@ -4,7 +4,7 @@
 
 The plugin reads one of two backends — the Dayflow app's `chunks.sqlite`
 (`source: dayflow`, the default) or the plugin-owned journal (`source: owned`,
-owned schema version 8, filled by `journal_import`) — and writes through two
+owned schema version 9, filled by `journal_import`) — and writes through two
 channels: Dayflow's Unix socket for app edits, and `withJournalWrite` for the
 owned journal. This file covers those paths, the source layout, and the
 development scripts.
@@ -37,7 +37,12 @@ dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlit
   review/task-session decision routes write the same way. A panel review
   decision calls `applyReviewDecision` (`src/review-actions.ts`) — the same
   module the `journal_review` tool uses — so both paths combine the item with
-  its task or memory claim identically.
+  its task or memory claim identically. The 0.7.4 automation adds a third writer
+  path through the same module: the scheduler and its insights pass write the
+  day's `daily_standup_entries`, the daily/weekly `briefs`, the day/week
+  reflections, review proposals, kept memory claims, matched task sessions, and
+  one `automation_runs` row per attempted close. That path is gated by the
+  analysis consent/provider/model, not by Dayflow's edit switch.
 - **Native analysis (0.7.1 foundation, no worker yet).** When a caller invokes
   it, `analyse/pipeline.ts` reads one Dayflow day's native `screenshots` rows
   (04:00–04:00), groups them into windows (`analysis.windowMinutes`, at most
@@ -120,6 +125,14 @@ src/
     worker.ts     interval worker, single-flight ticks, backoff, manual runOnce
     status.ts     read-only analysis status/ledger payload for the panel route
     pipeline.ts   window grouping, output validation, sessionisation, activities/observations writes
+  briefs/         text-only day and week briefs written by the close (0.7.4)
+    daily.ts      standup/daily brief from the day's activities → daily_standup_entries
+    weekly.ts     seven-day rollup → briefs
+  automation/     the scheduled day/week close (0.7.4)
+    store.ts      automation_runs state machine: idempotent closes, bounded retries, skipped rows
+    consent.ts    the automation pass reuses the analysis consent/provider/model gate
+    scheduler.ts  host timers, 04:00/Monday boundaries, catchUpOnStart + catchUpDays catch-up
+    insights.ts   post-close reflection, review proposals, kept memory claims, task sessions
   day.ts          4 AM days, Monday 4 AM weeks, formatting
   db.ts           lazy node:sqlite, read-only open, query helper
   journal.ts      owned schema, migrations, importer, withJournalWrite
@@ -139,7 +152,7 @@ src/
   setup.ts        read-only detection of the Dayflow install
   errors.ts       the stable failure codes
   paths.ts        Dayflow's database/socket and the plugin's own paths
-  panel.ts        the host Fetch routes behind the Web panel (reads, adds, decisions)
+  panel.ts        the host Fetch routes behind the Web panel (reads, adds, decisions, status lines)
   panel-contract.ts  the wire payloads shared by host and browser
   tools/read.ts   the twelve read tools
   tools/import.ts the journal_import tool
@@ -175,7 +188,7 @@ end.
 ```sh
 npm install
 npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 425 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
+npm test            # 477 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
 npm run typecheck   # type-check sources and tests together
 npm run smoke       # read this Mac's real Dayflow database (needs real data)
 npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps

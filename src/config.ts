@@ -100,6 +100,12 @@ export interface AutomationConfig {
   weeklyOn?: AutomationWeekday;
   /** Run a missed close on the next start instead of skipping it. */
   catchUpOnStart?: boolean;
+  /**
+   * How many missed days (counting the most recent due day) the scheduler may
+   * close in one catch-up pass, 1-30. Days older than this window are recorded
+   * as skipped rather than fabricated.
+   */
+  catchUpDays?: number;
 }
 
 /** Validated capture settings. */
@@ -146,6 +152,8 @@ export interface ResolvedAutomationConfig {
   readonly dailyAt: string;
   readonly weeklyOn: AutomationWeekday;
   readonly catchUpOnStart: boolean;
+  /** Size of the bounded catch-up window, in days, including the due day. */
+  readonly catchUpDays: number;
 }
 
 export interface DayflowConfig {
@@ -326,6 +334,12 @@ const AutomationSchema = z
       .default('monday')
       .description('Weekday the weekly close runs at the same time.'),
     catchUpOnStart: z.boolean().default(true).description('Run a missed close on the next start instead of skipping it.'),
+    catchUpDays: z
+      .natural()
+      .min(1)
+      .max(30)
+      .default(2)
+      .description('How many missed days one catch-up may close, including the due day (1-30).'),
   })
   .default({});
 
@@ -544,6 +558,7 @@ export function resolveConfig(config: DayflowConfig = {}): ResolvedConfig {
     dailyAt: resolveDailyAt(automationInput.dailyAt),
     weeklyOn: resolveChoice(automationInput.weeklyOn, AUTOMATION_WEEKDAYS, 'monday', 'automation.weeklyOn'),
     catchUpOnStart: automationInput.catchUpOnStart ?? true,
+    catchUpDays: resolveInteger(automationInput.catchUpDays, 2, 1, 30, 'automation.catchUpDays'),
   };
 
   return {
