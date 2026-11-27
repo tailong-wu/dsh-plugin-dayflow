@@ -1,13 +1,14 @@
 # Owner decisions: the five answers the next line waits on
 
 > Status: **open — the project is in maintenance, paused pending these five
-> answers, not abandoned.** Measured on the `v0.9.1` tree (`ce0827e`; the docs
-> revision at `c3cd591`): **21 tags / 21 GitHub Releases**, **557** green tests,
-> schema **v10**, **18** panel routes, **5** slash commands, **23** tools,
-> **8** skills, and npm still **404** (never published). Nothing on this page has
-> been answered as of 2026-11-27.
+> answers, not abandoned.** Measured on the `v0.9.2` tree (`ccac653`): **22 tags /
+> 22 GitHub Releases**, **557** green tests, schema **v10**, **18** panel routes,
+> **5** slash commands, **23** tools, **8** skills, DSH `0.2.2-rc.5` declared and
+> pinned in the development dependencies, and npm still **404** (never
+> published). Nothing on this page has been answered as of 2026-11-27.
 >
-> **Until the owner answers, no new patch is opened and no `1.0.0` is planned.**
+> **After the one 0.9.2 compatibility patch, no further patch is opened and no
+> `1.0.0` is planned until the owner answers.**
 > Maintenance is verification and necessary fixes only. This is a pause, not a
 > step toward abandonment: the shipped scope works on the safe defaults, and the
 > evaluation that found no further decision-free patch worth a tag is recorded in
@@ -166,9 +167,11 @@ session logs, injection default, proposal volume) are questions no tag waits on.
 
 ## What happens while these are unanswered
 
-- **No new tag.** No `0.9.2`, `0.10.0`, or `1.0.0` is planned from this
-  revision; the six decision-free candidates evaluated after 0.9.1 were all
-  judged not worth a tag ([`ROADMAP.md`](ROADMAP.md) §0.9.x).
+- **One maintenance patch, then no new tag.** `0.9.2` (DSH `0.2.2-rc.5`
+  declaration and verification) was taken because the installed host had moved;
+  no `0.10.0` or `1.0.0` is planned from this revision, and the six
+  decision-free candidates evaluated after 0.9.1 remain judged not worth a tag
+  ([`ROADMAP.md`](ROADMAP.md) §0.9.x).
 - **Maintenance only.** Verification and necessary fixes may happen (a broken
   build, a security fix, a green suite re-run); no functional work is opened, and
   no shipped count, route, command, tool, skill, schema step, default, or peer is
