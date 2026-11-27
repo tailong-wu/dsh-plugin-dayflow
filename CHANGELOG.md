@@ -6,6 +6,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-11-27
+
+### Added
+
+- The 0.7.5 scheduled memory lint: schema **v10** rebuilds `automation_runs`
+  inside one transaction so its `job` CHECK also accepts `'lint'` — every v9 row
+  is copied, the rest of the table shape is unchanged, and no data is rewritten —
+  and adds a nullable `briefs.payload_json` for the weekly digest (every v9
+  brief keeps its row with a NULL payload). `src/automation/lint.ts` runs the
+  read-only `lintMemoryClaims` check once a week as part of the weekly close,
+  before the week's brief is written so its digest lands in that brief. Each
+  finding becomes at most one review **proposal** per claim per week (kind
+  `improvement`, through the existing review fingerprint and suppression,
+  bounded by the existing daily cap); the pass never supersedes or forgets a
+  claim and writes nothing to `memory_claims`. It records one `automation_runs`
+  row with `job: 'lint'` and `day` = the week's Monday, so re-running the same
+  week is a no-op, and a week with no findings says "nothing to report" instead
+  of an empty digest. The week's brief gains a short "Memory health: …" line in
+  its body and in `payload_json.memory_health`. That is the safe default for
+  lint findings — proposals plus a digest, never an automatic repair; a
+  digest-only weekly pass was considered and not taken.
+- The lint adds no route, no command, and no configuration key: it rides the
+  0.7.4 scheduler and `automation.enabled`/`automation.weeklyOn`, the panel stays
+  at 18 host Fetch routes with the same close-state line, and a default profile
+  stays inert (the scheduler mounts only with the analysis stack, so a
+  capture-off profile runs neither a close nor the lint).
+
 ## [0.7.4] - 2026-11-27
 
 ### Added
@@ -525,7 +552,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.4...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.5...HEAD
+[0.7.5]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.1...v0.7.2
