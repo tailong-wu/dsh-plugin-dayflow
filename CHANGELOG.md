@@ -6,6 +6,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-27
+
+### Added
+
+- **0.9.2 — DSH `0.2.2-rc.5` compatibility.** `dsh.compatibility.dshReleases`
+  gains `"0.2.2-rc.5": "compatible"` beside the existing `0.2.0-rc.2` and
+  `0.2.1-rc.2` entries, so the plugin declares the harness release it now builds
+  and verifies against.
+
+### Changed
+
+- The development dependencies move to the new DSH cohort: the seven
+  `@deepseek-ai/dsh-*` SDK packages go to `0.2.2-rc.5`, the three client host
+  peers used by the local tree (`dsh-client-locale`,
+  `dsh-client-ui-conversation`, `dsh-client-ui-sidebar-right`) are added as
+  devDependencies at the same version so `npm ci` resolves the cohort's
+  `cordis ~4.1.0` peers cleanly, `@deepseek-ai/cordis` goes from `4.0.5` to
+  `4.1.0` (the version the new cohort brings in), and
+  `@deepseek-ai/schemastery` stays at `3.18.5`. These are development-only pins:
+  the `peerDependencies` keep their declared ranges (`^0.2.0-rc.2`, `cordis`
+  `^4.0.4`), no runtime dependency is added, and `package-lock.json` was
+  refreshed for the new pins.
+- One type-only source change follows the new typings: `Config` carries an
+  explicit `Schema` annotation so the emitted declaration does not name a nested
+  `node_modules` schemastery path when the tree holds two copies. Validation,
+  defaults, and runtime behaviour are unchanged.
+- Verified against the new cohort: 557/557 tests, `npm run typecheck`,
+  `npm run build`, and `npm run check:package` pass on DSH host `0.2.2-rc.5`.
+- No behaviour, default, schema (**v10**), route (**18**: nine `GET` and nine
+  `POST`), command (**5**), tool (**23**, 17 with `edits: false`), skill (**8**),
+  configuration key, or runtime-dependency change. The maintenance pause and the
+  five owner decisions are unchanged, and nothing is on npm — the registry still
+  answers **404** (owner decision D7); this patch takes no publish step.
+
 ## [0.9.1] - 2026-11-27
 
 ### Added
@@ -765,7 +799,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.1...v0.8.4
