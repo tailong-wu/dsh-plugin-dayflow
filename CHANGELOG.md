@@ -6,6 +6,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-11-27
+
+### Added
+
+- **0.8.4 — release close.** The last patch of the 0.8.x line changes no plugin
+  source: it reconciles the documentation with what actually shipped and closes
+  the version map for the line. `v0.8.0` is recorded as the analysis-ledger
+  follow-ups (post-call token gate, transient-skip catch-up within today and
+  yesterday, and the 04:00 day tail), `v0.8.1` as the briefs reading view
+  (additive `PanelInsights.briefs`, `listPanelBriefs`, and the read-only
+  expandable block in the insights view), and the planned `0.8.2` image
+  admission and `0.8.3` Phase 4 cutover as **deferred to the next line**
+  (owner-gated: D1/D2/D11 for image admission, D10 for the `source: owned`
+  default flip, with 1.0.0 after a real week of capture without data loss).
+  Every count matches the tagged tree: **537** tests, **18** host Fetch routes
+  (nine `GET` and nine `POST`), **5** slash commands, **23** tools (17 with
+  `edits: false`), **8** skills, and owned schema **v10**.
+- No npm artifact and no publish authorization (D7): the package is tagged in
+  this repository (`v0.8.0`, `v0.8.1`, `v0.8.4`) and the npm registry still
+  answers **404**. The release trail is verified per tag — `v0.8.0` and
+  `v0.8.1` each carry one GitHub Release note derived from its CHANGELOG
+  section, and this close adds the `v0.8.4` note.
+- Compatibility: the 0.8.x line adds no host peer and no runtime dependency.
+  `@deepseek-ai/dsh-llm` was already a declared peer and stays the only host
+  service the analysis path calls; `@deepseek-ai/dsh-attachment` is still not a
+  dependency because every shipped release is text-only (app / window-title /
+  frame-hash metadata, never pixels). No 0.8.x release changes the schema, a
+  route, a command, a tool, a skill, a configuration key, or a default; 0.8.4's
+  package version is the only `package.json` change.
+
 ## [0.8.1] - 2026-11-27
 
 ### Added
@@ -109,8 +139,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   weekly close writes one stored week brief (no weekly reflection and no review
   pass), the memory lint and its digest are 0.7.5's, the journal schemas are
   v8 `analysis_jobs`, v9 `automation_runs` + `briefs`, v10 the `lint` rebuild
-  with `briefs.payload_json`, every 0.7.x model call is text-only (images are
-  0.8.0 material), and the deferred analysis-ledger items stay 0.8.0 candidates.
+  with `briefs.payload_json`, every 0.7.x model call is text-only (images were
+  0.8.0 material then, and are deferred to the next line since 0.8.4), and the
+  deferred analysis-ledger items landed in 0.8.0.
 - GitHub Releases now exist for every 0.7.x tag: `v0.7.1`–`v0.7.5` were
   backfilled by hand with the notes from their CHANGELOG sections, and `v0.7.6`
   is released with this section.
@@ -670,7 +701,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panel payload and routes, panel formatting, and the built client bundle's
   registration contract (67 tests).
 
-[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.1...v0.8.4
 [0.8.1]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.6...v0.8.0
 [0.7.6]: https://github.com/tailong-wu/dsh-plugin-dayflow/compare/v0.7.5...v0.7.6
