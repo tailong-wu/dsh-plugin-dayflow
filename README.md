@@ -7,117 +7,84 @@
 English | [中文](README.zh.md)
 
 Ask your own work journal. This plugin gives [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
-(`dsh`) native tools and skills over [Dayflow](https://github.com/JerryZLiu/Dayflow),
-the open-source Mac app that turns screen activity into a private timeline of
-what was on your screen and for how long.
+(`dsh`) native tools, skills, and a Web panel over [Dayflow](https://github.com/JerryZLiu/Dayflow),
+the open-source Mac app that turns screen activity into a private timeline of what was on
+your screen and for how long. It reads either Dayflow's local database or a plugin-owned
+journal imported from it once, and nothing leaves the Mac.
 
 > "What did I work on today?" · "Where did my screen time go this week?" · "Write my standup."
 
-![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes with a hover card, and one day in full](docs/demo.en.gif)
+![The Dayflow panel in the dsh Web GUI: a month calendar of segmented rings, the week's swim lanes, and one day in full](docs/demo.en.gif)
 
-The plugin reads Dayflow's local SQLite database directly, so it works while
-the Dayflow app is closed and nothing leaves the Mac. Edits are optional and go
-through Dayflow's own permission switch and write socket.
+> **Status:** `v0.6.0` is tagged here but not yet on the npm registry; `main` is the unreleased `0.7.0` line this
+> README describes — install from a checkout; see [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
-### What the journal can and cannot tell you
+## What it is
 
-Dayflow watches the screen: the app or site in front, what was on it, and how
-long it stayed. That is the whole dataset.
+Dayflow watches the screen: the app or site in front, what was on it, and how long it
+stayed. That is the whole dataset.
 
-It does not know where you were, whether you were at the desk, who you were
-with, or what happened while the Mac was idle or closed. There is no location,
-calendar, or presence data here, and the agent is told to say so rather than
-guess. A quiet stretch is recorded as `Idle`, which means *no screen activity
-was captured* — not necessarily a break, a meeting, or time off. A day with no
-cards can equally be a day of meetings, a day away, or a day whose recordings
-are still being analyzed.
-
-> **Status:** `v0.6.0` is tagged in this repository but not published to the npm
-> registry yet. That tag is the **previous** increment: 15 tools (8 read, the
-> importer, and 6 edits) and 4 skills — the Dayflow read path, the owned journal
-> and its importer, and Dayflow-socket edits. `main` is the **unreleased `0.7.0`
-> development line** this README describes — 23 tools, 8 skills, the owned
-> journal with its review queue, long tasks, dated memory, reflections, and the
-> Journal insights view, plus quick capture: three slash commands and the
-> insights view's inline add rows, and Phase 1 of the native capture port behind
-> a default-off `capture.enabled` (it records frames; nothing is analysed) — see
-> `CHANGELOG.md` `[Unreleased]` and `docs/ROADMAP.md`. A registry install will
-> not carry that surface until `0.7.0` is published; the checkout install below
-> builds the development line.
+- It does **not** know where you were, whether you were at the desk, who you were with, or
+  what happened while the Mac was idle or closed. There is no location, calendar, or
+  presence data, and the agent is told to say so rather than guess.
+- A quiet stretch is recorded as `Idle`, meaning **no screen activity was captured** — not
+  necessarily a break, a meeting, or time off. A day with no cards can equally be a day of
+  meetings, a day away, or a day whose recordings are still being analyzed.
+- Totals leave out the `System` category and count recorded screen time, never the whole
+  day. A day is 4 AM to 4 AM in the Mac's local timezone, so late-night work lands on the
+  day it belongs to; read an imported journal in the same timezone for exact totals.
 
 ## What you get
 
-- **23 tools** (17 when `edits: false`): 12 read tools, 1 `journal_import` tool, 1 `journal_review` tool, 1 `journal_task` tool, 1 `journal_memory` tool, 1 `journal_reflection` tool, and 6 editing tools.
-- **8 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`, and `reflection`.
-- **An optional Web panel**: a month calendar of segmented rings with hover
-  cards, week swim lanes, a per-day timeline, and a **Journal insights** view for
-  long tasks, the review queue, memory claims, and reflections; opened from one
-  conversation-header button and drawn with the harness's own tokens.
-- **Quick capture**: three slash commands (`/dayflow-task`, `/dayflow-remember`,
-  `/dayflow-reflect`) that write to the owned journal without a model turn,
-  inline add rows in the insights view for a task, a memory claim, or today's
-  reflection, and a history scan offered after a task is added. The panel stays
-  a read-only view apart from those writes, and the plugin still has exactly one
-  UI entry.
-- **A system-prompt section** stating the rules that make the data readable:
-  the 4 AM day boundary, `Idle` and `System` handling, analysis lag, and the
-  untrusted-content boundary.
-- **A budgeted memory context**: active long tasks and recent memory claims are
-  injected as dated records (never as the present) with a hard 1000-byte cap, a
-  60-second cache, and nothing injected when there is nothing worth saying.
-- **Zero runtime dependencies** beyond `dsh` itself: SQLite comes from
-  `node:sqlite`, and the write channel is a Unix socket.
+- **23 tools** (17 when `edits: false`): 12 read tools, `journal_import`, `journal_review`, `journal_task`,
+  `journal_memory`, `journal_reflection`, and 6 editing tools. Full reference → [docs/TOOLS.md](docs/TOOLS.md).
+- **8 skills**: `dayflow`, `onboarding`, `standup`, `weekly-review`, `review-queue`, `long-task`, `memory`,
+  and `reflection`.
+- **An optional Web panel**: month segmented rings, week swim lanes, a day view, and a **Journal insights**
+  view — one header button, one tab, and 13 host Fetch routes. Details → [docs/PANEL.md](docs/PANEL.md).
+- **Quick capture**: three slash commands (`/dayflow-task`, `/dayflow-remember`, `/dayflow-reflect`), inline
+  add rows in the insights view, and a post-add history scan → [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
+- **A budgeted memory context**: active long tasks and recent dated claims are injected under a hard
+  1000-byte cap with a 60-second cache; nothing is injected when there is nothing worth saying.
+- **Native capture (preview)**: Phase 1 records frames into the owned journal, off by default and not
+  analysed yet → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md).
+- **Zero runtime dependencies** beyond `dsh`: SQLite comes from `node:sqlite`; Dayflow edits use the
+  app's local Unix socket, while the owned journal has its own SQLite file.
+
+Deep documentation: [tools](docs/TOOLS.md) · [panel](docs/PANEL.md) · [quick capture](docs/QUICK_CAPTURE.md) ·
+[configuration](docs/CONFIGURATION.md) · [architecture](docs/ARCHITECTURE.md) · [native capture](docs/NATIVE_CAPTURE.md) ·
+[native port plan](docs/NATIVE_PORT.md) · [roadmap](docs/ROADMAP.md).
 
 ## Requirements
 
 | Requirement | Notes |
 | --- | --- |
 | macOS | Dayflow is a Mac app; its data lives in `~/Library/Application Support/Dayflow`. |
-| [Dayflow](https://dayflow.so) installed and recording | The plugin detects a missing install and walks you through it; with `allowInstall`, the agent can run `brew install --cask dayflow` for you after you agree. |
+| [Dayflow](https://dayflow.so) installed and recording | The plugin detects a missing install and walks you through it; with `allowInstall`, the agent can run `brew install --cask dayflow` after you agree. |
 | Node.js ≥ 22.5 | Node 22.5–22.12 and 23.0–23.3 need `--experimental-sqlite`; Node 22.13+ and 23.4+ (24 included) do not. |
-| `dsh` ≥ 0.2.0-rc.2 | The plugin peers on the 0.2 line of the harness. |
-| `pnpm` on `PATH` | Only for `dsh plugin add`; a linked development install does not need it. |
+| `dsh` ≥ 0.2.0-rc.2 | Peers on the 0.2 line of the harness; `pnpm` on `PATH` is needed only for `dsh plugin add`. |
 
 ## Install
 
-```sh
-# Once a release is published to the registry:
-dsh plugin --profile web add dsh-plugin-dayflow
-```
-
-No release is on the registry yet (`v0.6.0` is tagged but not published, and
-`main` is the unreleased `0.7.0` development line), so use the checkout install
-below for now; it builds the development line described here. The plugin ships a
-bundle patch, so installing it selects the bundle. With HMR enabled (the default
-for base-backed profiles) the running app reloads and the tools appear in the
-next session. Then ask:
-
-```text
-What did I get done today?
-Where did my screen time go this week?
-Turn yesterday into a standup.
-```
+No `0.7.0` release is on the registry yet. Until it is, install from a checkout — that
+builds the development line described here; once published, run `dsh plugin --profile web add dsh-plugin-dayflow`.
 
 ### Desktop App
 
-The Desktop App runs its own `desktop` profile, so an install aimed at the
-CLI's `web` profile does not reach it. Install into the app's profile instead
-and restart the app:
+The Desktop App runs its own `desktop` profile, so an install aimed at the CLI's `web`
+profile does not reach it. Link the checkout into the app's profile, record the bundle,
+then quit and reopen the app:
 
 ```sh
 mkdir -p ~/.dsh/profiles/desktop/node_modules
 ln -sfn "$PWD" ~/.dsh/profiles/desktop/node_modules/dsh-plugin-dayflow
 ```
 
-Then add `"dsh-plugin-dayflow": "link:<path>"` to `dependencies` and
+Add `"dsh-plugin-dayflow": "link:<path>"` to `dependencies` and
 `"dsh-plugin-dayflow"` to `dsh.profile.bundles` in
-`~/.dsh/profiles/desktop/package.json`, and quit and reopen the app. Once the
-package is on a registry, the app's own Plugins page can install it instead.
+`~/.dsh/profiles/desktop/package.json`.
 
-Supported DSH releases: `0.2.0-rc.2` and `0.2.1-rc.2` (declared in
-`dsh.compatibility.dshReleases`).
-
-### Install from a checkout
+### From a checkout
 
 ```sh
 git clone https://github.com/tailong-wu/dsh-plugin-dayflow.git
@@ -130,606 +97,143 @@ ln -sfn "$PWD" ~/.dsh/profiles/web/node_modules/dsh-plugin-dayflow
 ```
 
 Add `"dsh-plugin-dayflow"` to `dsh.profile.bundles` in
-`~/.dsh/profiles/web/package.json` (and, optionally, a
-`"dsh-plugin-dayflow": "link:<path>"` dependency entry). Rebuild with
-`npm run build` after source changes; HMR reloads the profile.
+`~/.dsh/profiles/web/package.json`. With HMR enabled (the default for base-backed
+profiles) the running app reloads; otherwise restart `dsh web`. Rebuild with
+`npm run build` after source changes, and delete the symlink and the bundle entry to
+remove it. Supported DSH releases are `0.2.0-rc.2` and `0.2.1-rc.2`; the panel's
+views are covered in [docs/PANEL.md](docs/PANEL.md).
 
-To remove it, delete the symlink and the bundle entry.
+Dayflow itself is separate: `dayflow_status` says what is missing and the `onboarding`
+skill walks through it. Having the agent install the app is opt-in twice — `allowInstall`
+plus `source: dayflow` — and still needs `confirm: true`. The full setup flow is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#setting-dayflow-up).
+
+## Quick start
+
+```text
+What did I get done today?
+Where did my screen time go this week?
+Turn yesterday into a standup.
+What do you remember about how I plan my week?
+```
 
 ## Web panel
 
-The plugin can also draw the month and the week inside the DSH Web GUI. The panel
-is optional in both senses: nothing appears until you open it, and a profile can
-switch its entry point off entirely.
+The plugin can draw the month, the week, and a day inside the DSH Web GUI. The panel is
+optional in both senses: nothing appears until you open it, and a profile can switch its
+entry point off entirely.
 
 ![The Dayflow month calendar in the dsh right Sidebar](docs/panel.en.png)
 
-- Open it from the **Dayflow** button in the conversation header. It collapses to
-  an icon when the header runs out of room.
-- Every day is one segmented ring: each arc is a category, sized by its share of
-  the day and drawn in the user's own colours. The centre shows the date and the
-  tracked time.
-- **A day's state is never faked.** A day with no captures draws only a faint
-  dotted track; a captured day with nothing to show draws a plain track; a day
-  whose analysis is still queued pulses amber; a recorded day draws its arcs.
-  Missing data is not zero activity.
-- Hovering a day shows its total, category split, and the two longest activities;
-  hovering one arc shows that category's name, duration, and share. The card
-  clamps to the viewport and flips above the anchor near the bottom edge.
-- Clicking a day opens it: totals, filter chips, and the timed activity list.
-  Clicking a chip filters the list; **Clear filter** restores it.
-
-### Week swim lanes
-
-A **Month / Week** switch in the header swaps the calendar for Dayflow's own
-weekly timeline: seven day columns over one hour axis, each activity drawn as a
-card placed at its time and tinted with its category colour.
-
-![The Dayflow week swim lanes](docs/demo.en.png)
-
-- The axis follows the data: it starts an hour before the week's first activity
-  and ends an hour after its last, so a workday fills the pane instead of a
-  4 AM-to-midnight strip. `−`/`+` zoom the axis.
-- Overlapping cards share the column in packed lanes instead of covering each
-  other, and a card keeps a minimum height so a five-minute block stays legible.
-- Today's column is tinted, its date sits in a filled badge, and the header row
-  stays pinned while the week scrolls.
-- Hovering a card shows its day, time range, duration, apps, and summary;
-  clicking it opens that day's detail. `‹`/`›` step weeks and **This week**
-  returns to the current one.
-- The week header totals the tracked time, and the category legend above the
-  grid names every colour in use.
-- Every card carries the icon of the site or app it was recorded from, and falls
-  back to a lettered tile in the category colour when a site has no favicon.
+- Open it from the **Dayflow** button in the conversation header; it collapses to an icon
+  when the header runs out of room. Everything is views inside one panel tab.
+- **13 host Fetch routes** back the views: month, week, day, insights, the enablement
+  probe, and icons, plus the three inline adds, the history scan and link, and capture
+  status and pause. The panel never touches the database itself.
+- **A day's state is never faked.** A day with no captures draws a faint dotted track, a
+  captured day with nothing to show draws a plain track, queued analysis pulses amber, and
+  a recorded day draws its arcs; missing data is not zero activity.
+- **Journal insights** is the third view: active long tasks with progress and stalled
+  marks, the open review queue, recent dated memory claims, stored reflections, and one
+  compact capture line. It is read-only apart from its inline add rows.
 
 ![One day open in the panel](docs/day.en.png)
 
-- In the day view, `‹`/`›` step days, `⟳` refreshes, and the back arrow (or
-  Escape) returns to the calendar with that day still marked as selected.
-- The day view also shows the user's own records for that day: the focus goal
-  with its focus and distraction categories, or a quiet "no goal" line, and the
-  review marks they made on the timeline. The month and week payloads are
-  unchanged, so only opening a day pays for those reads.
-- On touch devices hover is replaced by tap: a tap opens the day, and the back
-  control sits in the day header.
-- The panel's month/week switch has a third view, **Journal insights**: it lists
-  what the agent has learned — active long tasks (with progress and stalled
-  marks), the open review queue, recent date-stamped memory claims, and stored
-  day/week reflections. It is a view inside the panel, not a second tab or
-  button, so the plugin keeps one entry. The task, memory, and reflection blocks
-  also take an inline add, and a newly added task can be offered a history scan
-  (see [Quick capture](#quick-capture)); the review queue does not.
-- The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`,
-  `GET /api/dayflow/day`, `GET /api/dayflow/insights`, and
-  `GET /api/dayflow/panel` (the enablement probe) through the harness's
-  authenticated `/api` bridge. The three inline add rows submit
-  `POST /api/dayflow/tasks`, `POST /api/dayflow/memory`, and
-  `POST /api/dayflow/reflections` on the same bridge, and the post-add history
-  scan and its link submit `POST /api/dayflow/tasks/scan` and
-  `POST /api/dayflow/tasks/link`. The native capture line adds
-  `GET /api/dayflow/capture/status` and `POST /api/dayflow/capture/pause`
-  (see [Native capture](#native-capture-phase-1)). Together with the icon route
-  below, those are the panel's host Fetch routes. It never touches the database
-  itself.
-- Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
-  `favicon.ico` per domain on first use and caches it under
-  `$DSH_HOME/dayflow-icons`. That is the plugin's only outbound request: it
-  sends no cookies and no referrer, refuses loopback and bare-IP names, and
-  stops entirely with `icons: false`.
-- Switching views keeps the selected day, so a day picked in the calendar stays
-  marked when you move to the week and back.
+Every still and recording comes from one real week of this project's own Dayflow data with fictional
+titles and neutral hosts; the full view reference and route list are in
+[docs/PANEL.md](docs/PANEL.md), and the `scripts/demo/` pipeline in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#demo-recordings).
 
-Set `panel: false` to remove the header button and the tab type.
+## Owned journal, memory, and insights
 
-The recordings and stills above all come from one real week of this project's own
-Dayflow data: the timings, durations, categories, and capture times are what the
-app recorded. Every activity title and summary is fictional, because that text
-names documents, colleagues, and projects; project-specific sites are mapped to
-neutral hosts for the same reason. `scripts/demo/` holds the whole pipeline:
-`fixture-text.mjs` is the fictional copy pool, `capture.mjs` freezes a week with
-that copy applied, and `record.mjs` drives the real client half through the
-`tour.mjs` script and encodes the GIF. Regenerate with:
+The plugin owns a second, portable SQLite journal (schema **v7**) alongside the Dayflow
+default. Import a Dayflow database once with `journal_import`, then point the profile at
+`source: owned`: the source is opened read-only, the import is idempotent, and the existing
+tools and panel keep their payloads.
+
+- **Review queue**: distillations, recurring loops, improvements, and task proposals — the
+  agent proposes, the user decides.
+- **Long tasks** with dated sessions, stalled marks, and an explainable `suggest`, plus
+  **dated memory** claims, day/week **reflections**, and a budgeted context injected into
+  the system prompt.
+- The insights view's history **scan** (last 14 days) followed by a **link** is the
+  user-facing half of the same evidence trail: it previews, then writes only the days the
+  user confirms.
+
+Read the store, backends, and write paths in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
+the quick-capture shortcuts in [docs/QUICK_CAPTURE.md](docs/QUICK_CAPTURE.md).
+
+## Native capture (preview)
+
+Phase 0 and Phase 1 have landed: config, capture state (schema v7), a native macOS provider, and the capture
+engine behind a default-off `capture.enabled`. The engine records frames into the owned journal on an interval,
+skips paused, locked, idle, and paused-app ticks, dedupes near-identical frames, and enforces retention — but
+**nothing is analysed yet**: no activity cards, timeline, briefs, or automation.
+
+Verify it locally without touching real data:
 
 ```sh
-npm run demo          # both languages: build, capture stills, encode GIFs
-npm run demo -- zh    # or just one
+npm run native:smoke         # provider only: permission, frames, dimensions
+npm run native:engine-smoke  # engine against a temporary journal and frames dir
 ```
 
-### Setting Dayflow up
-
-`dayflow_status` works even before Dayflow exists: `setup.ready`,
-`setup.missing`, `setup.install_command`, and `database_present` describe what is
-left to do, and the `onboarding` skill walks the user through those steps in
-order.
-
-Installing is opt-in twice over. The tool `dayflow_install_dayflow` only exists
-when the profile sets `allowInstall: true` **and** still reads Dayflow
-(`source: dayflow`, the backend whose app it installs); a profile on
-`source: owned` does not register it. Even then it still requires an explicit
-`confirm: true` from a call the user agreed to. It runs exactly
-`brew install --cask dayflow` (no shell, no free-form arguments), never opens the
-app, and leaves screen recording, the provider choice, and the first recordings
-to the user. Without Homebrew it returns the download page instead of installing
-Homebrew.
-
-## Owned journal
-
-The `0.6.0` roadmap cut lets the plugin own a second, portable SQLite journal.
-Dayflow remains the default source, so existing profiles do not change. Import a
-Dayflow database once, then point the profile at the owned backend:
-
-```text
-journal_import({})
-```
-
-```yaml
-- id: dayflow
-  config:
-    source: owned
-    journalPath: ''  # default: $DSH_HOME/dayflow/journal.sqlite
-```
-
-`journal_import` opens the Dayflow source read-only, writes a forward-migrated
-owned schema, keeps stable source IDs, and can be run again without duplicating
-rows. The owned store exposes the same query views, so the existing tools and
-panel routes keep their payloads. Dayflow's 4 AM buckets use the machine's local
-timezone; read an imported journal in the same timezone for exact cross-midnight
-totals. The importer also reports data it deliberately skips (for example
-provider call logs and chat history). Editing tools remain Dayflow-only in this
-increment; use `source: dayflow` when you need app edits.
-
-## Tools
-
-Every tool returns structured JSON and renders the same data as compact text.
-Dates are `YYYY-MM-DD` and mean a Dayflow day, which starts at **4 AM**.
-
-### Read tools
-
-| Tool | Arguments | Answers |
-| --- | --- | --- |
-| `dayflow_timeline` | `date?` | What happened on one day, with record IDs. |
-| `dayflow_activity` | `record_id` | One activity in full, including its long write-up. |
-| `dayflow_breakdown` | `from`, `to` | Time per category over a range, with shares. |
-| `dayflow_search` | `query`, `limit?` | Activities whose title or summary matches. |
-| `dayflow_daily` | `date?` | The Daily standup Dayflow generated. |
-| `dayflow_weekly` | `date?` | Tracked and focus minutes plus category totals for a week. |
-| `dayflow_categories` | — | The user's categories, colors, and flags. |
-| `dayflow_status` | — | Capture freshness, analysis backlog, edit switch, edit-bridge state. |
-| `dayflow_journal` | `date?` | The user's own journal entry for a day: intentions, notes, reflections, summary, status. |
-| `dayflow_goals` | `date?` | The day's focus goal and its focus/distraction category split. |
-| `dayflow_observations` | `record_id` | The per-observation evidence behind one activity. |
-| `dayflow_review_ratings` | `date?` | The user's own focused/distracted marks for a day. |
-
-### Editing tools
-
-These are registered by default and can be switched off with `edits: false`.
-Every call is checked against Dayflow's live **Settings → AI Tools → Allow
-edits** switch, so a disabled switch produces an actionable error instead of a
-stale tool list.
-
-| Tool | Arguments | Effect |
-| --- | --- | --- |
-| `dayflow_update_activity` | `record_id`, `title?`, `category?` | Retitle or recategorize one activity. |
-| `dayflow_delete_activity` | `record_id` | Delete an activity and its observations. Destructive. |
-| `dayflow_create_category` | `name`, `color?`, `description?` | Add a category. |
-| `dayflow_update_category` | `name`, `new_name?`, `color?`, `description?` | Rename, recolor, or describe. |
-| `dayflow_delete_category` | `name` | Delete a category. Destructive. |
-| `dayflow_set_goal` | `date?`, `focus_minutes`, … | Set a day's focus target and limits. |
-
-### Journal tool
-
-| Tool | Arguments | Effect |
-| --- | --- | --- |
-| `journal_import` | `source_path?`, `source_id?` | Import a Dayflow `chunks.sqlite` into the owned journal, idempotently and with a skip report. |
-
-### Review queue tool
-
-The review queue is where the agent keeps what it noticed and wants to carry
-forward: a **distillation** (a lesson worth keeping), a **loop** (a pattern that
-keeps repeating), an **improvement** (a concrete change to the setup), or a
-**task proposal** (work that should become a task). The agent may only propose;
-the user decides. It lives in the plugin-owned journal (schema version 6), not
-in Dayflow, and is not gated by Dayflow's edits switch.
-
-| Tool | Arguments | Effect |
-| --- | --- | --- |
-| `journal_review` | `action`, `kind?`, `title?`, … | `list` reads the queue; `propose` adds an item with evidence and confidence; `decide` records the user's keep/accept/discard/reject; `unsuppress` clears a permanent suppression. |
-
-A plain discard or reject is **soft**: the same idea may come back once the
-evidence is materially new (a different day, a higher confidence, more
-occurrences). Only `forever: true`, with the user's agreement, hard-suppresses
-an item by its fingerprint. `decide` and `unsuppress` refuse to run without
-`confirm: true`.
-
-### Long tasks
-
-A **long task** is a goal that outlives a day. Accepting a `task_proposal` in the
-review queue creates one automatically; the user can also create one directly.
-Every task keeps a progress trail of **sessions** — the minutes and activity
-records a day contributed — and an active task with no session for more than
-seven days is reported as stalled.
-
-| Tool | Arguments | Effect |
-| --- | --- | --- |
-| `journal_task` | `action`, `title?`, `id?`, `day?`, … | `create`/`list`/`get`/`update` manage tasks, progress, and status; `attach`/`detach` record or correct one day's session; `suggest` explains which of a day's activities match which task (category +2, app +1, threshold 2) without writing anything. |
-
-The panel's history scan is the user-facing half of the same evidence idea as
-`journal_task` `action: "suggest"`: both read a day's activities, score the
-match, and show the reason rather than writing silently. The difference is
-scope: `suggest` stays day by day and explainable, while the scan runs once over
-the last 14 days when a task is created and writes only the days the user
-confirms.
-
-Agent-noticed work must go through the review queue first (`task_proposal`);
-only an accepted proposal, or an explicit user request, creates a task.
-
-### Memory
-
-Memory is the plugin's long-term, **dated** history of what it learned about the
-user: preferences, lessons, recurring loops, and corrections. Every claim carries
-the day it describes (`observed_on`), never just "the present", so an old claim
-can be read as what was true then. Changing something appends a new claim and
-marks the old one superseded; the old row is kept, not rewritten. Kept
-distillations and loops from the review queue become memory automatically.
-
-| Tool | Arguments | Effect |
-| --- | --- | --- |
-| `journal_memory` | `action`, `query?`, `kind?`, `id?`, … | `add` writes a dated claim; `search` and `list` read claims (superseded ones hidden by default); `supersede` appends the new version and marks the old one; `forget` deletes a claim and needs `confirm: true`; `lint` reports contradictions, claims overtaken by newer evidence, unsourced claims, and aged claims without changing anything. |
-
-Search uses SQLite FTS5 when the runtime has it and falls back to `LIKE` when it
-does not, so the tool works on the older Node builds the plugin still supports.
-
-`journal_memory` with `action: "lint"` is a read-only health check for the
-store: it reports claims that contradict each other, older claims that a newer
-claim has overtaken, claims with no source to trace, and claims older than 180
-days. Nothing is repaired automatically — a finding is a decision for the user.
-
-### Reflections
-
-A reflection is a compact summary of a day or a week written back into the owned
-journal: what happened, what repeated, what stalled. The next session reads it
-instead of replaying the raw timeline. Saving the same period again edits the
-existing reflection; a week may be addressed by any day inside it and is
-normalized to its Monday.
-
-| Tool | Arguments | Effect |
-| --- | --- | --- |
-| `journal_reflection` | `action`, `kind?`, `period?`, `body?`, … | `save` writes or edits a day/week reflection; `get`/`list` read stored reflections; `delete` removes one and needs `confirm: true`. |
-
-### Mapping from Dayflow's own MCP server
-
-If you used Dayflow's `dayflow mcp` server, the tools are the same operations
-under a `dayflow_` prefix:
-
-| This plugin | Dayflow MCP |
-| --- | --- |
-| `dayflow_timeline` | `get_timeline` |
-| `dayflow_activity` | `get_activity_detail` |
-| `dayflow_breakdown` | `get_time_breakdown` |
-| `dayflow_search` | `search_activities` |
-| `dayflow_daily` | `get_daily` |
-| `dayflow_weekly` | `get_weekly` |
-| `dayflow_categories` | `list_categories` |
-| `dayflow_status` | `get_status` |
-| `dayflow_update_activity` | `update_activity` |
-| `dayflow_delete_activity` | `delete_activity` |
-| `dayflow_create_category` | `create_category` |
-| `dayflow_update_category` | `update_category` |
-| `dayflow_delete_category` | `delete_category` |
-| `dayflow_set_goal` | `set_day_goal` |
-
-The rest have no counterpart there: `dayflow_journal`, `dayflow_goals`,
-`dayflow_observations`, and `dayflow_review_ratings` read the app tables the MCP
-server never exposed, while the five `journal_*` tools (`journal_import`,
-`journal_review`, `journal_task`, `journal_memory`, `journal_reflection`) only
-read and write the plugin-owned journal.
-
-## Skills
-
-| Skill | Use it for |
-| --- | --- |
-| `dayflow` | Routing: which tool answers which question, and the data conventions. |
-| `onboarding` | Checking that Dayflow is installed, recording, and producing data. |
-| `standup` | Drafting a standup or daily update from the timeline. |
-| `weekly-review` | Reviewing a week and comparing it with the one before. |
-| `review-queue` | Turning a task outcome or weekly review into distillations, loops, improvements, and task proposals, and asking the user to decide. |
-| `long-task` | Tracking work that outlives a day: stalled tasks, attaching a day's sessions with evidence, and status changes. |
-| `memory` | Keeping a dated history of what the agent learned: search first, append new claims, supersede instead of rewriting, backfill recent days on request, and forget only on request. |
-| `reflection` | Compressing a day or a week into a saved reflection (what happened, what repeated, what stalled) and reading it back instead of re-deriving it. |
-
-Skills are registered at runtime from `skills/`, so installing the plugin is
-enough; no skills root needs configuring.
-
-## Quick capture
-
-There is more than one way to put something into the owned journal. Two
-shortcuts skip the conversation entirely; the third gives the agent the structure
-only a conversation can. None of them adds a second UI entry.
-
-### Slash commands
-
-When the host exposes a command registry, the plugin registers three commands
-that write straight to the owned journal: no model turn, no tool call, and not
-gated by Dayflow's edit switch.
-
-| Command | What it writes |
-| --- | --- |
-| `/dayflow-task <title>` | A long task with that title. |
-| `/dayflow-remember <text>` | A `preference` claim dated today (a Dayflow day, which starts at 04:00). |
-| `/dayflow-reflect <text>` | The text appended to the current day's saved reflection, created when none is saved yet. |
-
-The journal is created on the first write. A host without a command registry
-skips the commands; the same writes are still available through the tools.
-
-### Panel inline add
-
-The **Journal insights** view is a read-only view of the owned journal with one
-exception: it can add. The task, memory, and reflection blocks each end with a
-ToDo-style input row. Type into it and press Enter (or click **Add**); the row
-submits a small `POST` request to the panel API and the list refreshes.
-
-The rows only add: a task title, a `preference` claim dated today (the current
-Dayflow day), or a line appended to today's reflection. Nothing in the panel
-edits or deletes an existing entry, and the review queue has no add row at all —
-it is fed by the agent's proposals, and the keep/accept/discard/reject decision
-belongs to the user.
-
-Adding a task this way raises one follow-up question. After the task appears,
-the panel offers a history **scan** of the last **14 days** of recorded activity,
-and then a **link** of the days that match the task. The scan is a read-only
-**preview** — it matches a day's activities by the task's title keywords,
-together with the task's own category and app signals, and lists one line per
-candidate day with the date, the minutes, and the matched titles. Nothing is
-written until the user confirms; linking then records those days as the task's
-**sessions**. A second link for the same day replaces that day's session instead
-of adding a second one. The scan reads activity from whichever backend is active
-(the Dayflow app database, or an imported owned journal), so a profile with no
-import and no activity simply gets an empty result.
-
-### Conversation
-
-Anything richer than a title goes through the conversation: the agent uses
-`journal_task`, `journal_memory`, and `journal_reflection` with the arguments the
-situation needs (evidence, dates, minutes). When several days of patterns are
-what should be captured, the `memory` skill's **Backfilling memory** workflow
-reads the last 3–7 days of `dayflow_timeline`, proposes a small set of dated
-claims (three to five at most) for the user to confirm, writes only the accepted
-ones, and finishes with `journal_memory lint`.
-
-The plugin keeps exactly one Harness UI entry: one conversation-header button
-and one panel tab. Slash commands are commands, not UI entries, and
-**Journal insights** is a view inside that tab rather than a second one.
-
-## Native capture (Phase 1)
-
-The plugin can record its own screen activity instead of only reading what the
-Dayflow app captured. **Phase 1 is the capture engine**: it records frames into
-the owned journal, but everything below is off by default and nothing is
-analysed yet.
-
-- **Capture is off by default.** Setting `capture.enabled: true` starts the
-  engine with the plugin. The engine does not depend on the panel, so it runs
-  with `panel: false` too. The `capture` block carries the knobs below; the
-  `analysis` and `automation` blocks are validated but still unused.
-- **The engine records on an interval.** Every `capture.intervalSeconds` it
-  checks the persisted pause flag, whether the screen is locked or the display
-  asleep, the idle gate (`capture.idleSeconds`), and `capture.pauseApps`, then
-  captures one frame. A skipped tick (paused, locked, idle, paused app, or the
-  day's cap already reached) writes neither a file nor a row.
-- **Near-identical frames are deduped.** The provider reports a 64-bit dHash; a
-  frame whose Hamming distance to the previously stored frame is within
-  `capture.dedupeDistance` is dropped. When a frame carries no hash (the Swift
-  helper is unavailable), the engine compares the JPEG's SHA-256 instead, so an
-  identical frame is never stored twice.
-- **Frames land on disk and in the journal.** Each stored frame goes to
-  `$DSH_HOME/dayflow/frames/<day>/<capturedAt>-….jpg` (directory `0700`, file
-  `0600`), and one `screenshots` row with `source_id = 'native'` is written to
-  the owned journal. `capture_state` records the pause flag, the last frame
-  time, and the last retention sweep, so a restarted process resumes without
-  duplicating work. `capture.maxFramesPerDay` caps one Dayflow day.
-- **Retention is enforced.** Roughly every `capture.retentionCheckMinutes` the
-  engine deletes frame files older than the retention window and removes empty
-  day directories. Until the analysis phase exists nothing consumes frames, so
-  `keepFramesDays: 0` (the default) still keeps at least one day of frames.
-- **Status and pause are wired.** `GET /api/dayflow/capture/status` reports the
-  capture and analysis switches, the macOS Screen Recording permission, today's
-  native frame count, and the persisted pause flag; `POST
-  /api/dayflow/capture/pause` writes that flag into `capture_state` (schema
-  version 7). The Journal insights view shows it as one compact capture line —
-  off, on, paused, or permission needed — with a Pause/Resume button when
-  capture is configured on.
-- **What does not happen yet:** no frame analysis, no activity cards, no
-  timeline, no briefs, and no automation. A stored frame is not turned into an
-  insight; the capture line reports the engine's state without claiming
-  otherwise.
-- **Nothing is written by a status read.** With no journal, the status route
-  answers zeros and does not create the file; only the pause write and the
-  engine open it.
-
-The capture block, shown with the Phase 1 additions:
-
-```yaml
-    capture:
-      enabled: true             # off by default
-      intervalSeconds: 45       # 5-600
-      idleSeconds: 120          # skip after this much input idle; 0 disables
-      maxFramesPerDay: 1200     # hard cap on frames per Dayflow day
-      keepFramesDays: 0         # at least one day is kept while analysis does not exist
-      pauseApps: []             # bundle ids or app-name substrings never captured
-      displays: main            # 'main' or 'all'
-      dedupeDistance: 4         # dHash Hamming distance treated as a duplicate (0-16)
-      retentionCheckMinutes: 60 # how often the retention sweep runs (5-1440)
-```
-
-The engine's local smoke script is `scripts/native-engine-smoke.mjs`; run
-`npm run native:engine-smoke` (or `node scripts/native-engine-smoke.mjs` after a
-build). It creates a temporary journal and frames directory, drives the engine
-against the real screen provider a few times, prints each capture outcome, then
-removes everything — it never touches `$DSH_HOME/dayflow`. The provider-only
-smoke stays available as `npm run native:smoke` (permission, three frames,
-dimensions/app/idle; writes nothing). The full plan — consent model, schema,
-phases, and acceptance criteria — is in
-[`docs/NATIVE_PORT.md`](docs/NATIVE_PORT.md).
-
-## How it works
-
-```text
-dsh  ──tools──▶  dsh-plugin-dayflow  ──read──▶  chunks.sqlite (read-only, WAL)
-                              │                         ▲
-                              │                         │ journal_import (read-only)
-                              └──owned backend ──▶  $DSH_HOME/dayflow/journal.sqlite
-                              │
-                              └──write──▶  Dayflow.app over agent.sock
-```
-
-- **Dayflow reads** open `chunks.sqlite` with `readOnly: true` and
-  `PRAGMA query_only`, so a bug in this plugin cannot damage the app's journal.
-  A short busy timeout rides out the app's WAL checkpoints.
-- **Owned reads** migrate the plugin journal through a short writable connection,
-  then reopen it read-only. Its compatibility views preserve the current query
-  and panel contracts.
-- **Dayflow writes** are one JSON line over Dayflow's Unix socket
-  (`agent.sock`), because the app owns the category store and must refresh its
-  UI. The protocol and the edit switch are Dayflow's, not this plugin's.
-- **Owned-journal writes** go straight to the plugin's own SQLite file and never
-  through Dayflow: `journal_import`, `journal_review`, `journal_task`,
-  `journal_memory`, and `journal_reflection` write through `withJournalWrite`
-  (`src/journal.ts`), so they are not gated by Dayflow's edit switch. The
-  quick-capture slash commands and the panel's three inline add routes write the
-  same way.
-- **Categories** live in the app's preferences
-  (`teleportlabs.com.Dayflow`, key `colorCategories`), not in SQLite. They are
-  read with `defaults export` and parsed from the plist.
-- **Day boundaries** mirror the app: a day is 4 AM to 4 AM local time, and a
-  week is Monday 4 AM to Monday 4 AM, so late-night work lands on the day it
-  belongs to.
-- **Totals** leave out the `System` category; `focus_minutes` additionally
-  leaves out `Idle`. Every total is a total of recorded screen time, not of the
-  user's day.
-
-### Differences from Dayflow's own CLI and MCP server
-
-- No MCP transport and no Swift binary: the plugin is plain Node and reads the
-  database itself.
-- `source: owned` (or `dayflow: false`) removes the runtime dependency on the
-  Dayflow app after `journal_import`; the source database is never modified.
-- Editing tools are always registered (with `edits: true`) and rejected at call
-  time, instead of disappearing from `tools/list` when the user disables edits.
-  Users who want them gone can set `edits: false`.
-- Search escapes `%` and `_`, so a query is literal text rather than a SQL
-  pattern.
-- Impossible dates such as `2026-02-30` are rejected instead of being rolled
-  over.
-- Failures carry a stable code: `no_data`, `edits_disabled`, `app_not_running`,
-  `not_found`, `invalid_input`, `database_error`, or `bridge_error`.
+Details and the status/pause routes → [docs/NATIVE_CAPTURE.md](docs/NATIVE_CAPTURE.md); the
+full consent model, phases, and plans → [docs/NATIVE_PORT.md](docs/NATIVE_PORT.md).
 
 ## Configuration
 
-Set these under the plugin's row in a profile patch, or through the shipped
-defaults in `cordis.patch.yml`:
+Set these under the plugin's row in a profile patch, or edit the shipped defaults in
+`cordis.patch.yml`:
 
 ```yaml
 - id: dayflow
   config:
-    databasePath: ''   # default: ~/Library/Application Support/Dayflow/chunks.sqlite
-    source: dayflow    # choose dayflow or owned after journal_import
-    # dayflow: false   # compatibility alias; use instead of source, not with it
-    journalPath: ''    # default: $DSH_HOME/dayflow/journal.sqlite
-    agentSocket: ''    # default: agent.sock beside the database
-    edits: true        # register the six editing tools
-    skills: true       # register the eight bundled skills
-    panel: true        # the optional Web panel and its header button
-    icons: true        # site favicons on the panel cards (its only outbound request)
-    memoryContext: true  # inject a budgeted snapshot of active tasks and recent memory
-    allowInstall: false  # register dayflow_install_dayflow (it changes this Mac)
-    searchLimit: 50    # maximum matches per dayflow_search call (1-200)
+    source: dayflow      # or owned after journal_import
+    journalPath: ''      # default: $DSH_HOME/dayflow/journal.sqlite
+    edits: true          # register the six editing tools
+    skills: true         # register the eight bundled skills
+    panel: true          # optional Web panel and its header button
+    icons: true          # site favicons (the plugin's only outbound request)
+    memoryContext: true  # inject the budgeted long-task/memory context
+    allowInstall: false  # register dayflow_install_dayflow (changes this Mac)
+    searchLimit: 50      # max matches per dayflow_search (1-200)
+    capture:
+      enabled: false     # native capture engine, off by default
 ```
 
-`DAYFLOW_DB` also overrides the Dayflow path when `databasePath` is empty.
-`databasePath` and `agentSocket` exist for tests and unusual installs; leave
-them empty in normal use. `journalPath` may point at another owned-store file
-when a profile needs to share or back up the imported journal.
+`DAYFLOW_DB` overrides the Dayflow path when `databasePath` is empty. Every key, its
+default, and the capture/analysis/automation blocks are in
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ## Privacy and safety
 
-- Dayflow's data never leaves the Mac through this plugin. It opens one local
-  SQLite file read-only and one local Unix socket.
-- Screen-derived text (titles, summaries, write-ups) is data. The tool
-  descriptions and the system-prompt section say so, so a model cannot be
-  talked into following instructions that appear inside an activity title.
-- Deletions also remove the underlying observations and cannot be fully undone.
-  The tool descriptions require confirmation first.
-- The plugin cannot enable Dayflow's edit switch; only the user can, in the app.
+- Dayflow's data never leaves the Mac through this plugin: one local SQLite file opened
+  read-only and one local Unix socket.
+- Screen-derived text (titles, summaries, write-ups) is **data**: the tool descriptions and system prompt say so, so
+  a model cannot be talked into following instructions that appear inside an activity title.
+- Deletions also remove the underlying observations and cannot be fully undone; the tools
+  require confirmation first, and only the user can enable Dayflow's edit switch.
+- Native capture is off by default and writes frames only to `$DSH_HOME/dayflow/frames/`
+  (directory `0700`, file `0600`) with retention enforced; nothing is analysed or sent away.
+- The panel's favicon fetch is the only outbound request: one `favicon.ico` per domain, no
+  cookies or referrer, loopback and bare-IP names refused, and `icons: false` stops it.
 
 ## Development
 
 ```sh
 npm install
-npm run build       # TypeScript → lib/, with .d.ts files
-npm test            # 319 tests: boundaries, SQL, adapters, import, review queue, long tasks, memory, reflections, context injection, panel, history scan, native capture, bundle
-npm run typecheck   # type-check sources and tests together
-npm run smoke       # read this Mac's real Dayflow database (needs real data)
-npm run check:package  # assert the tarball ships lib/ and skills/ and no src/, tests/, or sourcemaps
+npm run build                # TypeScript → lib/, plus the client bundle
+npm test                     # 319 tests
+npm run typecheck            # type-check sources and tests together
+npm run smoke                # read this Mac's real Dayflow database
+npm run native:smoke         # capture provider only; writes nothing
+npm run native:engine-smoke  # capture engine against a temporary journal
+npm run demo                 # rebuild the panel stills and GIFs
 ```
 
-`npm run smoke` prints status, today's timeline, a seven-day breakdown, the
-week, and the categories from the live database; pass a date to inspect another
-day.
-
-### Layout
-
-```text
-src/
-  index.ts        plugin entry: name, inject, Config, apply()
-  config.ts       schema + validation
-  day.ts          4 AM days, Monday 4 AM weeks, formatting
-  db.ts           lazy node:sqlite, read-only open, query helper
-  journal.ts      owned schema, migrations, importer, withJournalWrite
-  queries.ts      SQL reads and the stable JSON payloads
-  categories.ts   preferences → categories and the edit switch
-  bridge.ts       Unix-socket write client
-  format.ts       model-facing text renderers
-  skills.ts       SKILL.md loading and runtime registration
-  prompt.ts       the guidance section
-  review.ts       review queue: proposals, decisions, suppression
-  tasks.ts        long tasks, their daily sessions, derived progress
-  memory.ts       dated memory claims: supersede, search, lint
-  reflections.ts  day/week reflections stored in the owned journal
-  context.ts      the budgeted long-task/memory system context
-  icons.ts        favicon fetch, cache, and the icon route's data
-  setup.ts        read-only detection of the Dayflow install
-  errors.ts       the stable failure codes
-  paths.ts        Dayflow's database/socket and the plugin's own paths
-  panel.ts        the host Fetch routes behind the Web panel (reads and inline-add writes)
-  panel-contract.ts  the wire payloads shared by host and browser
-  tools/read.ts   the twelve read tools
-  tools/import.ts the journal_import tool
-  tools/setup.ts  the conditional dayflow_install_dayflow tool
-  tools/review.ts the journal_review tool
-  tools/task.ts   the journal_task tool
-  tools/memory.ts the journal_memory tool
-  tools/reflection.ts the journal_reflection tool
-  tools/write.ts  the six editing tools
-  client/         the browser half: month calendar, week swim lanes, day
-                  detail, insights tab, rings, styles
-skills/           SKILL.md per skill, shipped in the npm package
-tests/            node:test suite with a fixture database and a fake socket
-scripts/smoke.mjs real-data smoke test
-```
-
-`lib/client.js` is not compiled by `tsc`: `scripts/build-client.mjs` bundles
-`src/client/` with esbuild and wraps the CommonJS body in the harness's
-`window.__ModuleLoader__.load({ id, factory })` registration, resolving `react`,
-`react/jsx-runtime`, and `@deepseek-ai/dsh-client-ui-primitives` against the
-browser shell's frozen platform table. `tests/client-bundle.test.ts` runs that
-bundle in a VM with stubbed platform modules, so the registration contract is
-tested without a browser.
-
-The fixture database in `tests/fixtures/database.ts` reproduces the app's
-schema and the cases that are easy to get wrong: a card after midnight, a
-soft-deleted card, `System` time, and metadata with apps and distractions. The
-bridge tests run a real Unix socket server, so the protocol is exercised end to
-end.
+Layout, the demo pipeline, and the test fixtures are in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the contribution rules are in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Troubleshooting
 
@@ -738,15 +242,14 @@ end.
 | `No Dayflow database at …` | Open Dayflow, finish onboarding, record for a few minutes. |
 | `Editing is off…` | Dayflow → Settings → AI Tools → Allow edits. |
 | `Dayflow isn't running…` | Edits need the app open; reads do not. |
-| `This Node.js (…) has no built-in SQLite` | Use Node 22.13+/23.4+ (24 included) with no flag, or run Node 22.5–22.12/23.0–23.3 with `--experimental-sqlite`. |
-| Time looks missing | Dayflow analyzes recordings in batches; `dayflow_status` shows the backlog. |
-| Times are off by hours | The plugin uses the Mac's local timezone; check `dayflow_status`'s `time_zone`. |
-| No Dayflow button in the header | Open a session first; the header is session-scoped. After installing or rebuilding, restart `dsh web` so the client bundle is served. |
-| The panel says it cannot reach the server | The dsh process restarted or the session expired; reload the page. |
+| `This Node.js (…) has no built-in SQLite` | Use Node 22.13+/23.4+ (24 included), or add `--experimental-sqlite` on Node 22.5–22.12/23.0–23.3. |
+| Time looks missing or off by hours | Analysis runs in batches (`dayflow_status` shows the backlog), and the plugin uses the Mac's local timezone. |
+
+Panel problems (missing header button, unreachable server after a restart) are covered in
+[docs/PANEL.md](docs/PANEL.md).
 
 ## License
 
-MIT. This project ports Dayflow's agent surface and is not affiliated with the
-Dayflow project. Dayflow is MIT-licensed, © 2025 Jerry Liu; see
-[LICENSE](LICENSE) for the attribution covering the adapted skills and tool
-contracts.
+MIT. This project ports Dayflow's agent surface and is not affiliated with the Dayflow
+project. Dayflow is MIT-licensed, © 2025 Jerry Liu; see [LICENSE](LICENSE) for the
+attribution covering the adapted skills and tool contracts.

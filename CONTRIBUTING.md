@@ -57,7 +57,7 @@ activity, so it is not part of CI.
 2. Return a stable JSON payload; add a renderer in `src/format.ts`.
 3. Add the payload type in `src/queries.ts` when the shape is new.
 4. Add tests: one for the happy path, one for the failure code.
-5. Update the tool table in `README.md` and `README.zh.md`.
+5. Update the tool tables in `docs/TOOLS.md` and the summaries in `README.md` / `README.zh.md`.
 
 ## Adding or editing a skill
 

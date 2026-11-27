@@ -1,0 +1,101 @@
+# Web panel
+
+[← Back to README](../README.md)
+
+The plugin can also draw the month and the week inside the DSH Web GUI. The panel
+is optional in both senses: nothing appears until you open it, and a profile can
+switch its entry point off entirely.
+
+![The Dayflow month calendar in the dsh right Sidebar](panel.en.png)
+
+## Month calendar
+
+- Open it from the **Dayflow** button in the conversation header. It collapses to
+  an icon when the header runs out of room.
+- Every day is one segmented ring: each arc is a category, sized by its share of
+  the day and drawn in the user's own colours. The centre shows the date and the
+  tracked time.
+- **A day's state is never faked.** A day with no captures draws only a faint
+  dotted track; a captured day with nothing to show draws a plain track; a day
+  whose analysis is still queued pulses amber; a recorded day draws its arcs.
+  Missing data is not zero activity.
+- Hovering a day shows its total, category split, and the two longest activities;
+  hovering one arc shows that category's name, duration, and share. The card
+  clamps to the viewport and flips above the anchor near the bottom edge.
+- Clicking a day opens it: totals, filter chips, and the timed activity list.
+  Clicking a chip filters the list; **Clear filter** restores it.
+
+## Week swim lanes
+
+A **Month / Week** switch in the header swaps the calendar for Dayflow's own
+weekly timeline: seven day columns over one hour axis, each activity drawn as a
+card placed at its time and tinted with its category colour.
+
+![The Dayflow week swim lanes](demo.en.png)
+
+- The axis follows the data: it starts an hour before the week's first activity
+  and ends an hour after its last, so a workday fills the pane instead of a
+  4 AM-to-midnight strip. `−`/`+` zoom the axis.
+- Overlapping cards share the column in packed lanes instead of covering each
+  other, and a card keeps a minimum height so a five-minute block stays legible.
+- Today's column is tinted, its date sits in a filled badge, and the header row
+  stays pinned while the week scrolls.
+- Hovering a card shows its day, time range, duration, apps, and summary;
+  clicking it opens that day's detail. `‹`/`›` step weeks and **This week**
+  returns to the current one.
+- The week header totals the tracked time, and the category legend above the
+  grid names every colour in use.
+- Every card carries the icon of the site or app it was recorded from, and falls
+  back to a lettered tile in the category colour when a site has no favicon.
+
+## Day view
+
+![One day open in the panel](day.en.png)
+
+- In the day view, `‹`/`›` step days, `⟳` refreshes, and the back arrow (or
+  Escape) returns to the calendar with that day still marked as selected.
+- The day view also shows the user's own records for that day: the focus goal
+  with its focus and distraction categories, or a quiet "no goal" line, and the
+  review marks they made on the timeline. The month and week payloads are
+  unchanged, so only opening a day pays for those reads.
+- On touch devices hover is replaced by tap: a tap opens the day, and the back
+  control sits in the day header.
+
+## Journal insights
+
+- The panel's month/week switch has a third view, **Journal insights**: it lists
+  what the agent has learned — active long tasks (with progress and stalled
+  marks), the open review queue, recent date-stamped memory claims, and stored
+  day/week reflections. It is a view inside the panel, not a second tab or
+  button, so the plugin keeps one entry. The task, memory, and reflection blocks
+  also take an inline add, and a newly added task can be offered a history scan
+  (see [Quick capture](QUICK_CAPTURE.md)); the review queue does not.
+
+## Panel routes and icons
+
+- The panel reads `GET /api/dayflow/month`, `GET /api/dayflow/week`,
+  `GET /api/dayflow/day`, `GET /api/dayflow/insights`, and
+  `GET /api/dayflow/panel` (the enablement probe) through the harness's
+  authenticated `/api` bridge. The three inline add rows submit
+  `POST /api/dayflow/tasks`, `POST /api/dayflow/memory`, and
+  `POST /api/dayflow/reflections` on the same bridge, and the post-add history
+  scan and its link submit `POST /api/dayflow/tasks/scan` and
+  `POST /api/dayflow/tasks/link`. The native capture line adds
+  `GET /api/dayflow/capture/status` and `POST /api/dayflow/capture/pause`
+  (see [Native capture](NATIVE_CAPTURE.md)). Together with the icon route
+  below, those are the panel's host Fetch routes — thirteen in all, seven `GET`
+  and six `POST`. It never touches the database itself.
+- Icons come from `GET /api/dayflow/icon?domain=…`, which fetches one
+  `favicon.ico` per domain on first use and caches it under
+  `$DSH_HOME/dayflow-icons`. That is the plugin's only outbound request: it
+  sends no cookies and no referrer, refuses loopback and bare-IP names, and
+  stops entirely with `icons: false`.
+
+## Switching views
+
+- Switching views keeps the selected day, so a day picked in the calendar stays
+  marked when you move to the week and back.
+
+## Turning the panel off
+
+Set `panel: false` to remove the header button and the tab type.
