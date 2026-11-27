@@ -169,7 +169,7 @@ test('the package manifest keeps the 0.9.2 DSH 0.2.2-rc.5 compatibility contract
   assert.deepEqual(
     declaredDshPeers,
     [...DSH_PEER_DEPENDENCIES].sort(),
-    'peerDependencies must declare exactly the expected nine @deepseek-ai/dsh-* packages',
+    'peerDependencies must declare exactly the expected ten @deepseek-ai/dsh-* packages (seven SDK + three client host)',
   );
   for (const packageName of DSH_PEER_DEPENDENCIES) {
     assert.equal(
